@@ -23,7 +23,7 @@ def get_serial_ports():
 
 def main():
     parser = argparse.ArgumentParser(description='Visualize images from Arduino Portenta H7')
-    parser.add_argument('--port', default='COM7',help='Serial port (e.g., /dev/tty.usbmodem...)')
+    parser.add_argument('--port', default='COM9',help='Serial port (e.g., /dev/tty.usbmodem...)')
     args = parser.parse_args()
 
     port = args.port

@@ -37,13 +37,39 @@ Separamos los datos en tres estados inmutables para evitar corrupción y fugas d
 
 Scripts orquestadores para el ciclo de vida completo del modelo:
 
-### 1. Entrenamiento Modelo Base (`src/train_model.py`)
+### 1. Procesamiento de Imágenes (`src/process_images.py`)
+Convierte imágenes a escala de grises controlando la compresión para evitar que aumente el tamaño del archivo, preparándolas para el entrenamiento.
+
+**Uso básico (rutas por defecto):**
+```bash
+python src/process_images.py
+```
+
+**Uso con rutas personalizadas:**
+```bash
+python src/process_images.py --raw_path "ruta/a/imagenes_crudas" --path_processed "ruta/a/destino"
+```
+
+### 2. Redimensionamiento de Imágenes (`src/reshape_images.py`)
+Redimensiona las imágenes procesadas al tamaño objetivo para TinyML, conservando la estructura de carpetas (clases).
+
+**Uso básico (rutas por defecto, busca recursivamente en `data/processed/grayscale`):**
+```bash
+python src/reshape_images.py --width 96 --height 96
+```
+
+**Uso con directorio de entrada personalizado:**
+```bash
+python src/reshape_images.py --input_dir "ruta/personalizada" --width 96 --height 96
+```
+
+### 3. Entrenamiento Modelo Base (`src/train_model.py`)
 Entrena el modelo base (CNN) con datos de Fashion MNIST normalizados.
 - **Entrada:** Dataset Fashion MNIST (descarga automática).
 - **Salida:** `models/checkpoints/best_model.keras`.
 - **Uso:** `python src/train_model.py`
 
-### 1.1 Entrenamiento MobileNet - Datos Personalizados (`src/train_mobilenet.py`)
+### 3.1 Entrenamiento MobileNet - Datos Personalizados (`src/train_mobilenet.py`)
 Entrena un modelo de la familia MobileNet con Transfer Learning sobre los datos procesados, ideal para inferencia en el Portenta H7.
 
 **Entradas Automáticas:**
@@ -74,7 +100,7 @@ python src/train_mobilenet.py --base_model "MobileNet"
 python src/train_mobilenet.py --base_model "MobileNetV3Large" --width 96 --height 96 --batch_size 16 --epochs 30 --learning_rate 0.00005 --validation_split 0.25
 ```
 
-### 2. Evaluación de Modelos (`src/test_model.py`)
+### 4. Evaluación de Modelos (`src/test_model.py`)
 Script dedicado a calcular métricas estadísticas extensas (Accuracy, Precision, Recall, F1-Score) y visualizar el desempeño clase por clase generando una Matriz de Confusión.
 
 - **Entrada Automática:** Si no se especifica explícitamente, el script infiere la ruta del modelo y del directorio de datos basándose en los parámetros de inferencia (`--width`, `--height`, `--learning_rate`).
@@ -100,7 +126,7 @@ python src/test_model.py --width 160 --height 160 --learning_rate 0.0005
 python src/test_model.py --model_path "models/checkpoints/MobileNet+32+20+0.0001+0.2+320+320.keras"
 ```
 
-### 3. Cuantización a INT8 (`src/quantize_int8_basic.py`)
+### 5. Cuantización a INT8 (`src/quantize_int8_basic.py`)
 Convierte un modelo entrenado en formato `.keras` a un modelo optimizado `.tflite` utilizando Full Integer Quantization (INT8). Este proceso es indispensable para poder ejecutar el modelo de manera eficiente en hardware con recursos limitados (como Arduino Portenta H7).
 
 - **Entrada Automática:** Busca automáticamente el primer modelo disponible en `models/checkpoints/` si no se especifica.
@@ -119,7 +145,7 @@ python src/quantize_int8_basic.py
 python src/quantize_int8_basic.py --model_path "models/checkpoints/MobileNet+32+20+0.0001+0.2+96+96.keras"
 ```
 
-### 4. Evaluación de Modelos Cuantizados TFLite (`src/test_tflite_model.py`)
+### 6. Evaluación de Modelos Cuantizados TFLite (`src/test_tflite_model.py`)
 Recrea la lógica de evaluación (matriz de confusión y reporte de métricas) orientada exclusivamente a los modelos `.tflite` exportados con validación INT8. Identifica los tensores, los cuantiza automáticamente previo a la inferencia de TFLite y descuantiza los resultados antes de evaluarlos.
 
 - **Entrada:** Modelo INT8 ubicado en `models/tflite/` y el dataset original de procesamiento en escala de grises.
@@ -158,30 +184,4 @@ python src/visualize_serial_image.py
 python src/visualize_serial_image.py --port /dev/tty.usbmodem1301 
 # En windows
 python src/visualize_serial_image.py --port COM7
-```
-
-### 3. Procesamiento de Imágenes (`src/process_images.py`)
-Convierte imágenes a escala de grises controlando la compresión para evitar que aumente el tamaño del archivo, preparándolas para el entrenamiento.
-
-**Uso básico (rutas por defecto):**
-```bash
-python src/process_images.py
-```
-
-**Uso con rutas personalizadas:**
-```bash
-python src/process_images.py --raw_path "ruta/a/imagenes_crudas" --path_processed "ruta/a/destino"
-```
-
-### 4. Redimensionamiento de Imágenes (`src/reshape_images.py`)
-Redimensiona las imágenes procesadas al tamaño objetivo para TinyML, conservando la estructura de carpetas (clases).
-
-**Uso básico (rutas por defecto, busca recursivamente en `data/processed/grayscale`):**
-```bash
-python src/reshape_images.py --width 96 --height 96
-```
-
-**Uso con directorio de entrada personalizado:**
-```bash
-python src/reshape_images.py --input_dir "ruta/personalizada" --width 96 --height 96
 ```

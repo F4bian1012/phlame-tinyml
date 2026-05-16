@@ -13,7 +13,7 @@ def create_structure():
         "src",
         "deployment/arduino_project",
         "notebooks",
-        "logs",
+        "tensorboard_logs",
         "config"
     ]
 
