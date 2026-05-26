@@ -10,11 +10,11 @@ An open-source, highly structured MLOps pipeline designed to optimize and deploy
 
 ---
 
-## 📖 Overview
+##  Overview
 
 The **TinyML-MLOps Framework** bridges the gap between high-level Python model training and static, memory-constrained C++ embedded execution. It enforces strict data lifecycles, artifact management, and state-of-the-art compression pipelines (Pruning & Quantization) for deployment at the "Far Edge".
 
-### 🌟 Key Features
+###  Key Features
 - **Transfer Learning Support:** Automated pipelines for training advanced architectures including `MobileNetV2`, `MobileNetV3`, `ResNet18`, and `SqueezeNet`.
 - **Object Detection at the Edge:** Natively supports training **FOMO** (Faster Objects, More Objects) for low-power visual detection.
 - **Advanced Model Compression:** Built-in scripts for Polynomial Decay Pruning, Layer-Specific Sparse constraints, and Full Integer Quantization (INT8) to shrink models by up to 4x.
@@ -23,21 +23,22 @@ The **TinyML-MLOps Framework** bridges the gap between high-level Python model t
 
 ---
 
-## 🏛 Architecture & MLOps Pipeline
+##  Architecture & MLOps Pipeline
 
 The project rigorously separates Data Science environments (`src/`) from Embedded Engineering firmware (`deployment/`).
 
 ```mermaid
 graph TD
     %% Styling
-    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px;
+    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px,color:#000;
+    classDef data fill:#D5E8D4,stroke:#82B366,stroke-width:2px,color:#000;
     classDef python fill:#4B8BBE,stroke:#306998,stroke-width:2px,color:#fff;
     classDef hardware fill:#00979D,stroke:#005C5F,stroke-width:2px,color:#fff;
     classDef artifact fill:#FFD43B,stroke:#FFE873,stroke-width:2px,color:#000;
 
     subgraph "Data Pipeline"
-        RAW[data/raw] --> PROC[data/processed]
-        PROC --> AUG[data/augmented]
+        RAW[data/raw]:::data --> PROC[data/processed]:::data
+        PROC --> AUG[data/augmented]:::data
     end
 
     subgraph "Python MLOps Training (src/)"
@@ -58,7 +59,7 @@ graph TD
 
 ---
 
-## 🚀 Quickstart & Usage
+##  Quickstart & Usage
 
 ### 1. Prerequisites & Installation
 Ensure you are using Python 3.10+ and install the dependencies:
@@ -105,7 +106,7 @@ Finally, compile and flash `deployment/arduino_project/arduino_project.ino` usin
 
 ---
 
-## 🔬 Experimental Sandbox (`src/Por_Depurar/`)
+##  Experimental Sandbox (`src/Por_Depurar/`)
 The `Por_Depurar/` directory is dedicated to experimental model optimization research:
 - **`pruning_techniques.py`**: Explores Polynomial Decay and Layer-specific sparsity to reduce weight footprint.
 - **`quantization_techniques.py`**: Compares Dynamic Range, Full Integer, Float16, and Quantization-Aware Training (QAT).
@@ -113,7 +114,7 @@ The `Por_Depurar/` directory is dedicated to experimental model optimization res
 
 ---
 
-## 📸 Real-time Hardware Vision
+##  Real-time Hardware Vision
 We provide an end-to-end loop for raw data collection using the Arduino Portenta Vision Shield.
 1. Flash `deployment/arduino/image_capture/image_capture.ino` to the Portenta H7.
 2. Run the Python visualizer to view live serial pixel data (160x120 Grayscale at 30fps):
@@ -123,7 +124,7 @@ python src/visualize_serial_image.py
 
 ---
 
-## 📚 Citation
+## Citation
 
 If you use this framework in your academic research, please cite our upcoming *SoftwareX* paper:
 
@@ -131,9 +132,9 @@ If you use this framework in your academic research, please cite our upcoming *S
 @article{tinyml_mlops_2026,
   title={TinyML-MLOps: An Open-Source Structured Framework for Optimizing and Deploying Convolutional Neural Networks on ARM Cortex-M7 Microcontrollers},
   author={[First Author] and [Second Author]},
-  journal={SoftwareX},
-  year={2026},
-  publisher={Elsevier}
+  journal={},
+  year={},
+  publisher={}
 }
 ```
 
