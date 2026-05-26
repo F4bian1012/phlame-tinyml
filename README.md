@@ -4,11 +4,11 @@
 ![Python](https://img.shields.io/badge/Python-3.10%2B-brightgreen)
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-2.15%2B-orange)
 ![Hardware](https://img.shields.io/badge/Hardware-Arduino_Portenta_H7-teal)
-
+![Journal](https://img.shields.io/badge/Submitted_to-SoftwareX-red)
 
 An open-source, highly structured MLOps pipeline designed to optimize and deploy Deep Learning and Computer Vision models on resource-constrained microcontrollers (specifically the **Arduino Portenta H7**).
 
---- 
+---
 
 ## 📖 Overview
 
@@ -35,12 +35,12 @@ graph TD
     classDef hardware fill:#00979D,stroke:#005C5F,stroke-width:2px,color:#fff;
     classDef artifact fill:#FFD43B,stroke:#FFE873,stroke-width:2px,color:#000;
 
-    subgraph Data Pipeline
+    subgraph "Data Pipeline"
         RAW[data/raw] --> PROC[data/processed]
         PROC --> AUG[data/augmented]
     end
 
-    subgraph Python MLOps Training (src/)
+    subgraph "Python MLOps Training (src/)"
         AUG --> TRAIN[train_mobilenet.py / train_resnet18.py]:::python
         TRAIN -->|Saves| KERAS(models/checkpoints/best_model.keras):::artifact
         KERAS --> OPT[quantize_int8_basic.py]:::python
@@ -49,7 +49,7 @@ graph TD
         OPT -->|Converts| TFLITE(models/tflite/model.tflite):::artifact
     end
 
-    subgraph Embedded Deployment (deployment/)
+    subgraph "Embedded Deployment (deployment/)"
         TFLITE -->|xxd -i| HEADER(arduino_project/model.h):::artifact
         HEADER --> C_ENGINE[arduino_project.ino]:::hardware
         C_ENGINE --> INFERENCE((Portenta H7 Inference)):::hardware
@@ -72,13 +72,13 @@ pip install -r requirements.txt
 Place your raw image dataset inside `data/raw/` (organized by class subfolders), then process and resize them:
 ```bash
 python src/process_images.py
-python src/reshape_images.py --width 160 --height 120
+python src/reshape_images.py --width 96 --height 96
 ```
 
 ### 3. Model Training
 Train a state-of-the-art vision architecture (e.g., MobileNetV2) using the command-line interface. The script will dynamically generate checkpoints and TensorBoard logs.
 ```bash
-python src/train_mobilenet.py --base_model MobileNetV2 --width 160 --height 120 --batch_size 32 --epochs 20 --learning_rate 0.0001
+python src/train_mobilenet.py --base_model MobileNetV2 --width 96 --height 96 --batch_size 32 --epochs 20 --learning_rate 0.0001
 ```
 
 *For ResNet18, SqueezeNet, or FOMO, run `src/train_resnet18.py`, `src/train_squeezenet.py`, or `src/train_fomo.py` respectively.*
@@ -86,7 +86,7 @@ python src/train_mobilenet.py --base_model MobileNetV2 --width 160 --height 120 
 ### 4. Model Evaluation
 Evaluate your `.keras` model, automatically generating a Confusion Matrix and extensive statistical metrics (F1-score, Precision, Recall):
 ```bash
-python src/test_model.py --width 160 --height 120
+python src/test_model.py --width 96 --height 96
 ```
 
 ### 5. Optimization & INT8 Quantization

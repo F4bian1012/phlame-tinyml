@@ -1,4 +1,25 @@
-opencv-python
-tensorflow
-numpy
-matplotlib
+# ==============================================================================
+# TinyML-MLOps Framework - Python Dependencies
+# Grouped by component to ensure clean environment reproduction (Python 3.10+)
+# ==============================================================================
+
+# --- Core Machine Learning & Deep Learning ---
+tensorflow>=2.15.0
+tensorflow-intel>=2.15.0; sys_platform == 'win32'
+
+# --- Model Compression & Optimization ---
+tensorflow-model-optimization>=0.7.5
+
+# --- Image Processing & Datasets ---
+opencv-python>=4.8.0
+pillow>=10.0.0
+numpy>=1.24.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
+
+# --- Hardware Interface & Communication ---
+pyserial>=3.5
+
+# --- Visualization & Logging ---
+matplotlib>=3.7.0
+tensorboard>=2.15.0
