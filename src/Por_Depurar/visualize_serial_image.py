@@ -6,8 +6,8 @@ import time
 import sys
 
 # Configuration matches Arduino sketch
-WIDTH = 160
-HEIGHT = 120
+WIDTH = 320
+HEIGHT = 320
 CHANNELS = 1 # Grayscale
 FRAME_SIZE = WIDTH * HEIGHT * CHANNELS
 BAUD_RATE = 115200

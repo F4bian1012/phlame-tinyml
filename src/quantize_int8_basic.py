@@ -37,6 +37,11 @@ def main():
     # Extraer el basename para deducir dimensiones y nombre de salida
     # Ejemplo de formato esperado: MobileNet+32...val+width+height.keras
     basename = os.path.basename(model_path).replace(".keras", "")
+    
+    # Remove any pruning suffix before splitting by '+' to correctly parse dimensions
+    if "_pruned" in basename:
+        basename = basename.split("_pruned")[0]
+        
     parts = basename.split('+')
     
     if len(parts) >= 7:

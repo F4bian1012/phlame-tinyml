@@ -4,7 +4,7 @@
 ![Python](https://img.shields.io/badge/Python-3.10%2B-brightgreen)
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-2.15%2B-orange)
 ![Hardware](https://img.shields.io/badge/Hardware-Arduino_Portenta_H7-teal)
-![Journal](https://img.shields.io/badge/Submitted_to-SoftwareX-red)
+
 
 An open-source, highly structured MLOps pipeline designed to optimize and deploy Deep Learning and Computer Vision models on resource-constrained microcontrollers (specifically the **Arduino Portenta H7**).
 
@@ -42,16 +42,18 @@ graph TD
     end
 
     subgraph "Python MLOps Training (src/)"
-        AUG --> TRAIN[train_mobilenet.py / train_resnet18.py]:::python
+        AUG --> TRAIN[train_*.py]:::python
         TRAIN -->|Saves| KERAS(models/checkpoints/best_model.keras):::artifact
+        KERAS --> PRUNE[prune_model.py]:::python
+        PRUNE -->|Pruned| KERAS_PRUNED(models/checkpoints/best_model_pruned.keras):::artifact
         KERAS --> OPT[quantize_int8_basic.py]:::python
-        KERAS --> PRUNE[Por_Depurar/pruning_techniques.py]:::python
-        PRUNE --> OPT
-        OPT -->|Converts| TFLITE(models/tflite/model.tflite):::artifact
+        KERAS_PRUNED --> OPT
+        OPT -->|Converts| TFLITE(models/tflite/model_int8.tflite):::artifact
+        TFLITE --> EVAL[test_tflite_model.py]:::python
     end
 
     subgraph "Embedded Deployment (deployment/)"
-        TFLITE -->|xxd -i| HEADER(arduino_project/model.h):::artifact
+        TFLITE -->|tflite_to_c.py| HEADER(arduino_project/model.h):::artifact
         HEADER --> C_ENGINE[arduino_project.ino]:::hardware
         C_ENGINE --> INFERENCE((Portenta H7 Inference)):::hardware
     end
@@ -59,7 +61,32 @@ graph TD
 
 ---
 
-##  Quickstart & Usage
+## Core Scripts Overview (`src/`)
+
+The framework relies on a suite of production-ready scripts in `src/` to automate the complete MLOps workflow:
+
+### 1. Data Engineering
+*   **`process_images.py`**: Converts raw dataset images (JPEG, PNG, BMP) to single-channel grayscale, applying optimized compression parameters (JPEG Quality: 70, PNG Compression: 9) to prevent bloating storage.
+*   **`reshape_images.py`**: Recursively searches for images and resizes them to the target resolution required by models (e.g., `96x96`, `160x120`, `320x320`), storing the structured dataset in `data/processed/{width}x{height}`.
+
+### 2. Model Training (ML Pipelines)
+*   **`train_mobilenet.py`**: Training pipeline for MobileNet classification architectures (`MobileNet`, `MobileNetV2`, `MobileNetV3Large`, `MobileNetV3Small`) utilizing Transfer Learning from ImageNet weights, adapted to single-channel (grayscale) inputs and custom number of classes. Supports data augmentation and generates `.keras` models.
+*   **`train_resnet18.py`**: Training pipeline for a standard `ResNet18` model architecture adapted for tiny edge classification.
+*   **`train_squeezenet.py`**: Training pipeline for the ultra-lightweight `SqueezeNet` architecture, offering a balance between size and accuracy.
+*   **`train_fomo.py`**: Trains a highly optimized **FOMO (Faster Objects, More Objects)** object detection model based on a MobileNetV2 backbone. Rather than utilizing expensive bounding boxes, it generates a cell-level presence heatmap on an $H/8$ or $H/16$ grid using smooth Focal Loss, fitting comfortably inside microcontrollers.
+
+### 3. Model Optimization & Evaluation
+*   **`prune_model.py`**: Applies manual magnitude-based unstructured pruning (either globally or layer-wise) to sparsify weights in Conv2D and Dense layers. Calculates and outputs initial/final model sparsity.
+*   **`quantize_int8_basic.py`**: Quantizes standard FP32 `.keras` models to full-INT8 `.tflite` format. Employs a representative dataset of 100 samples from the processed dataset to precisely calibrate activation scales and zero-points. Enforces strict INT8 input/output tensors for optimal MCU compatibility.
+*   **`test_model.py`**: Evaluates Keras `.keras` models by generating core statistics (Accuracy, Precision, Recall, F1-Score) and exporting a detailed classification report alongside a saved Seaborn-based Confusion Matrix plot.
+*   **`test_tflite_model.py`**: Validates full-INT8 `.tflite` quantized models sequentially. Simulates microcontroller execution constraints by performing manual input scaling/quantization and output dequantization dynamically, exporting a Seaborn-based Confusion Matrix.
+
+### 4. Embedded Conversion & Deployment
+*   **`tflite_to_c.py`**: Standardized converter utility that parses a `.tflite` binary file and outputs a C/C++ array header compatible with TFLite for Microcontrollers. Embeds a critical 16-byte alignment attribute (`DATA_ALIGN_ATTRIBUTE`) required for hardware accelerators and optimal execution on ARM Cortex-M7 (e.g., Arduino Portenta H7).
+
+---
+
+## Quickstart & Usage
 
 ### 1. Prerequisites & Installation
 Ensure you are using Python 3.10+ and install the dependencies:
@@ -70,16 +97,23 @@ pip install -r requirements.txt
 ```
 
 ### 2. Data Preparation
-Place your raw image dataset inside `data/raw/` (organized by class subfolders), then process and resize them:
+Place your raw image dataset inside `data/raw/` (organized by class subfolders), 
+```
+data/raw/
+├── Class1/
+├── Class2/
+└── Class3/
+```
+then process and resize them with recommended sizes: 160x120, 320x240, 320x320 
 ```bash
 python src/process_images.py
-python src/reshape_images.py --width 96 --height 96
+python src/reshape_images.py --width 160 --height 120
 ```
 
 ### 3. Model Training
 Train a state-of-the-art vision architecture (e.g., MobileNetV2) using the command-line interface. The script will dynamically generate checkpoints and TensorBoard logs.
-```bash
-python src/train_mobilenet.py --base_model MobileNetV2 --width 96 --height 96 --batch_size 32 --epochs 20 --learning_rate 0.0001
+```bash 
+python src/train_mobilenet.py --base_model MobileNetV2 --width 160 --height 120 --batch_size 32 --epochs 20 --learning_rate 0.0001
 ```
 
 *For ResNet18, SqueezeNet, or FOMO, run `src/train_resnet18.py`, `src/train_squeezenet.py`, or `src/train_fomo.py` respectively.*
@@ -93,12 +127,16 @@ python src/test_model.py --width 96 --height 96
 ### 5. Optimization & INT8 Quantization
 Convert the float32 Keras model into an ultra-lightweight integer-only TFLite model, strictly necessary for MCUs without a vector FPU:
 ```bash
-python src/quantize_int8_basic.py
+python src/quantize_int8_basic.py --model_path models/checkpoints/best_model.keras 
 ```
 *Note: You can validate the quantized model against the dataset using `python src/test_tflite_model.py`.*
 
 ### 6. Embedded Deployment
 Once the model is optimized, convert the `.tflite` file into a C-array header for the Arduino IDE:
+```bash
+python src/tflite_to_c.py models/tflite/model_int8.tflite deployment/arduino_project/model.h --var_name model_tflite
+```
+Alternatively, you can use the low-level `xxd` tool:
 ```bash
 xxd -i models/tflite/model_int8.tflite > deployment/arduino_project/model.h
 ```
@@ -106,7 +144,7 @@ Finally, compile and flash `deployment/arduino_project/arduino_project.ino` usin
 
 ---
 
-##  Experimental Sandbox (`src/Por_Depurar/`)
+## Experimental Sandbox (`src/Por_Depurar/`)
 The `Por_Depurar/` directory is dedicated to experimental model optimization research:
 - **`pruning_techniques.py`**: Explores Polynomial Decay and Layer-specific sparsity to reduce weight footprint.
 - **`quantization_techniques.py`**: Compares Dynamic Range, Full Integer, Float16, and Quantization-Aware Training (QAT).
@@ -114,12 +152,12 @@ The `Por_Depurar/` directory is dedicated to experimental model optimization res
 
 ---
 
-##  Real-time Hardware Vision
+## Real-time Hardware Vision
 We provide an end-to-end loop for raw data collection using the Arduino Portenta Vision Shield.
 1. Flash `deployment/arduino/image_capture/image_capture.ino` to the Portenta H7.
 2. Run the Python visualizer to view live serial pixel data (160x120 Grayscale at 30fps):
 ```bash
-python src/visualize_serial_image.py
+python src/Por_Depurar/visualize_serial_image.py
 ```
 
 ---
@@ -131,7 +169,7 @@ If you use this framework in your academic research, please cite our upcoming *S
 ```bibtex
 @article{tinyml_mlops_2026,
   title={TinyML-MLOps: An Open-Source Structured Framework for Optimizing and Deploying Convolutional Neural Networks on ARM Cortex-M7 Microcontrollers},
-  author={[First Author] and [Second Author]},
+  author={[J Villavisan]},
   journal={},
   year={},
   publisher={}
