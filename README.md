@@ -83,6 +83,8 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 
 ### 4. Embedded Conversion & Deployment
 *   **`tflite_to_c.py`**: Standardized converter utility that parses a `.tflite` binary file and outputs a C/C++ array header compatible with TFLite for Microcontrollers. Embeds a critical 16-byte alignment attribute (`DATA_ALIGN_ATTRIBUTE`) required for hardware accelerators and optimal execution on ARM Cortex-M7 (e.g., Arduino Portenta H7).
+*   **`compile_upload_arduino.py`**: Automation utility that interacts directly with `arduino-cli` to compile and upload the firmware. It handles core installations (`arduino:mbed_portenta`), auto-detects the connected board's COM port, and mitigates Windows path syntax issues natively.
+*   **`send_multiple_images_serial.py`**: A robust hardware-in-the-loop evaluation script. It sends preprocessed dataset images to the Arduino Portenta via a custom Serial protocol (with byte escaping). It reads predictions back in real-time, matching them with the true folder-based classes to generate extensive statistical metrics and a Seaborn-based Confusion Matrix plot comparing Edge hardware inference with ground-truth.
 
 ---
 
@@ -134,13 +136,20 @@ python src/quantize_int8_basic.py --model_path models/checkpoints/best_model.ker
 ### 6. Embedded Deployment
 Once the model is optimized, convert the `.tflite` file into a C-array header for the Arduino IDE:
 ```bash
-python src/tflite_to_c.py models/tflite/model_int8.tflite deployment/arduino_project/model.h --var_name model_tflite
+python src/tflite_to_c.py models/tflite/model_int8.tflite deployment/arduino_project_test/model.h --var_name model_tflite
 ```
-Alternatively, you can use the low-level `xxd` tool:
+
+Compile and upload the C++ firmware automatically to your Portenta H7 using our `arduino-cli` wrapper:
 ```bash
-xxd -i models/tflite/model_int8.tflite > deployment/arduino_project/model.h
+python src/compile_upload_arduino.py --path_proyecto deployment/arduino_project_test
 ```
-Finally, compile and flash `deployment/arduino_project/arduino_project.ino` using the Arduino IDE.
+*(Alternatively, you can open the project folder in the Arduino IDE and click Upload).*
+
+### 7. Hardware-in-the-Loop Evaluation
+Once the firmware is running on your Portenta H7, you can evaluate the model's physical performance directly on the edge hardware. Stream a test dataset over USB Serial and let the script compare the board's inferences with the real labels to generate metrics and a Confusion Matrix plot:
+```bash
+python src/send_multiple_images_serial.py --folder data/processed/160x120 --width 160 --height 120
+```
 
 ---
 

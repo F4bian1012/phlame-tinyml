@@ -3,8 +3,9 @@
 
 #include <Chirale_TensorFlowLite.h>
 #include <SDRAM.h>
+#include "mbed.h"  // <--- ESTA LÍNEA CORRIGE EL ERROR DE COMPILACIÓN
 // include static array definition of pre-trained model
-#include "model1.h"
+#include "model.h"
 
 // --- ESTOS SON LOS INCLUDES CORRECTOS ---
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
@@ -22,7 +23,7 @@ TfLiteTensor* input = nullptr;
 TfLiteTensor* output = nullptr;
 
 // Tensor Arena: Definido como PUNTERO para usar SDRAM
-constexpr int kTensorArenaSize = 1024 * 1024; // 1 MB
+constexpr int kTensorArenaSize = 4 * 1024 * 1024; // 4 MB para modelos más grandes
 uint8_t* tensor_arena = nullptr;
 
 // AQUÍ ESTÁ EL CAMBIO CLAVE: Usamos MicroMutableOpResolver en lugar de AllOpsResolver
@@ -36,11 +37,10 @@ tflite::MicroMutableOpResolver<20> resolver;
 // Escape: 0x1B (ESC) seguido del byte XOR 0x20.
 
 // Buffer para recibir la imagen por serial
-// Tamaño = max bytes esperados del tensor de entrada (ej. 48*48*1 = 2304 para int8)
-// Ajusta IMAGE_BUFFER_SIZE según tu modelo
-#define IMAGE_BUFFER_SIZE 110000  // suficiente margen para cualquier imagen razonable
+// Aumentado a 400KB para soportar imágenes grandes como 320x320 RGB (307,200 bytes)
+#define IMAGE_BUFFER_SIZE (400 * 1024)
 
-uint8_t image_buffer[IMAGE_BUFFER_SIZE];
+uint8_t* image_buffer = nullptr;
 int image_bytes_received = 0;
 bool receiving = false;
 
@@ -184,6 +184,9 @@ void runInference() {
 void setup() {
   SDRAM.begin();
 
+  // Asignamos la memoria del buffer de imagen en la SDRAM
+  image_buffer = (uint8_t*)ea_malloc(IMAGE_BUFFER_SIZE);
+  
   // 1. Asignamos la memoria con 16 bytes extra para alineación
   uint8_t* raw_arena = (uint8_t*)ea_malloc(kTensorArenaSize + 16);
 
@@ -191,8 +194,8 @@ void setup() {
   while (!Serial) { }
   delay(2000);
 
-  if (raw_arena == nullptr) {
-    Serial.println("ERROR: No hay SDRAM disponible.");
+  if (raw_arena == nullptr || image_buffer == nullptr) {
+    Serial.println("ERROR: No hay SDRAM disponible para Arena o Image Buffer.");
     while(1);
   }
 
@@ -270,10 +273,34 @@ void setup() {
 void loop() {
   // Leer imagen del serial usando el protocolo #...@
   if (readImageFromSerial()) {
+    
     Serial.println("\n--- Imagen recibida. Iniciando inferencia... ---");
+    
+    mbed::AnalogIn mcuADCVref(ADC_VREF);
+    mbed::AnalogIn mcuADCTemp(ADC_TEMP);
+
+    // 2. Leer los datos crudos en formato de 16 bits
+    uint16_t rawVref = mcuADCVref.read_u16();
+    uint16_t rawTemp = mcuADCTemp.read_u16();
+      // 3. Calcular el voltaje de referencia analógica interno (en mV)
+    uint32_t mcuVref = __LL_ADC_CALC_VREFANALOG_VOLTAGE(rawVref, ADC_RESOLUTION_16B);
+    
+    // 4. Calcular la temperatura final usando las constantes de fábrica del STM32H7
+    int32_t mcuTemp = __HAL_ADC_CALC_TEMPERATURE(mcuVref, rawTemp, ADC_RESOLUTION_16B);
+    Serial.print(" mV | Temperatura Interna CPU: ");
+    Serial.print(mcuTemp);
+    Serial.println(" °C");
+    if (mcuTemp>=40){
+       delay(1000);
+    }
+    
     runInference();
+    
     Serial.println("--- Listo. Esperando siguiente imagen... ---\n");
     Serial.flush();
+      // 1. Instanciar los canales usando el espacio de nombres mbed
+    
+
   }
   // No hay delay fijo: el loop es no bloqueante, polling continuo del serial
 }

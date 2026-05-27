@@ -180,23 +180,41 @@ def send_folder(port: str, baud: int, folder: str,
     n_samples : Número de imágenes a seleccionar aleatoriamente.
                 Si es None (o >= total disponibles), se envían todas.
     """
-    extensions = ('*.png', '*.jpg', '*.jpeg', '*.bmp', '*.tiff', '*.tif')
-    image_paths = []
-    for ext in extensions:
-        image_paths.extend(glob.glob(os.path.join(folder, ext)))
-        image_paths.extend(glob.glob(os.path.join(folder, ext.upper())))
+    extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.tif')
+    
+    # 1. Buscar subcarpetas para definir las clases reales
+    subdirs = [d for d in os.listdir(folder) if os.path.isdir(os.path.join(folder, d))]
+    subdirs.sort()
 
-    # Eliminar duplicados y ordenar para reproducibilidad
-    image_paths = sorted(set(image_paths))
+    image_data = [] # Lista de tuplas: (ruta_imagen, etiqueta_real_int)
+    class_names = []
 
-    if not image_paths:
-        print(f"[ERROR] No se encontraron imágenes en: {folder}")
+    if not subdirs:
+        print(f"[INFO] No se encontraron subcarpetas en {folder}. No se generará matriz de confusión.")
+        # Buscar imágenes directamente en la carpeta
+        for root, _, files in os.walk(folder):
+            for f in files:
+                if f.lower().endswith(extensions):
+                    image_data.append((os.path.join(root, f), -1))
+    else:
+        class_names = subdirs
+        print(f"[INFO] Clases reales detectadas: {class_names}")
+        for label_idx, class_name in enumerate(class_names):
+            class_dir = os.path.join(folder, class_name)
+            for f in os.listdir(class_dir):
+                if f.lower().endswith(extensions):
+                    image_data.append((os.path.join(class_dir, f), label_idx))
+
+    image_data = sorted(list(set(image_data)))
+
+    if not image_data:
+        print(f"[ERROR] No se encontraron imágenes válidas en: {folder}")
         sys.exit(1)
 
     # Muestreo aleatorio si el usuario especificó --count
-    available = len(image_paths)
+    available = len(image_data)
     if n_samples is not None and n_samples < available:
-        image_paths = random.sample(image_paths, n_samples)
+        image_data = random.sample(image_data, n_samples)
         print(f"[INFO] Seleccionadas {n_samples} imágenes aleatoriamente "
               f"de {available} disponibles en '{folder}'")
     else:
@@ -213,13 +231,15 @@ def send_folder(port: str, baud: int, folder: str,
     print(f"[INFO] Puerto abierto. Esperando {pre_delay}s antes de enviar...")
     time.sleep(pre_delay)
 
-    total = len(image_paths)  # puede ser < available si se muestreo
+    total = len(image_data)
 
-    # Contador de clases predichas
+    # Contadores y arrays de métricas
     class_counts: Counter = Counter()
-    errors = 0  # imágenes sin respuesta válida
+    errors = 0
+    y_true = []
+    y_pred = []
 
-    for idx, image_path in enumerate(image_paths, start=1):
+    for idx, (image_path, true_label) in enumerate(image_data, start=1):
         print(f"\n[INFO] ({idx}/{total}) Procesando: {os.path.basename(image_path)}")
 
         raw_payload = preprocess_image(image_path, width, height, grayscale)
@@ -252,6 +272,9 @@ def send_folder(port: str, baud: int, folder: str,
         if predicted_class is not None:
             class_counts[predicted_class] += 1
             print(f"  → Clase predicha: {predicted_class}")
+            if true_label != -1:
+                y_true.append(true_label)
+                y_pred.append(predicted_class)
         else:
             errors += 1
             print(f"  [WARN] No se recibió clase predicha para esta imagen.")
@@ -279,6 +302,57 @@ def send_folder(port: str, baud: int, folder: str,
             print(f"  {cls:>6}  {cnt:>9}  {pct:>10.1f}%")
     print("=" * 45)
 
+    # Generación de la matriz de confusión y métricas si tenemos verdaderas etiquetas
+    if y_true and len(y_true) > 0:
+        try:
+            import seaborn as sns
+            import matplotlib.pyplot as plt
+            from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, precision_recall_fscore_support
+
+            print("\n" + "="*50)
+            print("                 REPORTE DE MÉTRICAS")
+            print("="*50)
+
+            accuracy = accuracy_score(y_true, y_pred)
+            precision, recall, f1, _ = precision_recall_fscore_support(y_true, y_pred, average='weighted', zero_division=0)
+
+            print(f"Accuracy (Exactitud): {accuracy:.4f}")
+            print(f"Precision:            {precision:.4f}")
+            print(f"Recall (Exhaustividad):{recall:.4f}")
+            print(f"F1-Score:             {f1:.4f}")
+
+            # Identificar todas las clases presentes para el reporte
+            labels_present = sorted(list(set(y_true + y_pred)))
+            target_names = []
+            for lab in labels_present:
+                if lab < len(class_names):
+                    target_names.append(class_names[lab])
+                else:
+                    target_names.append(f"Invalida_{lab}")
+
+            print("\nReporte de Clasificación Detallado:")
+            print(classification_report(y_true, y_pred, labels=labels_present, target_names=target_names, zero_division=0))
+
+            print("\nGenerando Matriz de Confusión...")
+            cm = confusion_matrix(y_true, y_pred, labels=labels_present)
+
+            plt.figure(figsize=(10, 8))
+            sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=target_names, yticklabels=target_names)
+            plt.title('Matriz de Confusión - Serial Portenta')
+            plt.ylabel('Etiqueta Real')
+            plt.xlabel('Etiqueta Predicha')
+            plt.tight_layout()
+
+            # Guardar matriz
+            cm_plot_name = "Matriz_Serial_Arduino.png"
+            cm_plot_path = os.path.join(folder, cm_plot_name)
+            plt.savefig(cm_plot_path)
+            print(f"Gráfico de la matriz de confusión guardado en: {cm_plot_path}")
+
+        except ImportError:
+            print("\n[WARN] Faltan librerías para matriz de confusión (seaborn, sklearn, matplotlib).")
+            print("Instálalas con: pip install scikit-learn seaborn matplotlib")
+
 
 # ──────────────────────────────────────────────
 # Entry point
@@ -296,7 +370,7 @@ def parse_args():
                         help="Ruta a una imagen concreta a enviar")
     source.add_argument('--folder', default=None,
                         help="Carpeta con imágenes a enviar en secuencia "
-                             "(default: data\\processed\\160x120\\Class1)")
+                             "(default: data\\processed\\160x120)")
 
     parser.add_argument('--baud',   type=int, default=115200,
                         help="Baudrate (default: 115200)")
@@ -345,7 +419,7 @@ def normalize_port(port: str) -> str:
     return port
 
 
-DEFAULT_FOLDER = os.path.join('data', 'processed', '160x120', 'Class1')
+DEFAULT_FOLDER = os.path.join('data', 'processed', '160x120')
 
 if __name__ == '__main__':
     args = parse_args()
