@@ -53,9 +53,14 @@ graph TD
     end
 
     subgraph "Embedded Deployment (deployment/)"
-        TFLITE -->|tflite_to_c.py| HEADER(arduino_project/model.h):::artifact
-        HEADER --> C_ENGINE[arduino_project.ino]:::hardware
+        TFLITE -->|tflite_to_c.py| HEADER(arduino_project_test/model.h):::artifact
+        HEADER -.->|compile_upload_arduino.py| C_ENGINE[arduino_project_test.ino]:::hardware
         C_ENGINE --> INFERENCE((Portenta H7 Inference)):::hardware
+    end
+
+    subgraph "Hardware-in-the-Loop (HIL)"
+        PROC -.->|send_multiple_images_serial.py| INFERENCE
+        INFERENCE -.->|Serial Protocol| CM_PLOT(Matriz_Serial_Arduino.png):::artifact
     end
 ```
 
