@@ -7,14 +7,8 @@ import os
 import datetime
 import argparse
 
-# ==========================================
-# CONFIGURATION & HYPERPARAMETERS
-# ==========================================
-
-# Paths
 LOG_DIR = "tensorboard_logs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
-# Ensure directories exist
 os.makedirs("models/checkpoints", exist_ok=True)
 os.makedirs("tensorboard_logs", exist_ok=True)
 
@@ -71,17 +65,12 @@ def load_custom_data(data_dir, img_width, img_height, batch_size, validation_spl
         print("   que predice esta clase para TODOS los inputs (accuracy trivial).")
         print(f"   Agrega una carpeta de clase 'background' o 'negativo' con imágenes aleatorias\n")
 
-    # Autotune para rendimiento
     AUTOTUNE = tf.data.AUTOTUNE
     train_ds = train_ds.cache().shuffle(1000).prefetch(buffer_size=AUTOTUNE)
     val_ds = val_ds.cache().prefetch(buffer_size=AUTOTUNE)
 
     return train_ds, val_ds, class_names
 
-
-# ==========================================
-# RESNET18 ARCHITECTURE (desde cero)
-# ==========================================
 
 def residual_block(x, filters, stride=1, name_prefix="res"):
     """
@@ -104,7 +93,6 @@ def residual_block(x, filters, stride=1, name_prefix="res"):
     shortcut = x
     in_channels = x.shape[-1]
 
-    # Primera convolución 3x3
     x = layers.Conv2D(
         filters, (3, 3),
         strides=stride,
@@ -115,7 +103,6 @@ def residual_block(x, filters, stride=1, name_prefix="res"):
     x = layers.BatchNormalization(name=f"{name_prefix}_bn1")(x)
     x = layers.ReLU(name=f"{name_prefix}_relu1")(x)
 
-    # Segunda convolución 3x3
     x = layers.Conv2D(
         filters, (3, 3),
         strides=1,
@@ -125,7 +112,6 @@ def residual_block(x, filters, stride=1, name_prefix="res"):
     )(x)
     x = layers.BatchNormalization(name=f"{name_prefix}_bn2")(x)
 
-    # Shortcut connection: proyección 1x1 si cambian canales o resolución
     if stride != 1 or in_channels != filters:
         shortcut = layers.Conv2D(
             filters, (1, 1),
@@ -142,16 +128,23 @@ def residual_block(x, filters, stride=1, name_prefix="res"):
     return x
 
 
-def build_resnet18(input_shape, num_classes, dropout_rate=0.5):
+def build_resnet(input_shape, num_classes, dropout_rate=0.5, base_model="ResNet18"):
     """
-    Construye ResNet18 adaptado para TinyML / clasificación personalizada.
+    Construye ResNet adaptado para TinyML / clasificación personalizada.
 
-    Arquitectura original ResNet18:
+    Arquitectura ResNet18:
         Conv7x7/2 → BN → ReLU → MaxPool/2
         → Layer1: 2x BasicBlock(64,  stride=1)
         → Layer2: 2x BasicBlock(128, stride=2)
         → Layer3: 2x BasicBlock(256, stride=2)
         → Layer4: 2x BasicBlock(512, stride=2)
+        → GlobalAveragePooling → Dense(num_classes)
+
+    Arquitectura ResNet8:
+        Conv7x7/2 → BN → ReLU → MaxPool/2
+        → Layer1: 1x BasicBlock(64,  stride=1)
+        → Layer2: 1x BasicBlock(128, stride=2)
+        → Layer3: 1x BasicBlock(256, stride=2)
         → GlobalAveragePooling → Dense(num_classes)
 
     Adaptaciones para imágenes pequeñas (< 96x96):
@@ -165,10 +158,11 @@ def build_resnet18(input_shape, num_classes, dropout_rate=0.5):
         input_shape: tupla (H, W, C)
         num_classes: número de clases de salida
         dropout_rate: tasa de dropout antes de la capa clasificadora
+        base_model: "ResNet8" o "ResNet18"
     Returns:
         (modelo compilado, función de pérdida)
     """
-    inputs = tf.keras.Input(shape=input_shape, name="input_resnet18")
+    inputs = tf.keras.Input(shape=input_shape, name=f"input_{base_model.lower()}")
 
     # Si la imagen es en escala de grises, expande a 3 canales
     if input_shape[-1] == 1:
@@ -202,37 +196,45 @@ def build_resnet18(input_shape, num_classes, dropout_rate=0.5):
     x = layers.ReLU(name="stem_relu")(x)
 
     # ---------- Capas residuales ----------
-    # Layer 1: 2 BasicBlocks, 64 filtros, sin downsampling
-    x = residual_block(x, filters=64,  stride=1, name_prefix="layer1_block1")
-    x = residual_block(x, filters=64,  stride=1, name_prefix="layer1_block2")
+    if base_model == "ResNet8":
+        # Layer 1: 1 BasicBlock, 64 filtros, sin downsampling
+        x = residual_block(x, filters=64,  stride=1, name_prefix="layer1_block1")
 
-    # Layer 2: 2 BasicBlocks, 128 filtros, downsampling (stride=2)
-    x = residual_block(x, filters=128, stride=2, name_prefix="layer2_block1")
-    x = residual_block(x, filters=128, stride=1, name_prefix="layer2_block2")
+        # Layer 2: 1 BasicBlock, 128 filtros, downsampling (stride=2)
+        x = residual_block(x, filters=128, stride=2, name_prefix="layer2_block1")
 
-    # Layer 3: 2 BasicBlocks, 256 filtros, downsampling (stride=2)
-    x = residual_block(x, filters=256, stride=2, name_prefix="layer3_block1")
-    x = residual_block(x, filters=256, stride=1, name_prefix="layer3_block2")
+        # Layer 3: 1 BasicBlock, 256 filtros, downsampling (stride=2)
+        x = residual_block(x, filters=256, stride=2, name_prefix="layer3_block1")
+    else: # ResNet18
+        # Layer 1: 2 BasicBlocks, 64 filtros, sin downsampling
+        x = residual_block(x, filters=64,  stride=1, name_prefix="layer1_block1")
+        x = residual_block(x, filters=64,  stride=1, name_prefix="layer1_block2")
 
-    # Layer 4: 2 BasicBlocks, 512 filtros, downsampling (stride=2)
-    x = residual_block(x, filters=512, stride=2, name_prefix="layer4_block1")
-    x = residual_block(x, filters=512, stride=1, name_prefix="layer4_block2")
+        # Layer 2: 2 BasicBlocks, 128 filtros, downsampling (stride=2)
+        x = residual_block(x, filters=128, stride=2, name_prefix="layer2_block1")
+        x = residual_block(x, filters=128, stride=1, name_prefix="layer2_block2")
+
+        # Layer 3: 2 BasicBlocks, 256 filtros, downsampling (stride=2)
+        x = residual_block(x, filters=256, stride=2, name_prefix="layer3_block1")
+        x = residual_block(x, filters=256, stride=1, name_prefix="layer3_block2")
+
+        # Layer 4: 2 BasicBlocks, 512 filtros, downsampling (stride=2)
+        x = residual_block(x, filters=512, stride=2, name_prefix="layer4_block1")
+        x = residual_block(x, filters=512, stride=1, name_prefix="layer4_block2")
 
     # ---------- Cabeza de clasificación ----------
     x = layers.GlobalAveragePooling2D(name="gap")(x)
     x = layers.Dropout(dropout_rate, name="dropout")(x)
 
     if num_classes == 1:
-        # Clasificación binaria
         outputs = layers.Dense(1, activation='sigmoid', name="output_sigmoid")(x)
         loss_fn = 'binary_crossentropy'
         print("Configuración binaria (Sigmoid) para clase única.")
     else:
-        # Clasificación multiclase
         outputs = layers.Dense(num_classes, activation='softmax', name="output_softmax")(x)
         loss_fn = 'sparse_categorical_crossentropy'
 
-    model = tf.keras.Model(inputs=inputs, outputs=outputs, name="ResNet18")
+    model = tf.keras.Model(inputs=inputs, outputs=outputs, name=base_model)
 
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001),
@@ -243,26 +245,26 @@ def build_resnet18(input_shape, num_classes, dropout_rate=0.5):
     return model, loss_fn
 
 
-def create_resnet18_model(num_classes, img_shape, learning_rate, dropout_rate=0.5):
+def create_resnet_model(num_classes, img_shape, learning_rate, dropout_rate=0.5, base_model="ResNet18"):
     """
-    Wrapper que construye, compila y devuelve el modelo ResNet18.
+    Wrapper que construye, compila y devuelve el modelo ResNet.
 
     Args:
         num_classes: número de clases detectadas en el dataset
         img_shape: tupla (H, W, C)
         learning_rate: tasa de aprendizaje para Adam
         dropout_rate: tasa de dropout antes de la capa clasificadora
+        base_model: arquitectura base ("ResNet8" o "ResNet18")
     Returns:
         modelo compilado
     """
-    print(f"Construyendo ResNet18 para {num_classes} clase(s)...")
+    print(f"Construyendo {base_model} para {num_classes} clase(s)...")
     print(f"  Input shape  : {img_shape}")
     print(f"  Learning rate: {learning_rate}")
     print(f"  Dropout rate : {dropout_rate}")
 
-    model, loss_fn = build_resnet18(img_shape, num_classes, dropout_rate)
+    model, loss_fn = build_resnet(img_shape, num_classes, dropout_rate, base_model)
 
-    # Re-compilar con el learning_rate del argumento
     loss = 'binary_crossentropy' if num_classes == 1 else 'sparse_categorical_crossentropy'
 
     model.compile(
@@ -274,7 +276,7 @@ def create_resnet18_model(num_classes, img_shape, learning_rate, dropout_rate=0.
     return model
 
 
-def plot_history(history, plot_path):
+def plot_history(history, plot_path, base_model="ResNet18"):
     """Guarda gráfico de accuracy y loss del entrenamiento."""
     acc = history.history['accuracy']
     val_acc = history.history['val_accuracy']
@@ -287,23 +289,23 @@ def plot_history(history, plot_path):
     plt.plot(epochs_range, acc, label='Training Accuracy')
     plt.plot(epochs_range, val_acc, label='Validation Accuracy')
     plt.legend(loc='lower right')
-    plt.title('Training and Validation Accuracy - ResNet18')
+    plt.title(f'Training and Validation Accuracy - {base_model}')
 
     plt.subplot(1, 2, 2)
     plt.plot(epochs_range, loss, label='Training Loss')
     plt.plot(epochs_range, val_loss, label='Validation Loss')
     plt.legend(loc='upper right')
-    plt.title('Training and Validation Loss - ResNet18')
+    plt.title(f'Training and Validation Loss - {base_model}')
 
     plt.tight_layout()
     plt.savefig(plot_path)
     print(f"Gráficas de entrenamiento guardadas en: {plot_path}")
 
 
-def main(img_width, img_height, batch_size, epochs, learning_rate, validation_split, dropout_rate):
-    model_name = "ResNet18"
+def main(img_width, img_height, batch_size, epochs, learning_rate, validation_split, dropout_rate, base_model):
+    model_name = base_model
     data_dir = f"data/processed/{img_width}x{img_height}"
-    img_shape = (img_height, img_width, 1)  # Escala de grises
+    img_shape = (img_height, img_width, 1)
     plot_path = (
         f"tensorboard_logs/{model_name}_training_history"
         f"+{batch_size}+{epochs}+{learning_rate}+{validation_split}"
@@ -315,7 +317,6 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, validation_sp
         f"+{img_width}+{img_height}.keras"
     )
 
-    # 1. Cargar datos
     train_ds, val_ds, class_names = load_custom_data(
         data_dir, img_width, img_height, batch_size, validation_split
     )
@@ -324,11 +325,9 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, validation_sp
 
     num_classes = len(class_names)
 
-    # 2. Construir modelo
-    model = create_resnet18_model(num_classes, img_shape, learning_rate, dropout_rate)
+    model = create_resnet_model(num_classes, img_shape, learning_rate, dropout_rate, base_model)
     model.summary()
 
-    # 3. Callbacks
     callbacks = [
         keras.callbacks.ModelCheckpoint(
             filepath=checkpoint_path,
@@ -356,8 +355,7 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, validation_sp
         )
     ]
 
-    # 4. Entrenamiento
-    print("\nIniciando entrenamiento de ResNet18...")
+    print(f"\nIniciando entrenamiento de {base_model}...")
     try:
         history = model.fit(
             train_ds,
@@ -366,11 +364,9 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, validation_sp
             callbacks=callbacks
         )
 
-        # 5. Visualización
-        plot_history(history, plot_path)
+        plot_history(history, plot_path, base_model)
         print(f"Modelo guardado en: {checkpoint_path}")
 
-        # Guardar nombres de clases para inferencia
         with open("models/class_names.txt", "w") as f:
             for name in class_names:
                 f.write(f"{name}\n")
@@ -383,7 +379,11 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, validation_sp
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Entrenamiento de ResNet18 para TinyML (imágenes en escala de grises)"
+        description="Entrenamiento de ResNet para TinyML (imágenes en escala de grises)"
+    )
+    parser.add_argument(
+        "--base_model", type=str, default="ResNet18", choices=["ResNet8", "ResNet18"],
+        help="Arquitectura base (ResNet8 o ResNet18) (default: ResNet18)"
     )
     parser.add_argument(
         "--width", type=int, default=96,
@@ -414,11 +414,10 @@ if __name__ == "__main__":
         help="Tasa de dropout antes de la capa final (default: 0.5)"
     )
 
-    args = parser.parse_args()\
+    args = parser.parse_args()
     
     main(
-        args.width, args.height,
-        args.batch_size, args.epochs,
-        args.learning_rate, args.validation_split,
-        args.dropout_rate
+        args.width, args.height, args.batch_size, args.epochs, 
+        args.learning_rate, args.validation_split, args.dropout_rate, 
+        args.base_model
     )
