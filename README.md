@@ -127,7 +127,7 @@ Train a state-of-the-art vision architecture (e.g., MobileNetV2) using the comma
 python src/train_mobilenet.py --base_model MobileNetV2 --width 160 --height 120 --batch_size 32 --epochs 20 --learning_rate 0.0001
 ```
 
-*For ResNet18, SqueezeNet, or FOMO, run `src/train_resnet18.py`, `src/train_squeezenet.py`, or `src/train_fomo.py` respectively.*
+*For ResNet, SqueezeNet, or FOMO, run `src/train_resnet.py`, `src/train_squeezenet.py`, or `src/train_fomo.py` respectively.*
 
 ### 4. Model Evaluation
 Evaluate your `.keras` model, automatically generating a Confusion Matrix and extensive statistical metrics (F1-score, Precision, Recall):
