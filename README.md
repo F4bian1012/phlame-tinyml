@@ -10,6 +10,30 @@ An open-source, highly structured MLOps pipeline designed to optimize and deploy
 
 ---
 
+## Table of Contents
+- [Overview](#overview)
+  - [Key Features](#key-features)
+- [Architecture & MLOps Pipeline](#architecture--mlops-pipeline)
+  - [Repository Structure](#repository-structure)
+- [Core Scripts Overview (`src/`)](#core-scripts-overview-src)
+  - [1. Data Engineering](#1-data-engineering)
+  - [2. Model Training (ML Pipelines)](#2-model-training-ml-pipelines)
+  - [3. Model Optimization & Evaluation](#3-model-optimization--evaluation)
+  - [4. Embedded Conversion & Deployment](#4-embedded-conversion--deployment)
+- [Quickstart & Usage](#quickstart--usage)
+  - [1. Prerequisites & Installation](#1-prerequisites--installation)
+  - [2. Data Preparation](#2-data-preparation)
+  - [3. Model Training](#3-model-training)
+  - [4. Model Evaluation](#4-model-evaluation)
+  - [5. Optimization & INT8 Quantization](#5-optimization--int8-quantization)
+  - [6. Embedded Deployment](#6-embedded-deployment)
+  - [7. Hardware-in-the-Loop Evaluation](#7-hardware-in-the-loop-evaluation)
+- [Experimental Sandbox (`src/Por_Depurar/`)](#experimental-sandbox-srcpor_depurar)
+- [Real-time Hardware Vision](#real-time-hardware-vision)
+- [Citation](#citation)
+
+---
+
 ##  Overview
 
 The **TinyML-MLOps Framework** bridges the gap between high-level Python model training and static, memory-constrained C++ embedded execution. It enforces strict data lifecycles, artifact management, and state-of-the-art compression pipelines (Pruning & Quantization) for deployment at the "Far Edge".
@@ -23,6 +47,35 @@ The **TinyML-MLOps Framework** bridges the gap between high-level Python model t
 ---
 
 ##  Architecture & MLOps Pipeline
+
+### Repository Structure
+```text
+Investigacion/
+├── data/                    # Local datasets (ignored in git)
+│   ├── raw/                 # Raw unprocessed images
+│   └── processed/           # Resized & grayscale images
+├── deployment/              # C++ Firmware for edge deployment
+│   └── hil_firmware/        # Portenta H7 Hardware-in-the-Loop firmware
+├── models/                  # Generated Keras and TFLite models
+│   ├── checkpoints/         # Trained .keras models
+│   └── tflite/              # Quantized .tflite models
+├── src/                     # Core Python MLOps scripts
+│   ├── process_images.py    
+│   ├── reshape_images.py    
+│   ├── train_*.py           # Training pipelines (MobileNet, ResNet, SqueezeNet)
+│   ├── prune_model.py       
+│   ├── quantize_int8_basic.py
+│   ├── test_model.py        
+│   ├── test_tflite_model.py 
+│   ├── tflite_to_c.py       
+│   ├── compile_upload_arduino.py
+│   ├── hil_benchmark.py
+│   └── Por_Depurar/         # Experimental and legacy scripts
+├── tensorboard_logs/        # Automated TF training logs
+├── installed_packages.txt   # Pip freeze snapshot
+├── requirements.txt         # Core dependencies & Hardware setup
+└── README.md
+```
 
 The project rigorously separates Data Science environments (`src/`) from Embedded Engineering firmware (`deployment/`).
 
@@ -194,11 +247,11 @@ If you use this framework in your academic research, please cite our upcoming *S
 
 ```bibtex
 @article{tinyml_mlops_2026,
-  title={TinyML-MLOps: An Open-Source Structured Framework for Optimizing and Deploying Convolutional Neural Networks on ARM Cortex-M7 Microcontrollers},
+  title={TinyML-MLOps+Benchmark HIL: An Open-Source Structured Framework for Optimizing and Deploying Convolutional Neural Networks on ARM Cortex-M7 Microcontrollers},
   author={[J Villavisan]},
-  journal={},
-  year={},
-  publisher={}
+  journal={SoftwareX},
+  year={2026},
+  publisher={Elsevier}
 }
 ```
 
