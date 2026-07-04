@@ -18,7 +18,7 @@ The **TinyML-MLOps Framework** bridges the gap between high-level Python model t
 - **Transfer Learning Support:** Automated pipelines for training advanced architectures including `MobileNetV2`, `MobileNetV3`, `ResNet18`, and `SqueezeNet`.
 - **Advanced Model Compression:** Built-in scripts for Polynomial Decay Pruning, Layer-Specific Sparse constraints, and Full Integer Quantization (INT8) to shrink models by up to 4x.
 - **Hardware-in-the-Loop Integration:** Includes real-time serial streaming scripts to visualize live raw pixels captured directly from the Portenta H7 Vision Shield.
-- **Academic Reproducibility:** Version-controlled models, dynamic TensorBoard logging, and rigid data hierarchies (`raw/`, `processed/`, `augmented/`).
+- **Academic Reproducibility:** Version-controlled models, dynamic TensorBoard logging, and rigid data hierarchies (`raw/`, `processed/`).
 
 ---
 
@@ -37,11 +37,10 @@ graph TD
 
     subgraph "Data Pipeline"
         RAW[data/raw]:::data --> PROC[data/processed]:::data
-        PROC --> AUG[data/augmented]:::data
     end
 
     subgraph "Python MLOps Training (src/)"
-        AUG --> TRAIN[train_*.py]:::python
+        PROC --> TRAIN[train_*.py]:::python
         TRAIN -->|Saves| KERAS(models/checkpoints/best_model.keras):::artifact
         KERAS --> PRUNE[prune_model.py]:::python
         PRUNE -->|Pruned| KERAS_PRUNED(models/checkpoints/best_model_pruned.keras):::artifact
