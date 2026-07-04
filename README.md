@@ -153,7 +153,7 @@ python src/quantize_int8_basic.py --model_path models/checkpoints/{model_name}.k
 ### 6. Embedded Deployment
 Once the model is optimized, convert the `.tflite` file into a C-array header for the Arduino IDE:
 ```bash
-python src/tflite_to_c.py models/tflite/model_int8.tflite deployment/arduino_project_test/model.h --var_name model_tflite
+python src/tflite_to_c.py models/tflite/{model_name}_int8.tflite deployment/arduino_project_test/model.h --var_name model_tflite
 ```
 
 Compile and upload the C++ firmware automatically to your Portenta H7 using our `arduino-cli` wrapper:
