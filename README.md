@@ -76,7 +76,7 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 
 ### 2. Model Training (ML Pipelines)
 *   **`train_mobilenet.py`**: Training pipeline for MobileNet classification architectures (`MobileNet`, `MobileNetV2`, `MobileNetV3Large`, `MobileNetV3Small`) utilizing Transfer Learning from ImageNet weights, adapted to single-channel (grayscale) inputs and custom number of classes. Supports data augmentation and generates `.keras` models.
-*   **`train_resnet18.py`**: Training pipeline for a standard `ResNet18` model architecture adapted for tiny edge classification.
+*   **`train_resnet.py`**: Training pipeline for ResNet classification architectures (`ResNet8`, `ResNet18`) adapted for tiny edge classification.
 *   **`train_squeezenet.py`**: Training pipeline for the ultra-lightweight `SqueezeNet` architecture, offering a balance between size and accuracy.
 *   **`train_fomo.py`**: Trains a highly optimized **FOMO (Faster Objects, More Objects)** object detection model based on a MobileNetV2 backbone. Rather than utilizing expensive bounding boxes, it generates a cell-level presence heatmap on an $H/8$ or $H/16$ grid using smooth Focal Loss, fitting comfortably inside microcontrollers.
 
