@@ -175,9 +175,9 @@ data/raw/
 ├── Class1/
 └── Class2/
 ```
-then process and resize them with recommended sizes: CAMERA_R160x120 (QQVGA), CAMERA_R320x240 (QVGA), CAMERA_R320x320. 
+then process (convert to grayscale) and resize them with recommended sizes: CAMERA_R160x120 (QQVGA), CAMERA_R320x240 (QVGA), CAMERA_R320x320. 
 ```bash
-python src/process_images.py
+python src/process_images.py --raw_path data/raw --path_processed data/processed/grayscale
 python src/reshape_images.py --width 160 --height 120
 ```
 
