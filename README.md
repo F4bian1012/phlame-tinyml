@@ -51,8 +51,8 @@ graph TD
     end
 
     subgraph "Embedded Deployment (deployment/)"
-        TFLITE -->|tflite_to_c.py| HEADER(arduino_project_test/model.h):::artifact
-        HEADER -.->|compile_upload_arduino.py| C_ENGINE[arduino_project_test.ino]:::hardware
+        TFLITE -->|tflite_to_c.py| HEADER(hil_firmware/model.h):::artifact
+        HEADER -.->|compile_upload_arduino.py| C_ENGINE[hil_firmware.ino]:::hardware
         C_ENGINE --> INFERENCE((Portenta H7 Inference)):::hardware
     end
 
@@ -153,12 +153,12 @@ python src/quantize_int8_basic.py --model_path models/checkpoints/{model_name}.k
 ### 6. Embedded Deployment
 Once the model is optimized, convert the `.tflite` file into a C-array header for the Arduino IDE:
 ```bash
-python src/tflite_to_c.py models/tflite/{model_name}_int8.tflite deployment/arduino_project_test/model.h --var_name model_tflite
+python src/tflite_to_c.py models/tflite/{model_name}_int8.tflite deployment/hil_firmware/model.h --var_name model_tflite
 ```
 
 Compile and upload the C++ firmware automatically to your Portenta H7 using our `arduino-cli` wrapper:
 ```bash
-python src/compile_upload_arduino.py --path_proyecto deployment/arduino_project_test
+python src/compile_upload_arduino.py --path_proyecto deployment/hil_firmware
 ```
 *(Alternatively, you can open the project folder in the Arduino IDE and click Upload).*
 
