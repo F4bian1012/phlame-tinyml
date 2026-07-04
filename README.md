@@ -138,10 +138,11 @@ python src/train_mobilenet.py --base_model MobileNetV2 --width 160 --height 120 
 *For ResNet or SqueezeNet, run `src/train_resnet.py` or `src/train_squeezenet.py` respectively.*
 
 ### 4. Model Evaluation
-Evaluate your `.keras` model, automatically generating a Confusion Matrix and extensive statistical metrics (F1-score, Precision, Recall):
+Evaluate your `.keras` model, automatically generating a Confusion Matrix and extensive statistical metrics (F1-score, Precision, Recall). You can explicitly specify the model you want to evaluate using the `--model_path` argument:
 ```bash
-python src/test_model.py --width 160 --height 120
+python src/test_model.py --width 160 --height 120 --model_path models/checkpoints/MobileNetV2+32+20+0.0001+0.2+160+120.keras
 ```
+*(If `--model_path` is omitted, the script will attempt to load a default MobileNet model based on the provided dimensions).*
 
 ### 5. Optimization & INT8 Quantization
 Convert the float32 Keras model into an ultra-lightweight integer-only TFLite model, strictly necessary for MCUs without a vector FPU:
