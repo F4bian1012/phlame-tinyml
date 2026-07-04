@@ -16,7 +16,6 @@ The **TinyML-MLOps Framework** bridges the gap between high-level Python model t
 
 ###  Key Features
 - **Transfer Learning Support:** Automated pipelines for training advanced architectures including `MobileNetV2`, `MobileNetV3`, `ResNet18`, and `SqueezeNet`.
-- **Object Detection at the Edge:** Natively supports training **FOMO** (Faster Objects, More Objects) for low-power visual detection.
 - **Advanced Model Compression:** Built-in scripts for Polynomial Decay Pruning, Layer-Specific Sparse constraints, and Full Integer Quantization (INT8) to shrink models by up to 4x.
 - **Hardware-in-the-Loop Integration:** Includes real-time serial streaming scripts to visualize live raw pixels captured directly from the Portenta H7 Vision Shield.
 - **Academic Reproducibility:** Version-controlled models, dynamic TensorBoard logging, and rigid data hierarchies (`raw/`, `processed/`, `augmented/`).
@@ -82,7 +81,6 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 *   **`train_mobilenet.py`**: Training pipeline for MobileNet classification architectures (`MobileNet`, `MobileNetV2`, `MobileNetV3Large`, `MobileNetV3Small`) utilizing Transfer Learning from ImageNet weights, adapted to single-channel (grayscale) inputs and custom number of classes. Supports data augmentation and generates `.keras` models.
 *   **`train_resnet.py`**: Training pipeline for ResNet classification architectures (`ResNet8`, `ResNet18`) adapted for tiny edge classification.
 *   **`train_squeezenet.py`**: Training pipeline for the ultra-lightweight `SqueezeNet` architecture, offering a balance between size and accuracy.
-*   **`train_fomo.py`**: Trains a highly optimized **FOMO (Faster Objects, More Objects)** object detection model based on a MobileNetV2 backbone. Rather than utilizing expensive bounding boxes, it generates a cell-level presence heatmap on an $H/8$ or $H/16$ grid using smooth Focal Loss, fitting comfortably inside microcontrollers.
 
 **Common Output Artifacts for Training Scripts:**
 - **Keras Model**: `models/checkpoints/{model_name}+{hyperparameters}.keras` - The trained FP32 model ready for evaluation or quantization.
@@ -137,7 +135,7 @@ Train a state-of-the-art vision architecture (e.g., MobileNetV2) using the comma
 python src/train_mobilenet.py --base_model MobileNetV2 --width 160 --height 120 --batch_size 32 --epochs 20 --learning_rate 0.0001
 ```
 
-*For ResNet, SqueezeNet, or FOMO, run `src/train_resnet.py`, `src/train_squeezenet.py`, or `src/train_fomo.py` respectively.*
+*For ResNet or SqueezeNet, run `src/train_resnet.py` or `src/train_squeezenet.py` respectively.*
 
 ### 4. Model Evaluation
 Evaluate your `.keras` model, automatically generating a Confusion Matrix and extensive statistical metrics (F1-score, Precision, Recall):
