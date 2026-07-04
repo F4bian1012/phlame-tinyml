@@ -41,9 +41,9 @@ graph TD
 
     subgraph "Python MLOps Training (src/)"
         PROC --> TRAIN[train_*.py]:::python
-        TRAIN -->|Saves| KERAS(models/checkpoints/{model_name}.keras):::artifact
+        TRAIN -->|Saves| KERAS("models/checkpoints/{model_name}.keras"):::artifact
         KERAS --> PRUNE[prune_model.py]:::python
-        PRUNE -->|Pruned| KERAS_PRUNED(models/checkpoints/{model_name}_pruned.keras):::artifact
+        PRUNE -->|Pruned| KERAS_PRUNED("models/checkpoints/{model_name}_pruned.keras"):::artifact
         KERAS --> OPT[quantize_int8_basic.py]:::python
         KERAS_PRUNED --> OPT
         OPT -->|Converts| TFLITE(models/tflite/model_int8.tflite):::artifact
