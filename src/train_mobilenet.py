@@ -7,14 +7,8 @@ import os
 import datetime
 import argparse
 
-# ==========================================
-# CONFIGURATION & HYPERPARAMETERS
-# ==========================================
-
-# Paths
 LOG_DIR = "tensorboard_logs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
-# Ensure directories exist
 os.makedirs("models/checkpoints", exist_ok=True)
 os.makedirs("tensorboard_logs", exist_ok=True)
 
@@ -35,7 +29,6 @@ def load_custom_data(data_dir, img_width, img_height, batch_size, validation_spl
 
     print(f"Loading data from {data_dir}...")
     
-    # Load Training Data
     try:
         train_ds = tf.keras.utils.image_dataset_from_directory(
             data_dir,
@@ -71,7 +64,6 @@ def load_custom_data(data_dir, img_width, img_height, batch_size, validation_spl
         print("   You should add a 'background' or 'negative' class folder with random images")
         print("   to teach the model what is NOT a '{}'.\n".format(class_names[0]))
 
-    # Autotune for performance
     AUTOTUNE = tf.data.AUTOTUNE
     train_ds = train_ds.cache().shuffle(1000).prefetch(buffer_size=AUTOTUNE)
     val_ds = val_ds.cache().prefetch(buffer_size=AUTOTUNE)
@@ -84,7 +76,6 @@ def create_mobilenet_model(num_classes, img_shape, learning_rate, base_model_nam
     """
     print(f"Building {base_model_name} model for {num_classes} classes...")
 
-    # Data Augmentation
     data_augmentation = keras.Sequential([
         layers.RandomFlip('horizontal'),
         layers.RandomRotation(0.2),
@@ -134,11 +125,7 @@ def create_mobilenet_model(num_classes, img_shape, learning_rate, base_model_nam
     x = layers.GlobalAveragePooling2D()(x)
     x = layers.Dropout(0.2)(x)
     
-    # Handle Single-Class Case
     if num_classes == 1:
-        # Binary output (Sigmoid) is standard for 2 classes, 
-        # but with 1 class it effectively just learns bias.
-        # However, Dense(1) is better than Dense(1, softmax) which is always 1.
         print("Using Binary classification configuration (Sigmoid) for single class.")
         outputs = layers.Dense(1, activation='sigmoid')(x)
         loss_fn = 'binary_crossentropy'
@@ -184,7 +171,6 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, validation_sp
     plot_path = f"tensorboard_logs/{base_model_name}_training_history+{batch_size}+{epochs}+{learning_rate}+{validation_split}+{img_width}+{img_height}.png"
     checkpoint_path = f"models/checkpoints/{base_model_name}+{batch_size}+{epochs}+{learning_rate}+{validation_split}+{img_width}+{img_height}.keras"
 
-    # 1. Load Data
     train_ds, val_ds, class_names = load_custom_data(data_dir, img_width, img_height, batch_size, validation_split)
     
     if train_ds is None:
@@ -192,11 +178,9 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, validation_sp
 
     num_classes = len(class_names)
 
-    # 2. Build Model
     model = create_mobilenet_model(num_classes, img_shape, learning_rate, base_model_name)
     model.summary()
 
-    # 3. Callbacks
     callbacks = [
         keras.callbacks.ModelCheckpoint(
             filepath=checkpoint_path,
@@ -210,10 +194,13 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, validation_sp
             patience=5,
             restore_best_weights=True,
             verbose=1
+        ),
+        keras.callbacks.TensorBoard(
+            log_dir=LOG_DIR,
+            histogram_freq=1
         )
     ]
 
-    # 4. Train
     print("Starting training...")
     try:
         history = model.fit(
@@ -223,11 +210,9 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, validation_sp
             callbacks=callbacks
         )
 
-        # 5. Visualize
         plot_history(history, plot_path)
         print(f"Model saved to {checkpoint_path}")
         
-        # Optional: Save class names for inference
         with open("models/class_names.txt", "w") as f:
             for name in class_names:
                 f.write(f"{name}\n")
