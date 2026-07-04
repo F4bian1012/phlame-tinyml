@@ -57,7 +57,7 @@ graph TD
     end
 
     subgraph "Hardware-in-the-Loop (HIL)"
-        PROC -.->|send_multiple_images_serial.py| INFERENCE
+        PROC -.->|HIL_benchmark.py| INFERENCE
         INFERENCE -.->|Serial Protocol| CM_PLOT(Matriz_Serial_Arduino.png):::artifact
     end
 ```
@@ -101,7 +101,7 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 ### 4. Embedded Conversion & Deployment
 *   **`tflite_to_c.py`**: Standardized converter utility that parses a `.tflite` binary file and outputs a C/C++ array header compatible with TFLite for Microcontrollers. Embeds a critical 16-byte alignment attribute (`DATA_ALIGN_ATTRIBUTE`) required for hardware accelerators and optimal execution on ARM Cortex-M7 (e.g., Arduino Portenta H7).
 *   **`compile_upload_arduino.py`**: Automation utility that interacts directly with `arduino-cli` to compile and upload the firmware. It handles core installations (`arduino:mbed_portenta`), auto-detects the connected board's COM port, and mitigates Windows path syntax issues natively.
-*   **`send_multiple_images_serial.py`**: A robust hardware-in-the-loop evaluation script. It sends preprocessed dataset images to the Arduino Portenta via a custom Serial protocol (with byte escaping). It reads predictions back in real-time, matching them with the true folder-based classes to generate extensive statistical metrics and a Seaborn-based Confusion Matrix plot comparing Edge hardware inference with ground-truth.
+*   **`HIL_benchmark.py`**: A robust hardware-in-the-loop evaluation script. It sends preprocessed dataset images to the Arduino Portenta via a custom Serial protocol (with byte escaping). It reads predictions back in real-time, matching them with the true folder-based classes to generate extensive statistical metrics and a Seaborn-based Confusion Matrix plot comparing Edge hardware inference with ground-truth.
 
 ---
 
@@ -165,7 +165,7 @@ python src/compile_upload_arduino.py --path_proyecto deployment/arduino_project_
 ### 7. Hardware-in-the-Loop Evaluation
 Once the firmware is running on your Portenta H7, you can evaluate the model's physical performance directly on the edge hardware. Stream a test dataset over USB Serial and let the script compare the board's inferences with the real labels to generate metrics and a Confusion Matrix plot:
 ```bash
-python src/send_multiple_images_serial.py --folder data/processed/160x120 --width 160 --height 120
+python src/HIL_benchmark.py --folder data/processed/160x120 --width 160 --height 120
 ```
 
 ---
