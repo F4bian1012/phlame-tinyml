@@ -1,4 +1,4 @@
-"""
+r"""
 send_multiple_images_serial.py
 ================================
 Envía imágenes preprocesadas al Arduino Portenta H7 por puerto serial.
@@ -51,9 +51,6 @@ except ImportError:
     sys.exit(1)
 
 
-# ──────────────────────────────────────────────
-# Constantes del protocolo
-# ──────────────────────────────────────────────
 MARKER_START = b'#'   # 0x23
 MARKER_END   = b'@'   # 0x40
 ESCAPE_BYTE  = 0x1B   # ESC
@@ -83,9 +80,9 @@ def preprocess_image(image_path: str, width: int, height: int, grayscale: bool) 
     img = Image.open(image_path)
 
     if grayscale:
-        img = img.convert('L')          # escala de grises (1 canal)
+        img = img.convert('L')
     else:
-        img = img.convert('RGB')        # 3 canales
+        img = img.convert('RGB')
 
     img = img.resize((width, height), Image.LANCZOS)
 
@@ -113,7 +110,6 @@ def send_image(port: str, baud: int, image_path: str,
     """
     Abre el puerto serial y envía la imagen con el protocolo #...@
     """
-    # Preprocesar imagen
     raw_payload = preprocess_image(image_path, width, height, grayscale)
     packet = build_packet(raw_payload)
 
@@ -128,7 +124,6 @@ def send_image(port: str, baud: int, image_path: str,
     print(f"[INFO] Puerto abierto. Esperando {pre_delay}s antes de enviar...")
     time.sleep(pre_delay)
 
-    # Limpiar buffer de entrada
     ser.reset_input_buffer()
 
     print(f"[INFO] Enviando paquete: {len(packet)} bytes totales "
@@ -181,8 +176,7 @@ def send_folder(port: str, baud: int, folder: str,
                 Si es None (o >= total disponibles), se envían todas.
     """
     extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.tif')
-    
-    # 1. Buscar subcarpetas para definir las clases reales
+
     subdirs = [d for d in os.listdir(folder) if os.path.isdir(os.path.join(folder, d))]
     subdirs.sort()
 
@@ -191,7 +185,6 @@ def send_folder(port: str, baud: int, folder: str,
 
     if not subdirs:
         print(f"[INFO] No se encontraron subcarpetas en {folder}. No se generará matriz de confusión.")
-        # Buscar imágenes directamente en la carpeta
         for root, _, files in os.walk(folder):
             for f in files:
                 if f.lower().endswith(extensions):
@@ -211,7 +204,6 @@ def send_folder(port: str, baud: int, folder: str,
         print(f"[ERROR] No se encontraron imágenes válidas en: {folder}")
         sys.exit(1)
 
-    # Muestreo aleatorio si el usuario especificó --count
     available = len(image_data)
     if n_samples is not None and n_samples < available:
         image_data = random.sample(image_data, n_samples)
@@ -220,7 +212,6 @@ def send_folder(port: str, baud: int, folder: str,
     else:
         print(f"[INFO] {available} imágenes encontradas en '{folder}' (enviando todas)")
 
-    # Abrir el puerto una sola vez
     print(f"[INFO] Conectando a {port} @ {baud} baud ...")
     try:
         ser = serial.Serial(port, baud, timeout=10)
@@ -233,7 +224,6 @@ def send_folder(port: str, baud: int, folder: str,
 
     total = len(image_data)
 
-    # Contadores y arrays de métricas
     class_counts: Counter = Counter()
     errors = 0
     y_true = []
@@ -260,12 +250,11 @@ def send_folder(port: str, baud: int, folder: str,
             if ser.in_waiting:
                 line = ser.readline().decode('utf-8', errors='replace').rstrip()
                 print(f"  Arduino >>> {line}")
-                # Intentar parsear como entero (clase predicha)
                 try:
                     predicted_class = int(line.strip())
                     break
                 except ValueError:
-                    pass  # ignorar líneas que no sean un entero
+                    pass
             else:
                 time.sleep(0.05)
 
@@ -286,7 +275,6 @@ def send_folder(port: str, baud: int, folder: str,
     ser.close()
     print("\n[INFO] Puerto cerrado. Todas las imágenes enviadas.")
 
-    # ── Resumen de predicciones ──────────────────────────────────────
     respondidas = total - errors
     print("\n" + "=" * 45)
     print(f"  RESUMEN DE PREDICCIONES")
@@ -321,7 +309,6 @@ def send_folder(port: str, baud: int, folder: str,
             print(f"Recall (Exhaustividad):{recall:.4f}")
             print(f"F1-Score:             {f1:.4f}")
 
-            # Identificar todas las clases presentes para el reporte
             labels_present = sorted(list(set(y_true + y_pred)))
             target_names = []
             for lab in labels_present:
@@ -343,7 +330,6 @@ def send_folder(port: str, baud: int, folder: str,
             plt.xlabel('Etiqueta Predicha')
             plt.tight_layout()
 
-            # Guardar matriz
             cm_plot_name = "Matriz_Serial_Arduino.png"
             cm_plot_path = os.path.join(folder, cm_plot_name)
             plt.savefig(cm_plot_path)
@@ -354,9 +340,6 @@ def send_folder(port: str, baud: int, folder: str,
             print("Instálalas con: pip install scikit-learn seaborn matplotlib")
 
 
-# ──────────────────────────────────────────────
-# Entry point
-# ──────────────────────────────────────────────
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Envía imagen(es) al Arduino por serial (protocolo #...@)"
@@ -364,7 +347,6 @@ def parse_args():
     parser.add_argument('--port',   default="COM9", required=False,
                         help="Puerto serial (ej. COM9 o /dev/ttyUSB0)")
 
-    # Origen de la imagen: una sola imagen O una carpeta (mutuamente excluyentes)
     source = parser.add_mutually_exclusive_group()
     source.add_argument('--image',  default=None,
                         help="Ruta a una imagen concreta a enviar")
@@ -426,7 +408,6 @@ if __name__ == '__main__':
     port = normalize_port(args.port)
 
     if args.image:
-        # Enviar una única imagen
         send_image(
             port=port,
             baud=args.baud,
@@ -437,7 +418,6 @@ if __name__ == '__main__':
             pre_delay=args.delay,
         )
     else:
-        # Enviar imágenes de la carpeta (todas o N aleatorias)
         folder = args.folder if args.folder is not None else DEFAULT_FOLDER
         send_folder(
             port=port,
