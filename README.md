@@ -111,7 +111,7 @@ data/raw/
 ├── Class2/
 └── Class3/
 ```
-then process and resize them with recommended sizes: 160x120, 320x240, 320x320 
+then process and resize them with recommended sizes: CAMERA_R160x120 (QQVGA), CAMERA_R320x240 (QVGA), CAMERA_R320x320 
 ```bash
 python src/process_images.py
 python src/reshape_images.py --width 160 --height 120
@@ -128,7 +128,7 @@ python src/train_mobilenet.py --base_model MobileNetV2 --width 160 --height 120 
 ### 4. Model Evaluation
 Evaluate your `.keras` model, automatically generating a Confusion Matrix and extensive statistical metrics (F1-score, Precision, Recall):
 ```bash
-python src/test_model.py --width 96 --height 96
+python src/test_model.py --width 160 --height 120
 ```
 
 ### 5. Optimization & INT8 Quantization
