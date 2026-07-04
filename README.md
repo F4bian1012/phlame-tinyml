@@ -165,7 +165,7 @@ python src/compile_upload_arduino.py --path_proyecto deployment/hil_firmware
 ### 7. Hardware-in-the-Loop Evaluation
 Once the firmware is running on your Portenta H7, you can evaluate the model's physical performance directly on the edge hardware. Stream a test dataset over USB Serial and let the script compare the board's inferences with the real labels to generate metrics and a Confusion Matrix plot:
 ```bash
-python src/hil_benchmark.py --folder data/processed/160x120 --width 160 --height 120
+python src/hil_benchmark.py --folder data/processed/160x120 --width 160 --height 120 --port COM9 --baud 115200
 ```
 
 ---
