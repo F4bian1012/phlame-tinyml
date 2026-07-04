@@ -41,9 +41,9 @@ graph TD
 
     subgraph "Python MLOps Training (src/)"
         PROC --> TRAIN[train_*.py]:::python
-        TRAIN -->|Saves| KERAS(models/checkpoints/best_model.keras):::artifact
+        TRAIN -->|Saves| KERAS(models/checkpoints/{model_name}.keras):::artifact
         KERAS --> PRUNE[prune_model.py]:::python
-        PRUNE -->|Pruned| KERAS_PRUNED(models/checkpoints/best_model_pruned.keras):::artifact
+        PRUNE -->|Pruned| KERAS_PRUNED(models/checkpoints/{model_name}_pruned.keras):::artifact
         KERAS --> OPT[quantize_int8_basic.py]:::python
         KERAS_PRUNED --> OPT
         OPT -->|Converts| TFLITE(models/tflite/model_int8.tflite):::artifact
@@ -146,7 +146,7 @@ python src/test_model.py --width 160 --height 120 --model_path models/checkpoint
 ### 5. Optimization & INT8 Quantization
 Convert the float32 Keras model into an ultra-lightweight integer-only TFLite model, strictly necessary for MCUs without a vector FPU:
 ```bash
-python src/quantize_int8_basic.py --model_path models/checkpoints/best_model.keras 
+python src/quantize_int8_basic.py --model_path models/checkpoints/{model_name}.keras 
 ```
 *Note: You can validate the quantized model against the dataset using `python src/test_tflite_model.py`.*
 
