@@ -278,6 +278,9 @@ Once the firmware is running on your Portenta H7, you can evaluate the model's p
 python src/hil_benchmark.py --folder data/processed/160x120 --width 160 --height 120 --port COM9 --baud 115200
 ```
 
+**Common Output Artifacts for HIL Evaluation:**
+- **Confusion Matrix (HIL)**: `results/hil/HIL_Confusion_Matrix.png` - Visual evaluation of the physical Portenta inference compared with real labels.
+
 ---
 
 ## Experimental Sandbox (`src/Por_Depurar/`)
