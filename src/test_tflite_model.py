@@ -82,11 +82,8 @@ def main():
     interpreter = tf.lite.Interpreter(model_path=args.model_path)
     interpreter.allocate_tensors()
 
-    # Obtener detalles del tensor (ej. si está cuantizado u ocupa forma de entrada específica)
     input_details = interpreter.get_input_details()[0]
     output_details = interpreter.get_output_details()[0]
-
-    # Extraer las dimensiones requeridas directamente del modelo TFLite
     _, expected_height, expected_width, expected_channels = input_details['shape']
 
     # Limpiar espacios en blanco o comillas invisibles en la cadena
@@ -136,7 +133,6 @@ def main():
     print("Generando predicciones frame-by-frame con el modelo TFLite (inferencia secuencial)...")
     
     for x, y in test_ds:
-        # Extraer etiqueta verdadera
         y_true.append(y.numpy()[0])
         
         # x esta escalado original entre [0..255] float32. Lo necesitamos pasar
@@ -147,22 +143,11 @@ def main():
         if tuple(input_data.shape) != tuple(input_details['shape']):
             input_data = np.reshape(input_data, input_details['shape'])
         
-        # 1. Cuantización estricta de entrada si el modelo es int8 puro
         input_data = quantize_input(input_data, input_details)
-        
-        # 2. Asignar tensor interno 
         interpreter.set_tensor(input_details['index'], input_data)
-        
-        # 3. Llamar procesamiento inferencial
         interpreter.invoke()
-        
-        # 4. Leer Output
         output_data = interpreter.get_tensor(output_details['index'])
-        
-        # 5. Descuantizar salida si está en int8 (para poder evaluar softmax final > 0.5)
         output_data = dequantize_output(output_data, output_details)
-        
-        # Almacenamos batch (que en este caso es 1 valor en [0])
         predictions.append(output_data[0])
 
     y_true = np.array(y_true)
@@ -203,7 +188,6 @@ def main():
     plt.xlabel('Etiqueta Predicha')
     plt.tight_layout()
     
-    # Guardar en output dict, ej TFLite logs. 
     out_dir = os.path.dirname(args.model_path)
     if not out_dir:
         out_dir = "."
@@ -214,7 +198,7 @@ def main():
     cm_plot_path = os.path.join(out_dir, cm_plot_name)
     
     plt.savefig(cm_plot_path)
-    print(f"\n✅ Gráfico de la matriz de confusión guardado en {cm_plot_path}")
+    print(f"\n Gráfico de la matriz de confusión guardado en {cm_plot_path}")
 
 if __name__ == "__main__":
     main()

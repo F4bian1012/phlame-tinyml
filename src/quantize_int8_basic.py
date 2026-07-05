@@ -22,7 +22,6 @@ def main():
             print(f"Error: No se encontró el modelo en {model_path}.")
             return
     else:
-        # 1. Buscar automáticamente el modelo .keras en models/checkpoints
         checkpoints = glob.glob("models/checkpoints/*.keras")
         if not checkpoints:
             print("Error: No se encontraron modelos (.keras) en la carpeta models/checkpoints.")
@@ -58,7 +57,6 @@ def main():
         print("Se requieren las imágenes del proyecto para calibrar con precisión los rangos INT8.")
         return
 
-    # 2. Cargar un dataset representativo para realizar la calibración
     print(f"\nCargando datos desde {data_dir} para el dataset representativo...")
     calib_ds = tf.keras.utils.image_dataset_from_directory(
         data_dir,
@@ -70,33 +68,26 @@ def main():
         batch_size=32
     )
 
-    # 3. Cargar el modelo base
     print("\nCargando el modelo...")
     model = tf.keras.models.load_model(model_path)
 
-    # 4. Configurar el convertidor TFLite
     print("\nConfigurando la conversión de Full Integer Quantization (INT8)...")
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
-    
-    # Habilitar opciones de cuantización predeterminadas
     converter.optimizations = [tf.lite.Optimize.DEFAULT]
     
     # Pasar el dataset representativo (es mandatorio para conversiones full-INT8)
     converter.representative_dataset = representative_data_gen(calib_ds)
     
-    # Forzar que todas las operaciones soportadas sean estrictamente INT8
     converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
     
     # Definir entradas y salidas en formato int8 para máxima compatibilidad Edge/MCU
     converter.inference_input_type = tf.int8
     converter.inference_output_type = tf.int8
 
-    # 5. Ejecutar la conversión
     print("Convirtiendo modelo. Esto tomará unos segundos...")
     try:
         tflite_model = converter.convert()
         
-        # 6. Guardar en disco
         tflite_dir = "models/tflite"
         os.makedirs(tflite_dir, exist_ok=True)
         

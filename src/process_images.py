@@ -15,8 +15,7 @@ def process_images(raw_dir, processed_dir):
     
     print(f"Buscando imágenes en {raw_dir}...")
     for ext in extensions:
-        
-        files.extend(glob.glob(os.path.join(raw_dir, ext)))
+        files.extend(glob.glob(os.path.join(raw_dir, '**', ext), recursive=True))
         
     if not files:
         print("No se encontraron imágenes.")
@@ -36,8 +35,11 @@ def process_images(raw_dir, processed_dir):
             
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             
+            rel_path = os.path.relpath(file_path, raw_dir)
+            output_path = os.path.join(processed_dir, rel_path)
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            
             filename = os.path.basename(file_path)
-            output_path = os.path.join(processed_dir, filename)
             ext_lower = os.path.splitext(filename)[1].lower()
             
             encode_params = []

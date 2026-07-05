@@ -15,7 +15,6 @@ FQBN_FULL = f"{FQBN_BASE}:split=100_0"
 
 def ejecutar(comando):
     """Ejecuta un comando en la terminal y retorna éxito y su salida."""
-    # print(f"Ejecutando: {comando}")
     res = subprocess.run(comando, shell=True, capture_output=True, text=True)
     if res.returncode == 0:
         return True, res.stdout
@@ -91,16 +90,13 @@ def main():
         print(f" La ruta especificada para el proyecto no existe: {path_proyecto}")
         sys.exit(1)
 
-    # 1. Verificar/Instalar core
     check_core_installed()
 
-    # 2. Encontrar puerto
     puerto = find_portenta_port()
     if not puerto:
         print("-> Por favor, conecta la placa e inténtalo de nuevo.")
         sys.exit(1)
 
-    # 3. Compilar
     print(f"\n=== 1. Compilando proyecto en: {path_proyecto} ===")
     cmd_compile = f"arduino-cli compile --fqbn {FQBN_FULL} --warnings none \"{path_proyecto}\""
     print(f"> {cmd_compile}")
@@ -109,7 +105,6 @@ def main():
         sys.exit(1)
     print(" Compilación exitosa.")
 
-    # 4. Subir
     print("\n=== 2. Subiendo a la placa ===")
     print("NOTA: Asegúrate de que la placa esté en modo Bootloader (parpadeando en verde) si tienes problemas de subida.")
     cmd_upload = f"arduino-cli upload -p {puerto} --fqbn {FQBN_FULL} \"{path_proyecto}\""

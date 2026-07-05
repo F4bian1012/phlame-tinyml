@@ -11,7 +11,7 @@ def calculate_sparsity(model):
         if isinstance(layer, (tf.keras.layers.Conv2D, tf.keras.layers.Dense)):
             weights = layer.get_weights()
             if len(weights) > 0:
-                w = weights[0] # The weight matrix
+                w = weights[0]
                 total_params += w.size
                 zero_params += np.sum(w == 0)
     
@@ -27,7 +27,6 @@ def apply_global_unstructured_pruning(model, sparsity):
     """
     print(f"Applying Global Unstructured Pruning (target sparsity: {sparsity*100:.1f}%)")
     
-    # 1. Collect all weights
     all_weights = []
     for layer in model.layers:
         if isinstance(layer, (tf.keras.layers.Conv2D, tf.keras.layers.Dense)):
@@ -39,13 +38,11 @@ def apply_global_unstructured_pruning(model, sparsity):
         print("No Conv2D or Dense layers found to prune.")
         return model
         
-    # 2. Find global threshold
     concat_weights = np.concatenate(all_weights)
     abs_weights = np.abs(concat_weights)
     threshold = np.percentile(abs_weights, sparsity * 100)
     print(f"Global magnitude threshold calculated: {threshold:.6f}")
     
-    # 3. Apply threshold mask
     for layer in model.layers:
         if isinstance(layer, (tf.keras.layers.Conv2D, tf.keras.layers.Dense)):
             weights = layer.get_weights()
@@ -53,7 +50,6 @@ def apply_global_unstructured_pruning(model, sparsity):
                 w = weights[0]
                 b = weights[1] if len(weights) > 1 else None
                 
-                # Create mask and apply to weights
                 mask = np.abs(w) >= threshold
                 pruned_w = w * mask
                 
@@ -130,7 +126,6 @@ def main():
     final_sparsity = calculate_sparsity(model)
     print(f"Final model sparsity achieved: {final_sparsity*100:.2f}%")
     
-    # Save the model
     base, ext = os.path.splitext(args.model_path)
     output_path = f"{base}_pruned_{args.technique}_{args.sparsity}{ext}"
     

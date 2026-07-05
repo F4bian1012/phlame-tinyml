@@ -150,15 +150,15 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Envía una imagen al Arduino por serial (protocolo #...@)"
     )
-    parser.add_argument('--port', default="COM9", required=False,
+    parser.add_argument('--port', default="COM7", required=False,
                         help="Puerto serial (ej. COM9 o /dev/ttyUSB0)")
     parser.add_argument('--image',  required=True,
                         help="Ruta a la imagen de entrada")
     parser.add_argument('--baud',   type=int, default=115200,
                         help="Baudrate (default: 115200)")
-    parser.add_argument('--width',  type=int, default=120,
+    parser.add_argument('--width',  type=int, default=160,
                         help="Ancho del tensor de entrada (default: 48)")
-    parser.add_argument('--height', type=int, default=160,
+    parser.add_argument('--height', type=int, default=120,
                         help="Alto del tensor de entrada (default: 48)")
     parser.add_argument('--color',  action='store_true',
                         help="Enviar en color RGB (default: escala de grises)")

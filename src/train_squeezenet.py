@@ -7,14 +7,8 @@ import os
 import datetime
 import argparse
 
-# ==========================================
-# CONFIGURATION & HYPERPARAMETERS
-# ==========================================
-
-# Paths
 LOG_DIR = "tensorboard_logs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
-# Ensure directories exist
 os.makedirs("models/checkpoints", exist_ok=True)
 os.makedirs("tensorboard_logs", exist_ok=True)
 
@@ -71,17 +65,12 @@ def load_custom_data(data_dir, img_width, img_height, batch_size, validation_spl
         print("   que predice esta clase para TODOS los inputs (accuracy trivial).")
         print(f"   Agrega una carpeta de clase 'background' o 'negativo' con imágenes aleatorias\n")
 
-    # Autotune para rendimiento
     AUTOTUNE = tf.data.AUTOTUNE
     train_ds = train_ds.cache().shuffle(1000).prefetch(buffer_size=AUTOTUNE)
     val_ds = val_ds.cache().prefetch(buffer_size=AUTOTUNE)
 
     return train_ds, val_ds, class_names
 
-
-# ==========================================
-# SQUEEZENET ARCHITECTURE (desde cero)
-# ==========================================
 
 def fire_module(x, squeeze_filters, expand_filters, name_prefix):
     """
@@ -97,7 +86,6 @@ def fire_module(x, squeeze_filters, expand_filters, name_prefix):
     Returns:
         tensor de salida del módulo fire
     """
-    # Squeeze
     x = layers.Conv2D(
         squeeze_filters, (1, 1),
         activation='relu',
@@ -105,7 +93,6 @@ def fire_module(x, squeeze_filters, expand_filters, name_prefix):
         name=f"{name_prefix}_squeeze"
     )(x)
 
-    # Expand 1x1
     expand_1x1 = layers.Conv2D(
         expand_filters, (1, 1),
         activation='relu',
@@ -113,7 +100,6 @@ def fire_module(x, squeeze_filters, expand_filters, name_prefix):
         name=f"{name_prefix}_expand1x1"
     )(x)
 
-    # Expand 3x3
     expand_3x3 = layers.Conv2D(
         expand_filters, (3, 3),
         activation='relu',
@@ -121,7 +107,6 @@ def fire_module(x, squeeze_filters, expand_filters, name_prefix):
         name=f"{name_prefix}_expand3x3"
     )(x)
 
-    # Concatenar ambas ramas expand
     x = layers.Concatenate(axis=-1, name=f"{name_prefix}_concat")([expand_1x1, expand_3x3])
     return x
 
@@ -190,14 +175,12 @@ def build_squeezenet(input_shape, num_classes, dropout_rate=0.5):
 
     # Conv final → Global Average Pooling (reemplaza Flatten + Dense, ~0 params extras)
     if num_classes == 1:
-        # Clasificación binaria
         x = layers.Conv2D(1, (1, 1), activation='relu', padding='same', name="conv10")(x)
         x = layers.GlobalAveragePooling2D(name="gap")(x)
         outputs = layers.Activation('sigmoid', name="output_sigmoid")(x)
         loss_fn = 'binary_crossentropy'
         print("Configuración binaria (Sigmoid) para clase única.")
     else:
-        # Clasificación multiclase
         x = layers.Conv2D(num_classes, (1, 1), activation='relu', padding='same', name="conv10")(x)
         x = layers.GlobalAveragePooling2D(name="gap")(x)
         outputs = layers.Activation('softmax', name="output_softmax")(x)
@@ -233,7 +216,6 @@ def create_squeezenet_model(num_classes, img_shape, learning_rate, dropout_rate=
 
     model, loss_fn = build_squeezenet(img_shape, num_classes, dropout_rate)
 
-    # Re-compilar con el learning_rate del argumento (build_squeezenet usa el default)
     if num_classes == 1:
         loss = 'binary_crossentropy'
     else:
@@ -277,7 +259,7 @@ def plot_history(history, plot_path):
 def main(img_width, img_height, batch_size, epochs, learning_rate, validation_split, dropout_rate):
     model_name = "SqueezeNet"
     data_dir = f"data/processed/{img_width}x{img_height}"
-    img_shape = (img_height, img_width, 1)  # Escala de grises
+    img_shape = (img_height, img_width, 1)
     plot_path = (
         f"tensorboard_logs/{model_name}_training_history"
         f"+{batch_size}+{epochs}+{learning_rate}+{validation_split}"
@@ -289,7 +271,6 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, validation_sp
         f"+{img_width}+{img_height}.keras"
     )
 
-    # 1. Cargar datos
     train_ds, val_ds, class_names = load_custom_data(
         data_dir, img_width, img_height, batch_size, validation_split
     )
@@ -298,11 +279,9 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, validation_sp
 
     num_classes = len(class_names)
 
-    # 2. Construir modelo
     model = create_squeezenet_model(num_classes, img_shape, learning_rate, dropout_rate)
     model.summary()
 
-    # 3. Callbacks
     callbacks = [
         keras.callbacks.ModelCheckpoint(
             filepath=checkpoint_path,
@@ -330,7 +309,6 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, validation_sp
         )
     ]
 
-    # 4. Entrenamiento
     print("\nIniciando entrenamiento de SqueezeNet...")
     try:
         history = model.fit(
@@ -340,11 +318,9 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, validation_sp
             callbacks=callbacks
         )
 
-        # 5. Visualización
         plot_history(history, plot_path)
         print(f"Modelo guardado en: {checkpoint_path}")
 
-        # Guardar nombres de clases para inferencia
         with open("models/class_names.txt", "w") as f:
             for name in class_names:
                 f.write(f"{name}\n")

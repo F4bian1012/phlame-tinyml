@@ -2,10 +2,9 @@ import argparse
 import os
 
 def hex_to_c_array(hex_data, var_name):
-    # Determine the array size
     data_len = len(hex_data)
     
-    # Create the C string with alignment attribute for better performance on embedded devices like Portenta H7
+    # Alignment attribute for better performance on embedded devices like Portenta H7
     c_str =  f"#ifndef {var_name.upper()}_H\n"
     c_str += f"#define {var_name.upper()}_H\n\n"
     c_str += "// Auto-generated from .tflite model\n"
@@ -29,7 +28,6 @@ def hex_to_c_array(hex_data, var_name):
     c_str += f"const unsigned int {var_name}_len = {data_len};\n\n"
     c_str += f"const unsigned char {var_name}[] DATA_ALIGN_ATTRIBUTE = {{\n"
     
-    # Format the hex data into lines of 12 values
     hex_array = [f'0x{val:02x}' for val in hex_data]
     for i in range(0, len(hex_array), 12):
         chunk = hex_array[i:i+12]
@@ -54,19 +52,15 @@ def main():
         print(f"Error: The model file {args.tflite_path} does not exist.")
         return
 
-    # Read the .tflite file as binary
     with open(args.tflite_path, 'rb') as f:
         tflite_content = f.read()
 
-    # Convert to C array format
     c_content = hex_to_c_array(tflite_content, args.var_name)
 
-    # Make sure output directory exists
     output_dir = os.path.dirname(os.path.abspath(args.output_path))
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
 
-    # Write the formatted C content to the output file
     with open(args.output_path, 'w') as f:
         f.write(c_content)
 

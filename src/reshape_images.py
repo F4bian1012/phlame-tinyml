@@ -3,7 +3,6 @@ import os
 import glob
 import argparse
 
-# Default Paths
 PROCESSED_BASE_DIR = "data/processed"
 
 def reshape_images(width, height, input_dir):
@@ -15,7 +14,6 @@ def reshape_images(width, height, input_dir):
     
     os.makedirs(output_dir, exist_ok=True)
     
-    # Supported extensions
     extensions = ['*.jpg', '*.jpeg', '*.png', '*.bmp']
     files = []
     
@@ -38,10 +36,8 @@ def reshape_images(width, height, input_dir):
                 print(f"Failed to load: {file_path}")
                 continue
                 
-            # Resize
             resized = cv2.resize(img, (width, height))
             
-            # Save
             rel_path = os.path.relpath(file_path, input_dir)
             output_path = os.path.join(output_dir, rel_path)
             os.makedirs(os.path.dirname(output_path), exist_ok=True)

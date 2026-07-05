@@ -31,7 +31,6 @@ An open-source, highly structured MLOps pipeline designed to optimize and deploy
   - [6. Embedded Deployment](#6-embedded-deployment)
   - [7. Hardware-in-the-Loop Evaluation](#7-hardware-in-the-loop-evaluation)
 - [Experimental Sandbox (`src/Por_Depurar/`)](#experimental-sandbox-srcpor_depurar)
-- [Real-time Hardware Vision](#real-time-hardware-vision)
 - [Citation](#citation)
 
 ---
@@ -288,16 +287,6 @@ The `Por_Depurar/` directory is dedicated to experimental model optimization res
 - **`pruning_techniques.py`**: Explores Polynomial Decay and Layer-specific sparsity to reduce weight footprint.
 - **`quantization_techniques.py`**: Compares Dynamic Range, Full Integer, Float16, and Quantization-Aware Training (QAT).
 - **Legacy Baselines**: Contains the foundational `train_model.py` demonstrating a custom, from-scratch micro-CNN.
-
----
-
-## Real-time Hardware Vision
-We provide an end-to-end loop for raw data collection using the Arduino Portenta Vision Shield.
-1. Flash `deployment/arduino/image_capture/image_capture.ino` to the Portenta H7.
-2. Run the Python visualizer to view live serial pixel data (160x120 Grayscale at 30fps):
-```bash
-python src/Por_Depurar/visualize_serial_image.py
-```
 
 ---
 

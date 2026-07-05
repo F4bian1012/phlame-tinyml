@@ -15,9 +15,6 @@ except ImportError:
     print("Ejecuta: pip install scikit-learn seaborn")
     exit(1)
 
-# ==========================================
-# CONFIGURATION & HYPERPARAMETERS
-# ==========================================
 BATCH_SIZE = 32
 
 def parse_args():
@@ -50,7 +47,6 @@ def main():
         print(f"Error: No se encontró el directorio de datos en {args.data_dir}")
         return  
 
-    # Cargar nombres de las clases si el archivo existe
     class_names = []
     if os.path.exists(args.class_names_path):
         with open(args.class_names_path, 'r') as f:
@@ -79,11 +75,9 @@ def main():
 
     num_classes = len(class_names)
     
-    # Extraer etiquetas reales (y_true)
     print("Extrayendo etiquetas reales...")
     y_true = np.concatenate([y.numpy() for x, y in test_ds], axis=0)
     
-    # Obtener predicciones (y_pred)
     print("Generando predicciones con el modelo (esto puede tardar unos segundos)...")
     predictions = model.predict(test_ds)
     
@@ -114,7 +108,6 @@ def main():
     print("\nReporte de Clasificación Detallado:")
     print(classification_report(y_true, y_pred, target_names=class_names, labels=range(len(class_names)), zero_division=0))
 
-    # Matriz de Confusión
     print("\nGenerando Matriz de Confusión...")
     cm = confusion_matrix(y_true, y_pred, labels=range(len(class_names)))
     
