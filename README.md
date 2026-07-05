@@ -113,7 +113,7 @@ graph TD
 
     subgraph "Hardware-in-the-Loop (HIL)"
         PROC -.->|hil_benchmark.py| INFERENCE
-        INFERENCE -.->|Serial Protocol| CM_PLOT(Matriz_Serial_Arduino.png):::artifact
+        INFERENCE -.->|Serial Protocol| CM_PLOT(results/hil/HIL_Confusion_Matrix.png):::artifact
     end
 ```
 
