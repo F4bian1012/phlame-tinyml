@@ -15,6 +15,7 @@ An open-source, highly structured MLOps pipeline designed to optimize and deploy
   - [Key Features](#key-features)
 - [Architecture & MLOps Pipeline](#architecture--mlops-pipeline)
   - [Repository Structure](#repository-structure)
+- [Serial Protocol (HIL Bench)](#serial-protocol-hil-bench)
 - [Core Scripts Overview (`src/`)](#core-scripts-overview-src)
   - [1. Data Engineering](#1-data-engineering)
   - [2. Model Training (ML Pipelines)](#2-model-training-ml-pipelines)
@@ -114,6 +115,37 @@ graph TD
         INFERENCE -.->|Serial Protocol| CM_PLOT(Matriz_Serial_Arduino.png):::artifact
     end
 ```
+
+---
+
+## Serial Protocol (HIL Bench)
+
+The HIL bench streams a full image from the host to the Portenta H7 over USB
+Serial, runs on-device inference, and reads the predicted class back. The wire
+format is a framed raw-byte protocol:
+
+| Element        | Value            | Meaning                                        |
+|----------------|------------------|------------------------------------------------|
+| Start marker   | `#` (`0x23`)     | Begin of image packet                          |
+| End marker     | `@` (`0x40`)     | End of image packet → triggers inference       |
+| Escape byte    | `ESC` (`0x1B`)   | Next byte is real data, recovered as `b ^ 0x20`|
+| Baud rate      | `115200`         | `Serial.begin(115200)`                         |
+
+**Encoding rule.** Image pixels are sent raw between the markers. If a pixel byte
+equals `#`, `@`, or `ESC`, the sender escapes it as `ESC` followed by
+`byte ^ 0x20`, so control bytes never appear inside the payload. The firmware
+reverses this on reception (`hil_benchmark.py` performs the escaping on the host
+side).
+
+**Input handling.** Received bytes (uint8, 0–255) are written into the model
+input tensor. For an INT8 model each pixel is mapped as `int8 = pixel - 128`;
+for a FP32 model as `float = pixel / 255.0`. If fewer bytes than the tensor
+expects arrive, the remainder is zero-padded.
+
+**Response.** After `Invoke()`, the board prints the predicted class index as a
+single integer line (argmax of the output tensor). Diagnostic banners and the
+on-chip CPU temperature (`°C`, from STM32H7 factory calibration) are also printed
+around each inference; `hil_benchmark.py` parses the integer class from the stream.
 
 ---
 
@@ -248,7 +280,7 @@ If you use this framework in your academic research, please cite our upcoming *S
 ```bibtex
 @article{tinyml_mlops_2026,
   title={TinyML-MLOps+Benchmark HIL: An Open-Source Structured Framework for Optimizing and Deploying Convolutional Neural Networks on ARM Cortex-M7 Microcontrollers},
-  author={J Villavisan},
+  author={Villavisan, J.},
   journal={SoftwareX},
   year={2026},
   publisher={Elsevier}
