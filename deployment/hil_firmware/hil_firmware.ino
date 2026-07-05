@@ -6,9 +6,9 @@
 #include <Chirale_TensorFlowLite.h>
 #include <SDRAM.h>
 
+#include "tensorflow/lite/micro/all_ops_resolver.h"
 #include "tensorflow/lite/micro/micro_interpreter.h"
 #include "tensorflow/lite/micro/micro_log.h"
-#include "tensorflow/lite/micro/all_ops_resolver.h"
 #include "tensorflow/lite/micro/system_setup.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 
@@ -98,9 +98,20 @@ void loadImageToInputTensor() {
     Serial.println(expected_bytes);
     int to_copy = (image_bytes_received < expected_bytes) ? image_bytes_received
                                                           : expected_bytes;
+    TfLiteQuantizationParams params = input->params;
+    float scale = params.scale == 0 ? 1.0f : params.scale; // Evitar división por cero
+    int zero_point = params.zero_point;
+
     for (int i = 0; i < to_copy; ++i) {
-      // Los bytes recibidos son uint8 (0-255); convertir a int8 restando 128
-      input->data.int8[i] = (int8_t)((int)image_buffer[i] - 128);
+      // Los bytes recibidos son uint8 (0-255); normalizar a float y cuantizar dinámicamente
+      float float_pixel = (float)image_buffer[i] / 255.0f;
+      int32_t q_val = (int32_t)round(float_pixel / scale) + zero_point;
+      
+      // Saturar a int8_t (-128 a 127)
+      if (q_val < -128) q_val = -128;
+      if (q_val > 127) q_val = 127;
+      
+      input->data.int8[i] = (int8_t)q_val;
     }
     // Rellenar con 0 si se recibieron menos bytes de los esperados
     for (int i = to_copy; i < expected_bytes; ++i) {
