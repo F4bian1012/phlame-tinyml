@@ -30,7 +30,6 @@ An open-source, highly structured MLOps pipeline designed to optimize and deploy
   - [5. Optimization & INT8 Quantization](#5-optimization--int8-quantization)
   - [6. Embedded Deployment](#6-embedded-deployment)
   - [7. Hardware-in-the-Loop Evaluation](#7-hardware-in-the-loop-evaluation)
-- [Experimental Sandbox (`src/Por_Depurar/`)](#experimental-sandbox-srcpor_depurar)
 - [Citation](#citation)
 
 ---
@@ -72,8 +71,7 @@ Investigacion/
 │   ├── test_tflite_model.py 
 │   ├── tflite_to_c.py       
 │   ├── compile_upload_arduino.py
-│   ├── hil_benchmark.py
-│   └── Por_Depurar/         # Experimental and legacy scripts
+│   └── hil_benchmark.py
 ├── tensorboard_logs/        # Automated TF training logs
 ├── installed_packages.txt   # Pip freeze snapshot
 ├── requirements.txt         # Core dependencies & Hardware setup
@@ -281,14 +279,6 @@ python src/hil_benchmark.py --folder data/processed/160x120 --width 160 --height
 
 **Common Output Artifacts for HIL Evaluation:**
 - **Confusion Matrix (HIL)**: `results/hil/HIL_Confusion_Matrix.png` - Visual evaluation of the physical Portenta inference compared with real labels.
-
----
-
-## Experimental Sandbox (`src/Por_Depurar/`)
-The `Por_Depurar/` directory is dedicated to experimental model optimization research:
-- **`pruning_techniques.py`**: Explores Polynomial Decay and Layer-specific sparsity to reduce weight footprint.
-- **`quantization_techniques.py`**: Compares Dynamic Range, Full Integer, Float16, and Quantization-Aware Training (QAT).
-- **Legacy Baselines**: Contains the foundational `train_model.py` demonstrating a custom, from-scratch micro-CNN.
 
 ---
 
