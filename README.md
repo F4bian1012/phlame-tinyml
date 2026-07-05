@@ -60,6 +60,8 @@ Investigacion/
 ├── models/                  # Generated Keras and TFLite models
 │   ├── checkpoints/         # Trained .keras models
 │   └── tflite/              # Quantized .tflite models
+├── results/                 # Evaluation and benchmarking outputs
+│   └── hil/                 # Hardware-in-the-Loop confusion matrices
 ├── src/                     # Core Python MLOps scripts
 │   ├── process_images.py    
 │   ├── reshape_images.py    
