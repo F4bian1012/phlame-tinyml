@@ -21,6 +21,7 @@ An open-source, highly structured MLOps pipeline designed to optimize and deploy
   - [2. Model Training (ML Pipelines)](#2-model-training-ml-pipelines)
   - [3. Model Optimization & Evaluation](#3-model-optimization--evaluation)
   - [4. Embedded Conversion & Deployment](#4-embedded-conversion--deployment)
+- [Hardware Requirements](#hardware-requirements)
 - [Quickstart & Usage](#quickstart--usage)
   - [1. Prerequisites & Installation](#1-prerequisites--installation)
   - [2. Data Preparation](#2-data-preparation)
@@ -187,6 +188,30 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 *   **`tflite_to_c.py`**: Standardized converter utility that parses a `.tflite` binary file and outputs a C/C++ array header compatible with TFLite for Microcontrollers. Embeds a critical 16-byte alignment attribute (`DATA_ALIGN_ATTRIBUTE`) required for hardware accelerators and optimal execution on ARM Cortex-M7 (e.g., Arduino Portenta H7).
 *   **`compile_upload_arduino.py`**: Automation utility that interacts directly with `arduino-cli` to compile and upload the firmware. It handles core installations (`arduino:mbed_portenta`), auto-detects the connected board's COM port, and mitigates Windows path syntax issues natively.
 *   **`hil_benchmark.py`**: A robust hardware-in-the-loop evaluation script. It sends preprocessed dataset images to the Arduino Portenta via a custom Serial protocol (with byte escaping). It reads predictions back in real-time, matching them with the true folder-based classes to generate extensive statistical metrics and a Seaborn-based Confusion Matrix plot comparing Edge hardware inference with ground-truth.
+
+---
+
+## Hardware Requirements
+
+| Component        | Specification                                                        |
+|------------------|---------------------------------------------------------------------|
+| Board            | Arduino Portenta H7 (STM32H747XI, dual-core Cortex-M7 @ 480 MHz)     |
+| External RAM     | 8 MB SDRAM (required — tensor arena + image buffer live here)        |
+| Camera (capture) | Portenta Vision Shield, HM01B0 monochrome sensor (160×120, 30 fps)   |
+| Flash            | 2 MB internal (holds the quantized model via `model.h`)              |
+| Host link        | USB-C, 115200 baud serial                                            |
+
+**Memory configuration (firmware).** The tensor arena is allocated in **SDRAM**,
+not internal SRAM:
+
+- `kTensorArenaSize = 4 * 1024 * 1024` (**4 MB**), 16-byte aligned.
+- Image receive buffer: `IMAGE_BUFFER_SIZE = 400 * 1024` (400 KB), sized for up
+  to 320×320 inputs.
+- Op resolution uses `AllOpsResolver` (all TFLite-Micro ops registered) to avoid
+  `AllocateTensors()` failures from missing operators.
+
+**Toolchain.** Arduino CLI + `arduino:mbed_portenta` core + `Chirale_TensorFlowLite`
+library (see `requirements.txt`).
 
 ---
 
