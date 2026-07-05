@@ -1,0 +1,36 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "TinyML-MLOps Framework for ARM Cortex-M7"
+abstract: >-
+  An open-source MLOps pipeline to train, compress (pruning + INT8 quantization)
+  and deploy deep-learning computer-vision models on resource-constrained
+  microcontrollers, including a Hardware-in-the-Loop (HIL) measurement bench for
+  on-device inference evaluation on the Arduino Portenta H7.
+type: software
+authors:
+  - family-names: "Villavisan"
+    given-names: "J."
+    # TODO: completa tu nombre de pila y añade ORCID si lo tienes
+    # orcid: "https://orcid.org/0000-0000-0000-0000"
+repository-code: "https://github.com/F4bian1012/Investigacion"
+url: "https://github.com/F4bian1012/Investigacion"
+license: MIT
+version: "1.0.0"
+date-released: "2026-07-04"
+keywords:
+  - TinyML
+  - MLOps
+  - Hardware-in-the-Loop
+  - microcontrollers
+  - edge-AI
+  - quantization
+  - Arduino Portenta H7
+preferred-citation:
+  type: article
+  title: "TinyML-MLOps Framework with a Hardware-in-the-Loop Measurement Bench for ARM Cortex-M7 Microcontrollers"
+  authors:
+    - family-names: "Villavisan"
+      given-names: "J."
+  journal: "SoftwareX"
+  publisher: "Elsevier"
+  year: 2026
