@@ -1,5 +1,5 @@
 # ==============================================================================
-# TinyML-MLOps Framework - Python Dependencies
+# Phlame Framework - Python Dependencies
 # Grouped by component to ensure clean environment reproduction (Python 3.10+)
 # ==============================================================================
 

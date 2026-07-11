@@ -1,4 +1,4 @@
-# TinyML-MLOps Framework for ARM Cortex-M7
+# PHLAME: Phase-Level And Microcontroller Evaluation
 
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-brightgreen)
@@ -6,7 +6,7 @@
 ![Hardware](https://img.shields.io/badge/Hardware-Arduino_Portenta_H7-teal)
 
 
-An open-source, highly structured MLOps pipeline designed to optimize and deploy Deep Learning and Computer Vision models on resource-constrained microcontrollers (specifically the **Arduino Portenta H7**).
+An open-source, highly structured MLOps framework — evaluated across a phase-level, four-tier Hardware-in-the-Loop fidelity ladder — designed to optimize and deploy Deep Learning and Computer Vision models on resource-constrained microcontrollers (specifically the **Arduino Portenta H7**).
 
 ---
 
@@ -34,14 +34,18 @@ An open-source, highly structured MLOps pipeline designed to optimize and deploy
 
 ---
 
-##  Overview
+## Overview
 
-The **TinyML-MLOps Framework** bridges the gap between high-level Python model training and static, memory-constrained C++ embedded execution. It enforces strict data lifecycles, artifact management, and state-of-the-art compression pipelines (Pruning & Quantization) for deployment at the "Far Edge".
+**PHLAME** (*Phase-Level And Microcontroller Evaluation*) is an open-source, reproducible software framework that covers the full cycle of training→INT8 quantization→deployment→phase-level measurement of CNN image classifiers on ARM Cortex-M microcontrollers. It organizes evaluation along a four-level fidelity ladder — **Model-in-the-Loop (MIL) → Software-in-the-Loop (SIL) → Processor-in-the-Loop (PIL) → Hardware-in-the-Loop (HIL)** — that makes the gap between desktop simulation and the physical device explicit and measurable at every step. Reuse beyond the framework's own application case is demonstrated on a standard TinyML benchmark (**Visual Wake Words**, one of the MLPerf Tiny tasks).
 
-###  Key Features
+It bridges the gap between high-level Python model training and static, memory-constrained C++ embedded execution, enforcing strict data lifecycles, artifact management, and state-of-the-art compression pipelines (Pruning & Quantization) for deployment at the "Far Edge".
+
+### Key Features
+- **Fidelity-Ladder Evaluation (MIL→SIL→PIL→HIL):** Each level of realism — floating-point PC model, INT8-simulated PC model, real chip fed via serial, and real chip with a live camera in the loop — is a separately runnable, comparable artifact.
+- **Per-Phase Latency Measurement:** On-device timing decomposed into pre-processing / inference / post-processing using the ARM Cortex-M7 DWT cycle counter.
 - **Transfer Learning Support:** Automated pipelines for training advanced architectures including `MobileNetV2`, `MobileNetV3`, `ResNet18`, and `SqueezeNet`.
 - **Advanced Model Compression:** Built-in scripts for Polynomial Decay Pruning, Layer-Specific Sparse constraints, and Full Integer Quantization (INT8) to shrink models by up to 4x.
-- **Hardware-in-the-Loop Integration:** Includes real-time serial streaming scripts to visualize live raw pixels captured directly from the Portenta H7 Vision Shield.
+- **Hardware-in-the-Loop Integration:** Real-time serial streaming and camera-in-the-loop evaluation on the Portenta H7 Vision Shield.
 - **Academic Reproducibility:** Version-controlled models, dynamic TensorBoard logging, and rigid data hierarchies (`raw/`, `processed/`).
 
 ---
@@ -55,6 +59,7 @@ Investigacion/
 │   ├── raw/                 # Raw unprocessed images
 │   └── processed/           # Resized & grayscale images
 ├── deployment/              # C++ Firmware for edge deployment
+│   ├── hil_camera_firmware/ # Portenta H7 Camera-in-the-Loop firmware
 │   └── hil_firmware/        # Portenta H7 Hardware-in-the-Loop firmware
 ├── models/                  # Generated Keras and TFLite models
 │   ├── checkpoints/         # Trained .keras models
@@ -71,7 +76,8 @@ Investigacion/
 │   ├── test_tflite_model.py 
 │   ├── tflite_to_c.py       
 │   ├── compile_upload_arduino.py
-│   └── hil_benchmark.py
+│   ├── hil_benchmark.py
+│   └── hil_camera_benchmark.py
 ├── tensorboard_logs/        # Automated TF training logs
 ├── installed_packages.txt   # Pip freeze snapshot
 ├── requirements.txt         # Core dependencies & Hardware setup
@@ -287,14 +293,16 @@ python src/hil_benchmark.py --folder data/processed/160x120 --width 160 --height
 If you use this framework in your academic research, please cite our upcoming *SoftwareX* paper:
 
 ```bibtex
-@article{tinyml_mlops_2026,
-  title={TinyML-MLOps+Benchmark HIL: An Open-Source Structured Framework for Optimizing and Deploying Convolutional Neural Networks on ARM Cortex-M7 Microcontrollers},
+@article{phlame_2026,
+  title={PHLAME: A Phase-Level Hardware-in-the-Loop Framework for Reproducible Fidelity-Ladder Evaluation of TinyML Image Classifiers on ARM Cortex-M Microcontrollers},
   author={Villavisan, J.},
   journal={SoftwareX},
   year={2026},
   publisher={Elsevier}
 }
 ```
+
+Repository: [github.com/F4bian1012/phlame-tinyml](https://github.com/F4bian1012/phlame-tinyml)
 
 ---
 *Created for the tiny edge. Maintained by [F4bian1012](https://github.com/F4bian1012).*
