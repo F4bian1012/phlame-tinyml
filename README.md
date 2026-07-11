@@ -224,7 +224,15 @@ not internal SRAM:
 - Image receive buffer: `IMAGE_BUFFER_SIZE = 400 * 1024` (400 KB), sized for up
   to 320×320 inputs.
 - Op resolution uses `AllOpsResolver` (all TFLite-Micro ops registered) to avoid
-  `AllocateTensors()` failures from missing operators.
+  `AllocateTensors()` failures from missing operators, and to keep the firmware
+  model-agnostic across the framework's supported architectures (MobileNetV2/V3,
+  ResNet18, SqueezeNet) without per-model resolver maintenance — each architecture
+  uses a different operator set (e.g. hard-swish/squeeze-excite in MobileNetV3,
+  residual `Add` in ResNet18, `Concatenation` in SqueezeNet's fire modules), and
+  `AllOpsResolver` avoids re-editing a fixed op list when switching models. This
+  trades a larger firmware binary (all kernels linked, not just the ones the
+  loaded model needs) for that flexibility — an acceptable trade on the Portenta
+  H7's 2 MB flash.
 
 **Toolchain.** Arduino CLI + `arduino:mbed_portenta` core + `Chirale_TensorFlowLite`
 library (see `requirements.txt`).
