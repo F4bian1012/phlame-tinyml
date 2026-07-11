@@ -32,7 +32,7 @@ Salidas (en --output-dir, default results/hil/):
                                — el protocolo ambiental que pide un revisor
 
 Firmware companion: deployment/hil_camera_firmware/hil_camera_firmware.ino
-(sketch DEDICADO al banco HIL; el firmware PIL hil_firmware.ino y su banco
+(sketch DEDICADO al banco HIL; el firmware PIL pil_firmware.ino y su banco
 pil_benchmark.py quedan intactos y separados).
 
 Protocolo serie:

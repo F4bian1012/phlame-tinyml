@@ -4,9 +4,9 @@
 // ============================================================================
 // PHLAME - Firmware HIL (camera-in-the-loop) para Portenta H7 + Vision Shield
 // ----------------------------------------------------------------------------
-// Firmware DEDICADO al banco HIL real (Fase 1C): la camara HM01B0 captura la
+// Firmware DEDICADO al banco HIL: la camara HM01B0 captura la
 // escena fisica y el sistema completo corre en el MCU. Es INDEPENDIENTE del
-// banco PIL: el firmware canonico deployment/hil_firmware/hil_firmware.ino
+// banco PIL: el firmware canonico deployment/pil_firmware/pil_firmware.ino
 // (imagen por serial, protocolo #...@) queda intacto como fallback publicable.
 //
 // Host companion: src/hil_camera_benchmark.py

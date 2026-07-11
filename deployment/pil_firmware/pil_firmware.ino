@@ -175,7 +175,7 @@ void loadImageToInputTensor() {
 //   - inference  : interpreter->Invoke()
 //   - postprocess: argmax de la salida
 // La clase (argmax) se imprime como entero en su propia linea para mantener la
-// compatibilidad con hil_benchmark.py. Las latencias se emiten en lineas con
+// compatibilidad con pil_benchmark.py. Las latencias se emiten en lineas con
 // prefijos parseables (CYC_* y US_*).
 void runInference() {
   // --- Fase 1: preprocesado (carga + cuantizacion de la imagen) ---
