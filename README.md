@@ -21,6 +21,7 @@ An open-source, highly structured MLOps framework — evaluated across a phase-l
   - [2. Model Training (ML Pipelines)](#2-model-training-ml-pipelines)
   - [3. Model Optimization & Evaluation](#3-model-optimization--evaluation)
   - [4. Embedded Conversion & Deployment](#4-embedded-conversion--deployment)
+  - [5. Camera-in-the-Loop HIL Evaluation](#5-camera-in-the-loop-hil-evaluation)
 - [Hardware Requirements](#hardware-requirements)
 - [Quickstart & Usage](#quickstart--usage)
   - [1. Prerequisites & Installation](#1-prerequisites--installation)
@@ -29,7 +30,8 @@ An open-source, highly structured MLOps framework — evaluated across a phase-l
   - [4. Model Evaluation](#4-model-evaluation)
   - [5. Optimization & INT8 Quantization](#5-optimization--int8-quantization)
   - [6. Embedded Deployment](#6-embedded-deployment)
-  - [7. Hardware-in-the-Loop Evaluation](#7-hardware-in-the-loop-evaluation)
+  - [7. Processor-in-the-Loop (PIL) Evaluation](#7-processor-in-the-loop-pil-evaluation)
+  - [8. Hardware-in-the-Loop (HIL) Evaluation — Camera-in-the-Loop](#8-hardware-in-the-loop-hil-evaluation--camera-in-the-loop)
 - [Citation](#citation)
 
 ---
@@ -50,11 +52,11 @@ It bridges the gap between high-level Python model training and static, memory-c
 
 ---
 
-##  Architecture & MLOps Pipeline
+## Architecture & MLOps Pipeline
 
 ### Repository Structure
 ```text
-Investigacion/
+phlame-tinyml/
 ├── data/                    # Local datasets (ignored in git)
 │   ├── raw/                 # Raw unprocessed images
 │   └── processed/           # Resized & grayscale images
@@ -124,9 +126,11 @@ graph TD
 
 ---
 
-## Serial Protocol (HIL Bench)
+## Serial Protocol (PIL Bench)
 
-The HIL bench streams a full image from the host to the Portenta H7 over USB
+> This section describes the **Processor-in-the-Loop (PIL)** protocol used by `hil_benchmark.py` / `hil_firmware.ino` (image injected over serial). The camera-in-the-loop **HIL** bench (`hil_camera_benchmark.py` / `hil_camera_firmware.ino`, section 5 below) uses a lighter single-byte trigger protocol (`'T'` to capture+infer, `'F1'`/`'F0'` to toggle frame-dump) — see that firmware's header comments for its handshake.
+
+The PIL bench streams a full image from the host to the Portenta H7 over USB
 Serial, runs on-device inference, and reads the predicted class back. The wire
 format is a framed raw-byte protocol:
 
@@ -192,7 +196,14 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 ### 4. Embedded Conversion & Deployment
 *   **`tflite_to_c.py`**: Standardized converter utility that parses a `.tflite` binary file and outputs a C/C++ array header compatible with TFLite for Microcontrollers. Embeds a critical 16-byte alignment attribute (`DATA_ALIGN_ATTRIBUTE`) required for hardware accelerators and optimal execution on ARM Cortex-M7 (e.g., Arduino Portenta H7).
 *   **`compile_upload_arduino.py`**: Automation utility that interacts directly with `arduino-cli` to compile and upload the firmware. It handles core installations (`arduino:mbed_portenta`), auto-detects the connected board's COM port, and mitigates Windows path syntax issues natively.
-*   **`hil_benchmark.py`**: A robust hardware-in-the-loop evaluation script. It sends preprocessed dataset images to the Arduino Portenta via a custom Serial protocol (with byte escaping). It reads predictions back in real-time, matching them with the true folder-based classes to generate extensive statistical metrics and a Seaborn-based Confusion Matrix plot comparing Edge hardware inference with ground-truth.
+*   **`hil_benchmark.py`**: A **Processor-in-the-Loop (PIL)** evaluation script. It sends preprocessed dataset images to the Arduino Portenta via a custom Serial protocol (with byte escaping). It reads predictions back in real-time, matching them with the true folder-based classes to generate extensive statistical metrics and a Seaborn-based Confusion Matrix plot comparing on-chip inference with ground-truth. Data is injected over the wire — the camera is not in the loop.
+
+---
+
+### 5. Camera-in-the-Loop HIL Evaluation
+*   **`hil_camera_benchmark.py`**: The **true Hardware-in-the-Loop (HIL)** bench. The host displays each dataset image on-screen as a controlled visual stimulus; the Portenta's own **HM01B0 camera** captures the physical scene and runs the full sensor→prediction pipeline on-device, so ground truth is known by construction (the label of the displayed stimulus). Records per-phase latency (`CAPTURE`/`PRE`/`INF`/`POST`/`TOTAL`, via DWT cycle counter) and rig conditions (lux, distance, ambient temperature) alongside predictions. Optionally recovers the exact captured frame (`--dump-frames`) to cross-run it through the **MIL** (`--mil-model`) and **SIL** (`--sil-model`) levels on the PC, decomposing the end-to-end gap into its quantization (MIL vs SIL), execution (SIL vs HIL), and physical-frontend (PIL vs HIL) components.
+    - Firmware companion: `deployment/hil_camera_firmware/hil_camera_firmware.ino` — a dedicated sketch, independent from the PIL firmware (`hil_firmware.ino`), which remains untouched as a serial-only fallback.
+    - Outputs: `results/hil/HIL_Confusion_Matrix.png`, `results/hil/hil_latencies.csv` (one row per inference, all phase latencies + ground truth), `results/hil/hil_conditions.json` (rig protocol).
 
 ---
 
@@ -225,8 +236,8 @@ library (see `requirements.txt`).
 ### 1. Prerequisites & Installation
 Ensure you are using Python 3.10+ and install the dependencies:
 ```bash
-git clone https://github.com/F4bian1012/Investigacion.git
-cd Investigacion
+git clone https://github.com/F4bian1012/phlame-tinyml.git
+cd phlame-tinyml
 pip install -r requirements.txt
 ```
 
@@ -277,14 +288,29 @@ python src/compile_upload_arduino.py --path_proyecto deployment/hil_firmware --p
 ```
 *(Note: `--port` is OS-specific. Use e.g., `COM9` on Windows, `/dev/ttyACM0` on Linux, or `/dev/cu.usbmodem*` on macOS. Alternatively, you can open the project folder in the Arduino IDE and click Upload).*
 
-### 7. Hardware-in-the-Loop Evaluation
-Once the firmware is running on your Portenta H7, you can evaluate the model's physical performance directly on the edge hardware. Stream a test dataset over USB Serial and let the script compare the board's inferences with the real labels to generate metrics and a Confusion Matrix plot:
+### 7. Processor-in-the-Loop (PIL) Evaluation
+Once the firmware is running on your Portenta H7, you can evaluate the model's on-chip performance by injecting data over serial. Stream a test dataset over USB Serial and let the script compare the board's inferences with the real labels to generate metrics and a Confusion Matrix plot:
 ```bash
 python src/hil_benchmark.py --folder data/processed/160x120 --width 160 --height 120 --port COM9 --baud 115200
 ```
+*(This is Processor-in-the-Loop: the real chip runs inference, but the image is injected over the wire — the camera and physical scene are not part of the loop.)*
+
+**Common Output Artifacts for PIL Evaluation:**
+- **Confusion Matrix (PIL)**: `results/hil/HIL_Confusion_Matrix.png` - Visual evaluation of the on-chip inference compared with real labels.
+
+### 8. Hardware-in-the-Loop (HIL) Evaluation — Camera-in-the-Loop
+Flash `deployment/hil_camera_firmware/hil_camera_firmware.ino` (dedicated sketch, camera-enabled). Then run the camera-in-the-loop bench: the host displays each stimulus image full-screen, the Portenta's HM01B0 camera captures the physical scene, and the script matches the on-device prediction with the known stimulus label:
+```bash
+python src/hil_camera_benchmark.py --port COM9 --folder data/processed/160x120 --count 100 \
+    --settle 1.5 --lux 320 --distance-cm 25 \
+    --sil-model models/tflite/model_int8.tflite --mil-model models/checkpoints/best_model.keras
+```
+*(This is the true Hardware-in-the-Loop level: ground truth is known by construction from the displayed stimulus, and `--sil-model`/`--mil-model` enable cross-running the exact captured frame through the lower fidelity levels to decompose the gap.)*
 
 **Common Output Artifacts for HIL Evaluation:**
-- **Confusion Matrix (HIL)**: `results/hil/HIL_Confusion_Matrix.png` - Visual evaluation of the physical Portenta inference compared with real labels.
+- **Confusion Matrix (HIL)**: `results/hil/HIL_Confusion_Matrix.png` - Visual evaluation of the camera-in-the-loop inference compared with the stimulus ground truth.
+- **Per-Phase Latencies**: `results/hil/hil_latencies.csv` - One row per inference with `CAPTURE`/`PRE`/`INF`/`POST`/`TOTAL` latency, MCU temperature, and ground truth.
+- **Rig Conditions**: `results/hil/hil_conditions.json` - Environmental protocol of the stimulus rig (lux, distance, ambient temperature, notes).
 
 ---
 
