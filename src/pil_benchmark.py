@@ -325,14 +325,14 @@ def send_folder(port: str, baud: int, folder: str,
 
             plt.figure(figsize=(10, 8))
             sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=target_names, yticklabels=target_names)
-            plt.title('HIL Benchmark Confusion Matrix')
+            plt.title('PIL Benchmark Confusion Matrix')
             plt.ylabel('True Label')
             plt.xlabel('Predicted Label')
             plt.tight_layout()
 
-            output_dir = os.path.join("results", "hil")
+            output_dir = os.path.join("results", "pil")
             os.makedirs(output_dir, exist_ok=True)
-            cm_plot_name = "HIL_Confusion_Matrix.png"
+            cm_plot_name = "PIL_Confusion_Matrix.png"
             cm_plot_path = os.path.join(output_dir, cm_plot_name)
             plt.savefig(cm_plot_path)
             print(f"Gráfico de la matriz de confusión guardado en: {cm_plot_path}")
