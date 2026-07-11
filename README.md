@@ -78,7 +78,7 @@ phlame-tinyml/
 │   ├── test_tflite_model.py 
 │   ├── tflite_to_c.py       
 │   ├── compile_upload_arduino.py
-│   ├── hil_benchmark.py
+│   ├── pil_benchmark.py
 │   └── hil_camera_benchmark.py
 ├── tensorboard_logs/        # Automated TF training logs
 ├── installed_packages.txt   # Pip freeze snapshot
@@ -119,7 +119,7 @@ graph TD
     end
 
     subgraph "Hardware-in-the-Loop (HIL)"
-        PROC -.->|hil_benchmark.py| INFERENCE
+        PROC -.->|pil_benchmark.py| INFERENCE
         INFERENCE -.->|Serial Protocol| CM_PLOT(results/hil/HIL_Confusion_Matrix.png):::artifact
     end
 ```
@@ -128,7 +128,7 @@ graph TD
 
 ## Serial Protocol (PIL Bench)
 
-> This section describes the **Processor-in-the-Loop (PIL)** protocol used by `hil_benchmark.py` / `hil_firmware.ino` (image injected over serial). The camera-in-the-loop **HIL** bench (`hil_camera_benchmark.py` / `hil_camera_firmware.ino`, section 5 below) uses a lighter single-byte trigger protocol (`'T'` to capture+infer, `'F1'`/`'F0'` to toggle frame-dump) — see that firmware's header comments for its handshake.
+> This section describes the **Processor-in-the-Loop (PIL)** protocol used by `pil_benchmark.py` / `hil_firmware.ino` (image injected over serial). The camera-in-the-loop **HIL** bench (`hil_camera_benchmark.py` / `hil_camera_firmware.ino`, section 5 below) uses a lighter single-byte trigger protocol (`'T'` to capture+infer, `'F1'`/`'F0'` to toggle frame-dump) — see that firmware's header comments for its handshake.
 
 The PIL bench streams a full image from the host to the Portenta H7 over USB
 Serial, runs on-device inference, and reads the predicted class back. The wire
@@ -144,7 +144,7 @@ format is a framed raw-byte protocol:
 **Encoding rule.** Image pixels are sent raw between the markers. If a pixel byte
 equals `#`, `@`, or `ESC`, the sender escapes it as `ESC` followed by
 `byte ^ 0x20`, so control bytes never appear inside the payload. The firmware
-reverses this on reception (`hil_benchmark.py` performs the escaping on the host
+reverses this on reception (`pil_benchmark.py` performs the escaping on the host
 side).
 
 **Input handling.** Received bytes (uint8, 0–255) are written into the model
@@ -155,7 +155,7 @@ expects arrive, the remainder is zero-padded.
 **Response.** After `Invoke()`, the board prints the predicted class index as a
 single integer line (argmax of the output tensor). Diagnostic banners and the
 on-chip CPU temperature (`°C`, from STM32H7 factory calibration) are also printed
-around each inference; `hil_benchmark.py` parses the integer class from the stream.
+around each inference; `pil_benchmark.py` parses the integer class from the stream.
 
 ---
 
@@ -196,7 +196,7 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 ### 4. Embedded Conversion & Deployment
 *   **`tflite_to_c.py`**: Standardized converter utility that parses a `.tflite` binary file and outputs a C/C++ array header compatible with TFLite for Microcontrollers. Embeds a critical 16-byte alignment attribute (`DATA_ALIGN_ATTRIBUTE`) required for hardware accelerators and optimal execution on ARM Cortex-M7 (e.g., Arduino Portenta H7).
 *   **`compile_upload_arduino.py`**: Automation utility that interacts directly with `arduino-cli` to compile and upload the firmware. It handles core installations (`arduino:mbed_portenta`), auto-detects the connected board's COM port, and mitigates Windows path syntax issues natively.
-*   **`hil_benchmark.py`**: A **Processor-in-the-Loop (PIL)** evaluation script. It sends preprocessed dataset images to the Arduino Portenta via a custom Serial protocol (with byte escaping). It reads predictions back in real-time, matching them with the true folder-based classes to generate extensive statistical metrics and a Seaborn-based Confusion Matrix plot comparing on-chip inference with ground-truth. Data is injected over the wire — the camera is not in the loop.
+*   **`pil_benchmark.py`**: A **Processor-in-the-Loop (PIL)** evaluation script. It sends preprocessed dataset images to the Arduino Portenta via a custom Serial protocol (with byte escaping). It reads predictions back in real-time, matching them with the true folder-based classes to generate extensive statistical metrics and a Seaborn-based Confusion Matrix plot comparing on-chip inference with ground-truth. Data is injected over the wire — the camera is not in the loop.
 
 ---
 
@@ -291,7 +291,7 @@ python src/compile_upload_arduino.py --path_proyecto deployment/hil_firmware --p
 ### 7. Processor-in-the-Loop (PIL) Evaluation
 Once the firmware is running on your Portenta H7, you can evaluate the model's on-chip performance by injecting data over serial. Stream a test dataset over USB Serial and let the script compare the board's inferences with the real labels to generate metrics and a Confusion Matrix plot:
 ```bash
-python src/hil_benchmark.py --folder data/processed/160x120 --width 160 --height 120 --port COM9 --baud 115200
+python src/pil_benchmark.py --folder data/processed/160x120 --width 160 --height 120 --port COM9 --baud 115200
 ```
 *(This is Processor-in-the-Loop: the real chip runs inference, but the image is injected over the wire — the camera and physical scene are not part of the loop.)*
 

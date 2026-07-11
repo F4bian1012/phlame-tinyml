@@ -3,7 +3,7 @@ hil_camera_benchmark.py
 =======================
 Banco HIL REAL (camera-in-the-loop) para PHLAME — Fase 1C, camino 2.
 
-A diferencia de `hil_benchmark.py` (banco PIL: la imagen viaja por serial),
+A diferencia de `pil_benchmark.py` (banco PIL: la imagen viaja por serial),
 este script cierra el lazo con el sensor fisico: la camara HM01B0 del
 Portenta Vision Shield captura la escena real. El host orquesta el rig de
 estimulo controlado (opcion (a) del checklist: monitor mostrando las
@@ -33,7 +33,7 @@ Salidas (en --output-dir, default results/hil/):
 
 Firmware companion: deployment/hil_camera_firmware/hil_camera_firmware.ino
 (sketch DEDICADO al banco HIL; el firmware PIL hil_firmware.ino y su banco
-hil_benchmark.py quedan intactos y separados).
+pil_benchmark.py quedan intactos y separados).
 
 Protocolo serie:
   READY_HIL  <- handshake de arranque (la camara ya esta inicializada)
@@ -94,7 +94,7 @@ CMD_TRIGGER   = b'T'
 CMD_DUMP_ON   = b'F1'
 CMD_DUMP_OFF  = b'F0'
 
-# Escape del protocolo #...@ (identico a hil_benchmark.py / firmware)
+# Escape del protocolo #...@ (identico a pil_benchmark.py / firmware)
 MARKER_START = 0x23  # '#'
 MARKER_END   = 0x40  # '@'
 ESCAPE_BYTE  = 0x1B  # ESC
@@ -115,7 +115,7 @@ WINDOW_NAME = "PHLAME HIL Stimulus"
 def normalize_port(port: str) -> str:
     """
     Normaliza el nombre del puerto segun la plataforma (identico a
-    hil_benchmark.py):
+    pil_benchmark.py):
       - Windows nativo : COM9+ -> \\\\.\\COMx
       - WSL (Linux)    : COMx  -> /dev/ttySx
       - Linux nativo   : se usa tal cual (/dev/ttyUSB0, etc.)
@@ -142,7 +142,7 @@ def normalize_port(port: str) -> str:
 def collect_dataset(folder: str, n_samples=None, seed=None):
     """
     Enumera (ruta_imagen, etiqueta_int) desde subcarpetas por clase,
-    igual que hil_benchmark.py. Retorna (image_data, class_names).
+    igual que pil_benchmark.py. Retorna (image_data, class_names).
     """
     extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.tif')
     subdirs = sorted(d for d in os.listdir(folder)
@@ -237,7 +237,7 @@ def parse_inference(lines):
     """
     Extrae (clase_predicha, telemetria_dict) de las lineas de una inferencia.
     La clase es el unico entero 'a pelo' en su propia linea (compat con
-    hil_benchmark.py); la telemetria son lineas 'PREFIJO:valor'.
+    pil_benchmark.py); la telemetria son lineas 'PREFIJO:valor'.
     """
     predicted = None
     telemetry = {}
