@@ -113,7 +113,7 @@ graph TD
     end
 
     subgraph "Embedded Deployment (deployment/)"
-        TFLITE -->|tflite_to_c.py| HEADER(pil_firmware/model.h):::artifact
+        TFLITE -->|tflite_to_c.py| HEADER("pil_firmware/model.h<br/>hil_camera_firmware/model.h"):::artifact
         HEADER -.->|compile_upload_arduino.py| C_ENGINE[pil_firmware.ino]:::hardware
         C_ENGINE --> INFERENCE((Portenta H7 Inference)):::hardware
     end
@@ -194,7 +194,7 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 - **Confusion Matrix (TFLite)**: `models/tflite/Matriz_CM_{model_name}_int8.png` - Visual evaluation of the quantized model simulating MCU arithmetic constraints.
 
 ### 4. Embedded Conversion & Deployment
-*   **`tflite_to_c.py`**: Standardized converter utility that parses a `.tflite` binary file and outputs a C/C++ array header compatible with TFLite for Microcontrollers. Embeds a critical 16-byte alignment attribute (`DATA_ALIGN_ATTRIBUTE`) required for hardware accelerators and optimal execution on ARM Cortex-M7 (e.g., Arduino Portenta H7).
+*   **`tflite_to_c.py`**: Standardized converter utility that parses a `.tflite` binary file and outputs a C/C++ array header compatible with TFLite for Microcontrollers. Embeds a critical 16-byte alignment attribute (`DATA_ALIGN_ATTRIBUTE`) required for hardware accelerators and optimal execution on ARM Cortex-M7 (e.g., Arduino Portenta H7). Writes `model.h` into both firmware sketches by default (`--target pil|hil|both`), keeping the PIL and HIL benches on the same model; an explicit output path can still be passed as a second argument.
 *   **`compile_upload_arduino.py`**: Automation utility that interacts directly with `arduino-cli` to compile and upload the firmware. It handles core installations (`arduino:mbed_portenta`), auto-detects the connected board's COM port, and mitigates Windows path syntax issues natively.
 *   **`pil_benchmark.py`**: A **Processor-in-the-Loop (PIL)** evaluation script. It sends preprocessed dataset images to the Arduino Portenta via a custom Serial protocol (with byte escaping). It reads predictions back in real-time, matching them with the true folder-based classes to generate extensive statistical metrics and a Seaborn-based Confusion Matrix plot comparing on-chip inference with ground-truth. Data is injected over the wire — the camera is not in the loop.
 
@@ -285,10 +285,12 @@ python src/quantize_int8_basic.py --model_path models/checkpoints/{model_name}.k
 *Note: You can validate the quantized model against the dataset using `python src/test_tflite_model.py`.*
 
 ### 6. Embedded Deployment
-Once the model is optimized, convert the `.tflite` file into a C-array header for the Arduino IDE:
+Once the model is optimized, convert the `.tflite` file into a C-array header for the Arduino IDE. By default the header is written into **both** firmware sketches (`deployment/pil_firmware/model.h` and `deployment/hil_camera_firmware/model.h`), so the PIL and HIL benches always run the same model:
 ```bash
-python src/tflite_to_c.py models/tflite/{model_name}_int8.tflite deployment/pil_firmware/model.h --var_name model_tflite
+python src/tflite_to_c.py models/tflite/{model_name}_int8.tflite
 ```
+
+*(Use `--target pil` or `--target hil` to generate only one of them. Arduino sketches are self-contained folders, so each one needs its own copy of `model.h`. The generated symbol is `g_model`, which is what both `.ino` sketches reference in `tflite::GetModel()` — override it with `--var_name` only if you also change the firmware.)*
 
 Compile and upload the C++ firmware automatically to your Portenta H7 using our `arduino-cli` wrapper:
 ```bash
