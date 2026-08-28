@@ -13,6 +13,16 @@ except AttributeError:
 FQBN_BASE = "arduino:mbed_portenta:envie_m7"
 FQBN_FULL = f"{FQBN_BASE}:split=100_0"
 
+# Sketches de firmware del framework. La placa ejecuta UNO a la vez, asi que
+# --target elige cual se sube (no existe la opcion "ambos").
+FIRMWARE_DIRS = {
+    'pil': os.path.join('deployment', 'pil_firmware'),
+    'hil': os.path.join('deployment', 'hil_camera_firmware'),
+}
+
+# Raiz del repo, resuelta desde este archivo para no depender del cwd.
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 def ejecutar(comando):
     """Ejecuta un comando en la terminal y retorna éxito y su salida."""
     res = subprocess.run(comando, shell=True, capture_output=True, text=True)
@@ -77,14 +87,30 @@ def find_portenta_port():
     print(" No se detectó ninguna placa Portenta automáticamente conectada al equipo.")
     return None
 
+def resolver_proyecto(parser, target, path_proyecto):
+    """--path_proyecto explícito manda; si no, --target resuelve el sketch del framework."""
+    if path_proyecto:
+        if target:
+            print(" [AVISO] Se indicó --path_proyecto; se ignora --target.")
+        return os.path.abspath(path_proyecto)
+
+    if not target:
+        parser.error("indica el firmware a subir con --target {pil,hil}, o una ruta con --path_proyecto.")
+
+    return os.path.join(REPO_ROOT, FIRMWARE_DIRS[target])
+
 def main():
-    parser = argparse.ArgumentParser(description="Compilar y subir proyecto a Arduino Portenta M7.")
+    parser = argparse.ArgumentParser(description="Compilar y subir uno de los firmwares del framework a la Arduino Portenta M7.")
+    parser.add_argument("--target",
+                        choices=["pil", "hil"],
+                        default=None,
+                        help="Firmware a compilar y subir: 'pil' (deployment/pil_firmware, imagen inyectada por serie) o 'hil' (deployment/hil_camera_firmware, cámara en el lazo). La placa ejecuta uno a la vez, por eso no existe la opción 'ambos'.")
     parser.add_argument("--path_proyecto", 
-                        default="../../deployment/arduino_project_test/",
-                        help="Ruta al proyecto de Arduino a compilar y subir.")
+                        default=None,
+                        help="Ruta a un proyecto de Arduino arbitrario, como alternativa a --target.")
     
     args = parser.parse_args()
-    path_proyecto = os.path.abspath(args.path_proyecto)
+    path_proyecto = resolver_proyecto(parser, args.target, args.path_proyecto)
 
     if not os.path.exists(path_proyecto):
         print(f" La ruta especificada para el proyecto no existe: {path_proyecto}")
