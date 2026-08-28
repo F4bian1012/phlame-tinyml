@@ -35,6 +35,7 @@ import os
 import random
 import time
 import sys
+import csv
 
 try:
     import serial
@@ -135,14 +136,43 @@ def send_image(port: str, baud: int, image_path: str,
 
     # Leer la respuesta hasta que se reciba la línea de "Listo"
     timeout = time.time() + 30  # máximo 30 segundos esperando respuesta
+
+    csv_path = os.path.join("results", "pil", "latency_metrics_single.csv")
+    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+    # Check if file exists to write header or not
+    file_exists = os.path.isfile(csv_path)
+    csv_file = open(csv_path, "a", newline="")
+    csv_writer = csv.writer(csv_file, delimiter=";")
+    metrics_headers = ["TEMP_C", "CYC_PRE", "CYC_INF", "CYC_POST", "CYC_TOTAL", "US_PRE", "US_INF", "US_POST", "US_TOTAL"]
+    if not file_exists:
+        csv_writer.writerow(["Image"] + metrics_headers)
+
+    current_metrics = {}
     while time.time() < timeout:
         if ser.in_waiting:
             line = ser.readline().decode('utf-8', errors='replace').rstrip()
             print(f"  Arduino >>> {line}")
-            if "siguiente imagen" in line or "Listo" in line:
+
+            if line.startswith("CYC_") or line.startswith("US_") or line.startswith("TEMP_C:"):
+                parts = line.split(":")
+                if len(parts) >= 2:
+                    metric = parts[0].strip()
+                    value = ":".join(parts[1:]).strip()
+                    current_metrics[metric] = value
+
+            if "siguiente imagen" in line.lower() or "listo" in line.lower():
                 break
         else:
             time.sleep(0.05)
+
+    row = [os.path.basename(image_path)]
+    for h in metrics_headers:
+        row.append(current_metrics.get(h, ""))
+    csv_writer.writerow(row)
+    csv_file.flush()
+
+    csv_file.close()
+    print(f"[INFO] Métricas guardadas en {csv_path}")
 
     ser.close()
     print("\n[INFO] Puerto cerrado. Fin de transmisión.")
@@ -224,6 +254,13 @@ def send_folder(port: str, baud: int, folder: str,
 
     total = len(image_data)
 
+    csv_path = os.path.join("results", "pil", "latency_metrics.csv")
+    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+    csv_file = open(csv_path, "w", newline="")
+    csv_writer = csv.writer(csv_file, delimiter=";")
+    metrics_headers = ["TEMP_C", "CYC_PRE", "CYC_INF", "CYC_POST", "CYC_TOTAL", "US_PRE", "US_INF", "US_POST", "US_TOTAL"]
+    csv_writer.writerow(["Image"] + metrics_headers)
+
     class_counts: Counter = Counter()
     errors = 0
     y_true = []
@@ -243,20 +280,39 @@ def send_folder(port: str, baud: int, folder: str,
         ser.flush()
         print(f"[OK]   Paquete enviado. Esperando clase predicha...")
 
-        # Leer la respuesta: el Arduino envía solo el número de clase
+        # Leer la respuesta: el Arduino envía solo el número de clase y luego latencias
         predicted_class = None
+        current_metrics = {}
         timeout = time.time() + 30
         while time.time() < timeout:
             if ser.in_waiting:
                 line = ser.readline().decode('utf-8', errors='replace').rstrip()
                 print(f"  Arduino >>> {line}")
-                try:
-                    predicted_class = int(line.strip())
+
+                if line.startswith("CYC_") or line.startswith("US_") or line.startswith("TEMP_C:"):
+                    parts = line.split(":")
+                    if len(parts) >= 2:
+                        metric = parts[0].strip()
+                        value = ":".join(parts[1:]).strip()
+                        current_metrics[metric] = value
+
+                if "siguiente imagen" in line.lower() or "listo" in line.lower():
                     break
+
+                try:
+                    # Si la linea es solo un numero entero, asumimos que es la clase predicha
+                    parsed_int = int(line.strip())
+                    predicted_class = parsed_int
                 except ValueError:
                     pass
             else:
                 time.sleep(0.05)
+                
+        row = [os.path.basename(image_path)]
+        for h in metrics_headers:
+            row.append(current_metrics.get(h, ""))
+        csv_writer.writerow(row)
+        csv_file.flush()
 
         if predicted_class is not None:
             class_counts[predicted_class] += 1
@@ -271,6 +327,9 @@ def send_folder(port: str, baud: int, folder: str,
         if idx < total:
             print(f"[INFO] Esperando {gap}s antes de la siguiente imagen...")
             time.sleep(gap)
+
+    csv_file.close()
+    print(f"\n[INFO] Métricas de latencia guardadas en {csv_path}")
 
     ser.close()
     print("\n[INFO] Puerto cerrado. Todas las imágenes enviadas.")
