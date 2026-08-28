@@ -195,7 +195,7 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 
 ### 4. Embedded Conversion & Deployment
 *   **`tflite_to_c.py`**: Standardized converter utility that parses a `.tflite` binary file and outputs a C/C++ array header compatible with TFLite for Microcontrollers. Embeds a critical 16-byte alignment attribute (`DATA_ALIGN_ATTRIBUTE`) required for hardware accelerators and optimal execution on ARM Cortex-M7 (e.g., Arduino Portenta H7). Writes `model.h` into both firmware sketches by default (`--target pil|hil|both`), keeping the PIL and HIL benches on the same model; an explicit output path can still be passed as a second argument.
-*   **`compile_upload_arduino.py`**: Automation utility that interacts directly with `arduino-cli` to compile and upload the firmware. It handles core installations (`arduino:mbed_portenta`), auto-detects the connected board's COM port, and mitigates Windows path syntax issues natively.
+*   **`compile_upload_arduino.py`**: Automation utility that interacts directly with `arduino-cli` to compile and upload the firmware. `--target pil|hil` selects which of the two sketches to flash (the board runs one at a time). It handles core installations (`arduino:mbed_portenta`), auto-detects the connected board's COM port, and mitigates Windows path syntax issues natively.
 *   **`pil_benchmark.py`**: A **Processor-in-the-Loop (PIL)** evaluation script. It sends preprocessed dataset images to the Arduino Portenta via a custom Serial protocol (with byte escaping). It reads predictions back in real-time, matching them with the true folder-based classes to generate extensive statistical metrics and a Seaborn-based Confusion Matrix plot comparing on-chip inference with ground-truth. Data is injected over the wire — the camera is not in the loop.
 
 ---
@@ -292,11 +292,11 @@ python src/tflite_to_c.py models/tflite/{model_name}_int8.tflite
 
 *(Use `--target pil` or `--target hil` to generate only one of them. Arduino sketches are self-contained folders, so each one needs its own copy of `model.h`. The generated symbol is `g_model`, which is what both `.ino` sketches reference in `tflite::GetModel()` — override it with `--var_name` only if you also change the firmware.)*
 
-Compile and upload the C++ firmware automatically to your Portenta H7 using our `arduino-cli` wrapper:
+Compile and upload the C++ firmware automatically to your Portenta H7 using our `arduino-cli` wrapper. Select which of the two firmwares to flash with `--target` — the board runs one at a time, so there is no "both" option:
 ```bash
-python src/compile_upload_arduino.py --path_proyecto deployment/pil_firmware --port COM9
+python src/compile_upload_arduino.py --target pil
 ```
-*(Note: `--port` is OS-specific. Use e.g., `COM9` on Windows, `/dev/ttyACM0` on Linux, or `/dev/cu.usbmodem*` on macOS. Alternatively, you can open the project folder in the Arduino IDE and click Upload).*
+*(Use `--target hil` for the camera-in-the-loop firmware of section 8. The board's port is auto-detected via `arduino-cli board list`, so no port argument is needed; `--path_proyecto` still accepts an arbitrary sketch folder. Alternatively, you can open the project folder in the Arduino IDE and click Upload).*
 
 ### 7. Processor-in-the-Loop (PIL) Evaluation
 Once the firmware is running on your Portenta H7, you can evaluate the model's on-chip performance by injecting data over serial. Stream a test dataset over USB Serial and let the script compare the board's inferences with the real labels to generate metrics and a Confusion Matrix plot:
@@ -309,7 +309,7 @@ python src/pil_benchmark.py --folder data/processed/160x120 --width 160 --height
 - **Confusion Matrix (PIL)**: `results/pil/PIL_Confusion_Matrix.png` - Visual evaluation of the on-chip inference compared with real labels.
 
 ### 8. Hardware-in-the-Loop (HIL) Evaluation — Camera-in-the-Loop
-Flash `deployment/hil_camera_firmware/hil_camera_firmware.ino` (dedicated sketch, camera-enabled). Then run the camera-in-the-loop bench: the host displays each stimulus image full-screen, the Portenta's HM01B0 camera captures the physical scene, and the script matches the on-device prediction with the known stimulus label:
+Flash the camera-enabled sketch with `python src/compile_upload_arduino.py --target hil` (dedicated firmware, independent from the PIL one). Then run the camera-in-the-loop bench: the host displays each stimulus image full-screen, the Portenta's HM01B0 camera captures the physical scene, and the script matches the on-device prediction with the known stimulus label:
 ```bash
 python src/hil_camera_benchmark.py --port COM9 --folder data/processed/160x120 --count 100 \
     --settle 1.5 --lux 320 --distance-cm 25 \
