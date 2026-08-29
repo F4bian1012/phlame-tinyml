@@ -112,7 +112,7 @@ def build_packet(payload_raw: bytes) -> bytes:
 
 def send_image(port: str, baud: int, image_path: str,
                width: int, height: int, grayscale: bool,
-               pre_delay: float):
+               pre_delay: float, model_tag: str):
     """
     Abre el puerto serial y envía la imagen con el protocolo #...@
     """
@@ -142,7 +142,8 @@ def send_image(port: str, baud: int, image_path: str,
     # Leer la respuesta hasta que se reciba la línea de "Listo"
     timeout = time.time() + 30  # máximo 30 segundos esperando respuesta
 
-    csv_path = os.path.join("results", "pil", "latency_metrics_single.csv")
+    csv_path = os.path.join("results", "pil",
+                            f"latency_metrics_single_{model_tag}.csv")
     os.makedirs(os.path.dirname(csv_path), exist_ok=True)
     # Check if file exists to write header or not
     file_exists = os.path.isfile(csv_path)
@@ -186,6 +187,7 @@ def send_image(port: str, baud: int, image_path: str,
 def send_folder(port: str, baud: int, folder: str,
                 width: int, height: int, grayscale: bool,
                 pre_delay: float, gap: float,
+                model_tag: str,
                 n_samples: int = None):
     """
     Envía imágenes de `folder` al Arduino en secuencia.
@@ -259,7 +261,8 @@ def send_folder(port: str, baud: int, folder: str,
 
     total = len(image_data)
 
-    csv_path = os.path.join("results", "pil", "latency_metrics.csv")
+    csv_path = os.path.join("results", "pil",
+                            f"latency_metrics_{model_tag}.csv")
     os.makedirs(os.path.dirname(csv_path), exist_ok=True)
     csv_file = open(csv_path, "w", newline="")
     csv_writer = csv.writer(csv_file, delimiter=";")
@@ -389,14 +392,17 @@ def send_folder(port: str, baud: int, folder: str,
 
             plt.figure(figsize=(10, 8))
             sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=target_names, yticklabels=target_names)
-            plt.title('PIL Benchmark Confusion Matrix')
+            plt.title(f'PIL Confusion Matrix - {model_tag}')
             plt.ylabel('True Label')
             plt.xlabel('Predicted Label')
             plt.tight_layout()
 
+            # Mismo criterio que test_model.py (MIL): el nombre se deriva del
+            # modelo evaluado, para que dos corridas con modelos distintos no se
+            # pisen la matriz la una a la otra.
             output_dir = os.path.join("results", "pil")
             os.makedirs(output_dir, exist_ok=True)
-            cm_plot_name = "PIL_Confusion_Matrix.png"
+            cm_plot_name = f"Matriz_{model_tag}.png"
             cm_plot_path = os.path.join(output_dir, cm_plot_name)
             plt.savefig(cm_plot_path)
             print(f"Gráfico de la matriz de confusión guardado en: {cm_plot_path}")
@@ -423,6 +429,12 @@ def parse_args():
     parser.add_argument('--splits_dir', default="data/splits",
                         help="Directorio con las particiones de split_dataset.py "
                              "(el banco PIL usa SOLO <splits_dir>/test)")
+
+    parser.add_argument('--model_path', required=True,
+                        help="Ruta al .tflite que esta flasheado en la placa. No se "
+                             "carga: solo identifica la corrida, igual que en "
+                             "test_model.py, para nombrar la matriz y el CSV de "
+                             "latencias (obligatorio)")
 
     parser.add_argument('--baud',   type=int, default=115200,
                         help="Baudrate (default: 115200)")
@@ -496,6 +508,10 @@ if __name__ == '__main__':
     args = parse_args()
     port = normalize_port(args.port)
 
+    # Etiqueta de la corrida: el nombre del modelo sin extension, el mismo
+    # criterio que usa test_model.py para nombrar su matriz de confusion.
+    model_tag = os.path.splitext(os.path.basename(args.model_path))[0]
+
     if args.image:
         send_image(
             port=port,
@@ -505,6 +521,7 @@ if __name__ == '__main__':
             height=args.height,
             grayscale=not args.color,
             pre_delay=args.delay,
+            model_tag=model_tag,
         )
     else:
         folder = resolve_folder(args)
@@ -517,5 +534,6 @@ if __name__ == '__main__':
             grayscale=not args.color,
             pre_delay=args.delay,
             gap=args.gap,
+            model_tag=model_tag,
             n_samples=args.count,
         )
