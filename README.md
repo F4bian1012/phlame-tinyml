@@ -105,14 +105,16 @@ graph TD
     end
 
     subgraph "Python MLOps Training (src/)"
-        SPLITS --> TRAIN[train_*.py]:::python
+        SPLITS -->|train + val| TRAIN[train_*.py]:::python
         TRAIN -->|Saves| KERAS("models/checkpoints/{model_name}.keras"):::artifact
         KERAS --> PRUNE[prune_model.py]:::python
         PRUNE -->|Pruned| KERAS_PRUNED("models/checkpoints/{model_name}_pruned.keras"):::artifact
         KERAS --> OPT[quantize_int8_basic.py]:::python
         KERAS_PRUNED --> OPT
+        SPLITS -.->|train: INT8 calibration| OPT
         OPT -->|Converts| TFLITE(models/tflite/model_int8.tflite):::artifact
-        TFLITE --> EVAL[test_tflite_model.py]:::python
+        TFLITE --> EVAL["test_tflite_model.py<br/>(SIL)"]:::python
+        SPLITS -.->|test| EVAL
     end
 
     subgraph "Embedded Deployment (deployment/)"
@@ -122,7 +124,7 @@ graph TD
     end
 
     subgraph "Hardware-in-the-Loop (HIL)"
-        PROC -.->|pil_benchmark.py| INFERENCE
+        SPLITS -.->|test, via pil_benchmark.py| INFERENCE
         INFERENCE -.->|Serial Protocol| CM_PLOT(results/pil/PIL_Confusion_Matrix.png):::artifact
     end
 ```
@@ -179,7 +181,7 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 *   **`train_resnet.py`**: Training pipeline for ResNet classification architectures (`ResNet8`, `ResNet18`) adapted for tiny edge classification.
 *   **`train_squeezenet.py`**: Training pipeline for the ultra-lightweight `SqueezeNet` architecture, offering a balance between size and accuracy.
 
-**Common Input for Training Scripts:** the `train`/`val` partitions produced by `split_dataset.py` (`--splits_dir`, default `data/splits`). The scripts no longer take a `--validation_split`, since the partition is fixed on disk.
+**Common Input for Training Scripts:** the `train` and `val` partitions produced by `split_dataset.py` (`--splits_dir`, default `data/splits`). The scripts no longer accept `--validation_split` — the partition is fixed on disk instead of resampled in memory, so the hyper-parameter no longer appears in the artifact names either (`{model}+{batch}+{epochs}+{lr}+{W}+{H}`). If the partition is missing, training stops and prints the `split_dataset.py` command to run.
 
 **Common Output Artifacts for Training Scripts:**
 - **Keras Model**: `models/checkpoints/{model_name}+{hyperparameters}.keras` - The trained FP32 model ready for evaluation or quantization.
@@ -189,8 +191,8 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 ### 3. Model Optimization & Evaluation
 *   **`test_model.py`**: The **MIL** level. Evaluates Keras `.keras` models by generating core statistics (Accuracy, Precision, Recall, F1-Score) and exporting a detailed classification report alongside a saved Seaborn-based Confusion Matrix plot. Reads the held-out `data/splits/test` partition (`--data_dir`), never the full dataset, so the reported accuracy excludes the images the model trained on.
 *   **`prune_model.py`**: Applies manual magnitude-based unstructured pruning (either globally or layer-wise) to sparsify weights in Conv2D and Dense layers. Calculates and outputs initial/final model sparsity.
-*   **`quantize_int8_basic.py`**: Quantizes standard FP32 `.keras` models to full-INT8 `.tflite` format. Employs a representative dataset of 100 samples from the processed dataset to precisely calibrate activation scales and zero-points. Enforces strict INT8 input/output tensors for optimal MCU compatibility.
-*   **`test_tflite_model.py`**: The **SIL** level. Validates full-INT8 `.tflite` quantized models sequentially. Simulates microcontroller execution constraints by performing manual input scaling/quantization and output dequantization dynamically, exporting a Seaborn-based Confusion Matrix. Reads the same `data/splits/test` partition as MIL, so the MIL→SIL gap is attributable to quantization alone and not to a different sample of images.
+*   **`quantize_int8_basic.py`**: Quantizes standard FP32 `.keras` models to full-INT8 `.tflite` format. Calibrates activation scales and zero-points with a representative dataset drawn **exclusively from `<splits_dir>/train`** (`--calib_samples`, default 100; `--calib_seed`, default 42, which fixes exactly which `.tflite` is produced). Calibrating on `test` would fit the activation ranges to the evaluation distribution and inflate the SIL/PIL/HIL accuracy; `val` is left out too, since early stopping already consumed it to select the model. Enforces strict INT8 input/output tensors for optimal MCU compatibility.
+*   **`test_tflite_model.py`**: The **SIL** level. Validates full-INT8 `.tflite` quantized models sequentially. Simulates microcontroller execution constraints by performing manual input scaling/quantization and output dequantization dynamically, exporting a Seaborn-based Confusion Matrix. Reads `<splits_dir>/test` (`--splits_dir`, default `data/splits`) — the same partition MIL, PIL and HIL consume, and disjoint from the `train` split used to calibrate the quantization, so the MIL→SIL gap is attributable to quantization alone and not to a different sample of images.
 
 **Common Output Artifacts for Optimization & Evaluation:**
 - **Confusion Matrix (Keras)**: `models/checkpoints/Matriz_CM_{model_name}.png` - Visual evaluation of the floating-point model's predictions.
@@ -201,7 +203,7 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 ### 4. Embedded Conversion & Deployment
 *   **`tflite_to_c.py`**: Standardized converter utility that parses a `.tflite` binary file and outputs a C/C++ array header compatible with TFLite for Microcontrollers. Embeds a critical 16-byte alignment attribute (`DATA_ALIGN_ATTRIBUTE`) required for hardware accelerators and optimal execution on ARM Cortex-M7 (e.g., Arduino Portenta H7). Writes `model.h` into both firmware sketches by default (`--target pil|hil|both`), keeping the PIL and HIL benches on the same model; an explicit output path can still be passed as a second argument.
 *   **`compile_upload_arduino.py`**: Automation utility that interacts directly with `arduino-cli` to compile and upload the firmware. `--target pil|hil` selects which of the two sketches to flash (the board runs one at a time). It handles core installations (`arduino:mbed_portenta`), auto-detects the connected board's COM port, and mitigates Windows path syntax issues natively.
-*   **`pil_benchmark.py`**: A **Processor-in-the-Loop (PIL)** evaluation script. It sends preprocessed dataset images to the Arduino Portenta via a custom Serial protocol (with byte escaping). It reads predictions back in real-time, matching them with the true folder-based classes to generate extensive statistical metrics and a Seaborn-based Confusion Matrix plot comparing on-chip inference with ground-truth. Data is injected over the wire — the camera is not in the loop.
+*   **`pil_benchmark.py`**: The **PIL** level. It sends dataset images to the Arduino Portenta via a custom Serial protocol (with byte escaping). It reads predictions back in real-time, matching them with the true folder-based classes to generate extensive statistical metrics and a Seaborn-based Confusion Matrix plot comparing on-chip inference with ground-truth. Streams `<splits_dir>/test` by default (`--splits_dir`, default `data/splits`) — the same held-out partition MIL and SIL evaluate, so the SIL→PIL gap isolates the move to real silicon. Data is injected over the wire — the camera is not in the loop.
 
 ---
 
@@ -278,7 +280,7 @@ Train a state-of-the-art vision architecture (e.g., MobileNetV2) using the comma
 python src/train_mobilenet.py --base_model MobileNetV2 --width 160 --height 120 --batch_size 32 --epochs 20 --learning_rate 0.0001
 ```
 
-*For ResNet or SqueezeNet, run `src/train_resnet.py` or `src/train_squeezenet.py` respectively.*
+*For ResNet or SqueezeNet, run `src/train_resnet.py` or `src/train_squeezenet.py` respectively. All three accept `--splits_dir` (default `data/splits`) to point at a different partition.*
 
 ### 4. Model Evaluation
 Evaluate your `.keras` model, automatically generating a Confusion Matrix and extensive statistical metrics (F1-score, Precision, Recall). You can explicitly specify the model you want to evaluate using the `--model_path` argument:
@@ -288,11 +290,17 @@ python src/test_model.py --width 160 --height 120 --model_path models/checkpoint
 *(If `--model_path` is omitted, the script will attempt to load a default MobileNet model based on the provided dimensions. `--data_dir` defaults to `data/splits/test`).*
 
 ### 5. Optimization & INT8 Quantization
-Convert the float32 Keras model into an ultra-lightweight integer-only TFLite model, strictly necessary for MCUs without a vector FPU:
+Convert the float32 Keras model into an ultra-lightweight integer-only TFLite model, strictly necessary for MCUs without a vector FPU. Calibration samples come from `data/splits/train` only, so the evaluation partition stays untouched:
 ```bash
-python src/quantize_int8_basic.py --model_path models/checkpoints/{model_name}.keras 
+python src/quantize_int8_basic.py --model_path models/checkpoints/{model_name}.keras --calib_samples 100 --calib_seed 42
 ```
-*Note: You can validate the quantized model against the held-out test partition using `python src/test_tflite_model.py --model_path models/tflite/{model_name}_int8.tflite`.*
+*(`--calib_seed` fixes the shuffle of the calibration images, so the same checkpoint always yields a bit-identical `.tflite`. `--splits_dir` defaults to `data/splits`.)*
+
+Validate the quantized model at the **SIL** level, against the held-out test partition:
+```bash
+python src/test_tflite_model.py --model_path models/tflite/{model_name}_int8.tflite
+```
+*(Reads `data/splits/test` by default; override the partition root with `--splits_dir` or a single directory with `--data_dir`. The input geometry is taken from the model's own input tensor, so `--width`/`--height` are corrected automatically if they disagree.)*
 
 ### 6. Embedded Deployment
 Once the model is optimized, convert the `.tflite` file into a C-array header for the Arduino IDE. By default the header is written into **both** firmware sketches (`deployment/pil_firmware/model.h` and `deployment/hil_camera_firmware/model.h`), so the PIL and HIL benches always run the same model:
@@ -309,11 +317,11 @@ python src/compile_upload_arduino.py --target pil
 *(Use `--target hil` for the camera-in-the-loop firmware of section 8. The board's port is auto-detected via `arduino-cli board list`, so no port argument is needed; `--path_proyecto` still accepts an arbitrary sketch folder. Alternatively, you can open the project folder in the Arduino IDE and click Upload).*
 
 ### 7. Processor-in-the-Loop (PIL) Evaluation
-Once the firmware is running on your Portenta H7, you can evaluate the model's on-chip performance by injecting data over serial. Stream a test dataset over USB Serial and let the script compare the board's inferences with the real labels to generate metrics and a Confusion Matrix plot:
+Once the firmware is running on your Portenta H7, you can evaluate the model's on-chip performance by injecting data over serial. The bench streams the held-out `data/splits/test` partition over USB Serial and compares the board's inferences with the real labels to generate metrics and a Confusion Matrix plot:
 ```bash
-python src/pil_benchmark.py --folder data/processed/160x120 --width 160 --height 120 --port COM9 --baud 115200
+python src/pil_benchmark.py --width 160 --height 120 --port COM9 --baud 115200
 ```
-*(This is Processor-in-the-Loop: the real chip runs inference, but the image is injected over the wire — the camera and physical scene are not part of the loop.)*
+*(This is Processor-in-the-Loop: the real chip runs inference, but the image is injected over the wire — the camera and physical scene are not part of the loop. Override the partition root with `--splits_dir`, or send an arbitrary folder with `--folder`; `--count N` sends a random subset. Note `--width`/`--height` default to 320×320, so pass them explicitly for a 160×120 model.)*
 
 **Common Output Artifacts for PIL Evaluation:**
 - **Confusion Matrix (PIL)**: `results/pil/PIL_Confusion_Matrix.png` - Visual evaluation of the on-chip inference compared with real labels.
