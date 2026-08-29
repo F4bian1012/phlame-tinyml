@@ -48,7 +48,7 @@ It bridges the gap between high-level Python model training and static, memory-c
 - **Transfer Learning Support:** Automated pipelines for seven architectures — `MobileNet`, `MobileNetV2`, `MobileNetV3Large`, `MobileNetV3Small` (ImageNet transfer learning, adapted to single-channel inputs), plus `ResNet8`, `ResNet18` and `SqueezeNet` trained from scratch for tiny edge classification.
 - **Advanced Model Compression:** Built-in scripts for Polynomial Decay Pruning, Layer-Specific Sparse constraints, and Full Integer Quantization (INT8) to shrink models by up to 4x.
 - **Hardware-in-the-Loop Integration:** Real-time serial streaming and camera-in-the-loop evaluation on the Portenta H7 Vision Shield.
-- **Academic Reproducibility:** Version-controlled models, dynamic TensorBoard logging, and rigid data hierarchies (`raw/`, `processed/`).
+- **Academic Reproducibility:** A seeded, stratified `train`/`val`/`test` partition materialized on disk with CSV manifests, so all four levels evaluate the same held-out images; plus version-controlled models, dynamic TensorBoard logging, and rigid data hierarchies (`raw/`, `processed/`, `splits/`).
 
 ---
 
@@ -86,7 +86,7 @@ phlame-tinyml/
 │   ├── compile_upload_arduino.py
 │   ├── pil_benchmark.py
 │   └── hil_camera_benchmark.py
-├── tensorboard_logs/        # Automated TF training logs
+├── tensorboard_logs/        # Automated TF event logs (TensorBoard callback)
 ├── installed_packages.txt   # Pip freeze snapshot
 ├── requirements.txt         # Core dependencies & Hardware setup
 └── README.md
@@ -163,9 +163,20 @@ reverses this on reception (`pil_benchmark.py` performs the escaping on the host
 side).
 
 **Input handling.** Received bytes (uint8, 0–255) are written into the model
-input tensor. For an INT8 model each pixel is mapped as `int8 = pixel - 128`;
-for a FP32 model as `float = pixel / 255.0`. If fewer bytes than the tensor
-expects arrive, the remainder is zero-padded.
+input tensor. For an INT8 model the firmware reads the tensor's own
+`params.scale` and `params.zero_point` — set by the TFLite converter — and
+applies `q = round(pixel / scale) + zero_point`, saturated to `[-128, 127]`.
+Nothing is hardcoded, so the same firmware is correct for any quantized model;
+`scale ≈ 1.0, zero_point = -128` reduces to the familiar `pixel - 128`. For a
+FP32 model each pixel is mapped as `float = pixel / 255.0`. If fewer bytes than
+the tensor expects arrive, the remainder is padded with `zero_point` (the
+quantized representation of a real 0), not with a raw 0.
+
+> The value fed in is the **raw** pixel, because the shipped models are
+> converted without a `Rescaling` layer. This must match the preprocessing of
+> the representative dataset used at conversion time — if you retrain with
+> `Rescaling(1./255)` or MobileNet's `preprocess_input`, adjust `real_value` in
+> `loadImageToInputTensor()` accordingly.
 
 **Response.** After `Invoke()`, the board prints the predicted class index as a
 single integer line (argmax of the output tensor). Diagnostic banners and the
@@ -196,7 +207,7 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 **Common Output Artifacts for Training Scripts:**
 - **Keras Model**: `models/checkpoints/{model_name}+{hyperparameters}.keras` - The trained FP32 model ready for evaluation or quantization.
 - **Class Names**: `models/class_names.txt` - Ordered list of class labels derived from the dataset structure.
-- **Training History Plot**: `tensorboard_logs/{model_name}_training_history+{hyperparameters}.png` - Matplotlib visualization of training/validation loss and accuracy.
+- **Training History Plot**: `results/training_curves/{model_name}_training_history+{hyperparameters}.png` - Matplotlib visualization of training/validation loss and accuracy.
 
 ### 3. Model Optimization & Evaluation
 *   **`test_model.py`**: The **MIL** level. Evaluates Keras `.keras` models by generating core statistics (Accuracy, Precision, Recall, F1-Score) and exporting a detailed classification report alongside a saved Seaborn-based Confusion Matrix plot. Requires an explicit `--model_path`, reads the held-out `data/splits/test` partition (`--data_dir`), never the full dataset, so the reported accuracy excludes the images the model trained on, and writes its Confusion Matrix to `results/mil/` alongside the other levels' outputs.
