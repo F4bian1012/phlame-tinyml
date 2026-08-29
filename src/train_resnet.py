@@ -12,6 +12,7 @@ LOG_DIR = "tensorboard_logs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"
 
 os.makedirs("models/checkpoints", exist_ok=True)
 os.makedirs("tensorboard_logs", exist_ok=True)
+os.makedirs("results/training_curves", exist_ok=True)
 
 
 def load_custom_data(splits_dir, img_width, img_height, batch_size):
@@ -323,7 +324,7 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, dropout_rate,
     model_name = base_model
     img_shape = (img_height, img_width, 1)
     plot_path = (
-        f"tensorboard_logs/{model_name}_training_history"
+        f"results/training_curves/{model_name}_training_history"
         f"+{batch_size}+{epochs}+{learning_rate}"
         f"+{img_width}+{img_height}.png"
     )
