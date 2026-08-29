@@ -4,6 +4,7 @@ from tensorflow.keras import layers
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import sys
 import datetime
 import argparse
 
@@ -12,50 +13,65 @@ LOG_DIR = "tensorboard_logs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"
 os.makedirs("models/checkpoints", exist_ok=True)
 os.makedirs("tensorboard_logs", exist_ok=True)
 
-def load_custom_data(data_dir, img_width, img_height, batch_size, validation_split):
+def load_custom_data(splits_dir, img_width, img_height, batch_size):
     """
-    Loads images from data/processed using tf.keras.preprocessing.
+    Loads the train/val partitions written to disk by split_dataset.py.
     Expected structure:
-    data/processed/WxH/
-        class_a/
-            img1.jpg
-        class_b/
-            img2.jpg
+    data/splits/
+        train/
+            class_a/
+                img1.jpg
+        val/
+            class_a/
+                img2.jpg
+    The partition is materialized on disk (instead of an in-memory
+    validation_split) so that every level of the fidelity ladder
+    MIL -> SIL -> PIL -> HIL evaluates exactly the same held-out images.
     """
-    if not os.path.exists(data_dir) or not os.listdir(data_dir):
-        print(f"Error: {data_dir} is empty or does not exist.")
-        print(f"Please organize your images in subfolders by class inside {data_dir}")
-        return None, None, None
+    train_dir = os.path.join(splits_dir, "train")
+    val_dir = os.path.join(splits_dir, "val")
 
-    print(f"Loading data from {data_dir}...")
+    for path in (train_dir, val_dir):
+        if not os.path.isdir(path) or not os.listdir(path):
+            print(f"ERROR: {path} does not exist or is empty.")
+            print("Run the dataset partition first:")
+            print(f"  python src/split_dataset.py"
+                  f" --input_dir data/processed/{img_width}x{img_height}"
+                  f" --output_dir {splits_dir}")
+            sys.exit(1)
+
+    print(f"Loading data from {splits_dir}...")
     
     try:
         train_ds = tf.keras.utils.image_dataset_from_directory(
-            data_dir,
-            validation_split=validation_split,
-            subset="training",
-            seed=123,
+            train_dir,
             color_mode='grayscale',
             image_size=(img_height, img_width),
             batch_size=batch_size
         )
 
         val_ds = tf.keras.utils.image_dataset_from_directory(
-            data_dir,
-            validation_split=validation_split,
-            subset="validation",
-            seed=123,
+            val_dir,
             color_mode='grayscale',
             image_size=(img_height, img_width),
-            batch_size=batch_size
+            batch_size=batch_size,
+            shuffle=False
         )
     except ValueError as e:
         print(f"Data Loading Error: {e}")
-        print(f"Ensure you have a subfolder for your class, e.g., '{data_dir}/placa/image.jpg'.")
+        print(f"Ensure each split has a subfolder per class, e.g., '{train_dir}/placa/image.jpg'.")
         return None, None, None
 
     class_names = train_ds.class_names
     print(f"Found classes: {class_names}")
+
+    # Both splits must expose the same label order, or the argmax the firmware
+    # returns would not mean the same thing in training and evaluation.
+    if val_ds.class_names != class_names:
+        print("ERROR: class order differs between the train and val splits.")
+        print(f"  train: {class_names}")
+        print(f"  val  : {val_ds.class_names}")
+        sys.exit(1)
     
     if len(class_names) == 1:
         print("\nWARNING: Only 1 class found ('{}').".format(class_names[0]))
@@ -165,13 +181,12 @@ def plot_history(history, plot_path):
     plt.savefig(plot_path)
     print(f"Training plots saved to {plot_path}")
 
-def main(img_width, img_height, batch_size, epochs, learning_rate, validation_split, base_model_name):
-    data_dir = f"data/processed/{img_width}x{img_height}"
+def main(img_width, img_height, batch_size, epochs, learning_rate, base_model_name, splits_dir):
     img_shape = (img_height, img_width, 1)
-    plot_path = f"tensorboard_logs/{base_model_name}_training_history+{batch_size}+{epochs}+{learning_rate}+{validation_split}+{img_width}+{img_height}.png"
-    checkpoint_path = f"models/checkpoints/{base_model_name}+{batch_size}+{epochs}+{learning_rate}+{validation_split}+{img_width}+{img_height}.keras"
+    plot_path = f"tensorboard_logs/{base_model_name}_training_history+{batch_size}+{epochs}+{learning_rate}+{img_width}+{img_height}.png"
+    checkpoint_path = f"models/checkpoints/{base_model_name}+{batch_size}+{epochs}+{learning_rate}+{img_width}+{img_height}.keras"
 
-    train_ds, val_ds, class_names = load_custom_data(data_dir, img_width, img_height, batch_size, validation_split)
+    train_ds, val_ds, class_names = load_custom_data(splits_dir, img_width, img_height, batch_size)
     
     if train_ds is None:
         return
@@ -225,12 +240,12 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, validation_sp
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train model for TinyML")
     parser.add_argument("--base_model", type=str, default="MobileNetV2", choices=["MobileNet", "MobileNetV2", "MobileNetV3Large", "MobileNetV3Small"], help="Base model architecture")
-    parser.add_argument("--width", type=int, default=96, help="Image width")
-    parser.add_argument("--height", type=int, default=96, help="Image height")
+    parser.add_argument("--width", type=int, default=160, help="Image width")
+    parser.add_argument("--height", type=int, default=120, help="Image height")
     parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
     parser.add_argument("--epochs", type=int, default=20, help="Number of epochs")
     parser.add_argument("--learning_rate", type=float, default=0.0001, help="Learning rate")
-    parser.add_argument("--validation_split", type=float, default=0.2, help="Validation split")
+    parser.add_argument("--splits_dir", type=str, default="data/splits", help="Directory holding the train/val partitions produced by split_dataset.py")
     
     args = parser.parse_args()
-    main(args.width, args.height, args.batch_size, args.epochs, args.learning_rate, args.validation_split, args.base_model)
+    main(args.width, args.height, args.batch_size, args.epochs, args.learning_rate, args.base_model, args.splits_dir)

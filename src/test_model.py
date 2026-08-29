@@ -23,17 +23,20 @@ def parse_args():
     parser.add_argument('--height', type=int, default=96, help="Image height")
     parser.add_argument('--learning_rate', type=float, default=0.0001, help="Learning rate")
     parser.add_argument('--model_path', type=str, default=None, help="Ruta al modelo entrenado")
-    parser.add_argument('--data_dir', type=str, default=None, help="Ruta al directorio con imágenes de prueba (debe contener subcarpetas por clase)")
+    parser.add_argument('--data_dir', type=str, default=None, help="Ruta a la partición de prueba (default: data/splits/test, generada por split_dataset.py)")
     parser.add_argument('--class_names_path', type=str, default="models/class_names.txt", help="Ruta al archivo txt con los nombres de las clases")
     
     args = parser.parse_args()
     
     if args.model_path is None:
-        args.model_path = f"models/checkpoints/MobileNet+32+20+{args.learning_rate}+0.2+{args.width}+{args.height}.keras"
-        
+        args.model_path = f"models/checkpoints/MobileNet+32+20+{args.learning_rate}+{args.width}+{args.height}.keras"
+
+    # MIL evalua la particion de test reservada por split_dataset.py, no el
+    # directorio completo: de lo contrario la accuracy reportada incluiria las
+    # imagenes con las que se entreno el modelo.
     if args.data_dir is None:
-        args.data_dir = f"data/processed/{args.width}x{args.height}"
-        
+        args.data_dir = os.path.join("data", "splits", "test")
+
     return args
 
 def main():
@@ -44,8 +47,12 @@ def main():
         return
 
     if not os.path.exists(args.data_dir):
-        print(f"Error: No se encontró el directorio de datos en {args.data_dir}")
-        return  
+        print(f"ERROR: no se encontró la partición de prueba en {args.data_dir}")
+        print("Ejecuta primero la partición del dataset:")
+        print(f"  python src/split_dataset.py"
+              f" --input_dir data/processed/{args.width}x{args.height}"
+              f" --output_dir data/splits")
+        exit(1)
 
     class_names = []
     if os.path.exists(args.class_names_path):

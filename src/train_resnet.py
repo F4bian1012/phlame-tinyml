@@ -4,6 +4,7 @@ from tensorflow.keras import layers
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import sys
 import datetime
 import argparse
 
@@ -13,51 +14,67 @@ os.makedirs("models/checkpoints", exist_ok=True)
 os.makedirs("tensorboard_logs", exist_ok=True)
 
 
-def load_custom_data(data_dir, img_width, img_height, batch_size, validation_split):
+def load_custom_data(splits_dir, img_width, img_height, batch_size):
     """
-    Carga imágenes desde data/processed usando tf.keras.utils.image_dataset_from_directory.
+    Carga las particiones train/val que split_dataset.py deja en disco.
     Estructura esperada:
-        data/processed/WxH/
-            clase_a/
-                img1.jpg
-            clase_b/
-                img2.jpg
+        data/splits/
+            train/
+                clase_a/
+                    img1.jpg
+            val/
+                clase_a/
+                    img2.jpg
+    La partición vive en disco (en vez de un validation_split en memoria) para
+    que los cuatro niveles de la escalera MIL -> SIL -> PIL -> HIL evalúen
+    exactamente las mismas imágenes reservadas.
     Soporta imágenes en escala de grises (color_mode='grayscale').
     """
-    if not os.path.exists(data_dir) or not os.listdir(data_dir):
-        print(f"Error: {data_dir} está vacío o no existe.")
-        print(f"Por favor organiza tus imágenes en subcarpetas por clase dentro de {data_dir}")
-        return None, None, None
+    train_dir = os.path.join(splits_dir, "train")
+    val_dir = os.path.join(splits_dir, "val")
 
-    print(f"Cargando datos desde {data_dir}...")
+    for path in (train_dir, val_dir):
+        if not os.path.isdir(path) or not os.listdir(path):
+            print(f"ERROR: {path} no existe o está vacío.")
+            print("Ejecuta primero la partición del dataset:")
+            print(f"  python src/split_dataset.py"
+                  f" --input_dir data/processed/{img_width}x{img_height}"
+                  f" --output_dir {splits_dir}")
+            sys.exit(1)
+
+    print(f"Cargando datos desde {splits_dir}...")
 
     try:
         train_ds = tf.keras.utils.image_dataset_from_directory(
-            data_dir,
-            validation_split=validation_split,
-            subset="training",
-            seed=123,
+            train_dir,
             color_mode='grayscale',
             image_size=(img_height, img_width),
             batch_size=batch_size
         )
 
         val_ds = tf.keras.utils.image_dataset_from_directory(
-            data_dir,
-            validation_split=validation_split,
-            subset="validation",
-            seed=123,
+            val_dir,
             color_mode='grayscale',
             image_size=(img_height, img_width),
-            batch_size=batch_size
+            batch_size=batch_size,
+            shuffle=False
         )
     except ValueError as e:
         print(f"Error al cargar datos: {e}")
-        print(f"Asegúrate de tener subcarpetas por clase, ej: '{data_dir}/placa/imagen.jpg'.")
+        print(f"Asegúrate de tener subcarpetas por clase, ej: '{train_dir}/placa/imagen.jpg'.")
         return None, None, None
 
     class_names = train_ds.class_names
     print(f"Clases encontradas: {class_names}")
+
+    # Ambas particiones deben exponer el mismo orden de etiquetas: si no, el
+    # argmax que devuelve el firmware no significaría lo mismo al entrenar y
+    # al evaluar.
+    if val_ds.class_names != class_names:
+        print("ERROR: el orden de clases difiere entre las particiones.")
+        print(f"  train: {class_names}")
+        print(f"  val  : {val_ds.class_names}")
+        sys.exit(1)
 
     if len(class_names) == 1:
         print(f"\nADVERTENCIA: Solo se encontró 1 clase ('{class_names[0]}').")
@@ -302,23 +319,22 @@ def plot_history(history, plot_path, base_model="ResNet18"):
     print(f"Gráficas de entrenamiento guardadas en: {plot_path}")
 
 
-def main(img_width, img_height, batch_size, epochs, learning_rate, validation_split, dropout_rate, base_model):
+def main(img_width, img_height, batch_size, epochs, learning_rate, dropout_rate, base_model, splits_dir):
     model_name = base_model
-    data_dir = f"data/processed/{img_width}x{img_height}"
     img_shape = (img_height, img_width, 1)
     plot_path = (
         f"tensorboard_logs/{model_name}_training_history"
-        f"+{batch_size}+{epochs}+{learning_rate}+{validation_split}"
+        f"+{batch_size}+{epochs}+{learning_rate}"
         f"+{img_width}+{img_height}.png"
     )
     checkpoint_path = (
         f"models/checkpoints/{model_name}"
-        f"+{batch_size}+{epochs}+{learning_rate}+{validation_split}"
+        f"+{batch_size}+{epochs}+{learning_rate}"
         f"+{img_width}+{img_height}.keras"
     )
 
     train_ds, val_ds, class_names = load_custom_data(
-        data_dir, img_width, img_height, batch_size, validation_split
+        splits_dir, img_width, img_height, batch_size
     )
     if train_ds is None:
         return
@@ -386,12 +402,12 @@ if __name__ == "__main__":
         help="Arquitectura base (ResNet8 o ResNet18) (default: ResNet18)"
     )
     parser.add_argument(
-        "--width", type=int, default=96,
-        help="Ancho de imagen en píxeles (default: 96)"
+        "--width", type=int, default=160,
+        help="Ancho de imagen en píxeles (default: 160)"
     )
     parser.add_argument(
-        "--height", type=int, default=96,
-        help="Alto de imagen en píxeles (default: 96)"
+        "--height", type=int, default=120,
+        help="Alto de imagen en píxeles (default: 120)"
     )
     parser.add_argument(
         "--batch_size", type=int, default=32,
@@ -406,8 +422,8 @@ if __name__ == "__main__":
         help="Tasa de aprendizaje Adam (default: 0.0001)"
     )
     parser.add_argument(
-        "--validation_split", type=float, default=0.2,
-        help="Fracción del dataset para validación (default: 0.2)"
+        "--splits_dir", type=str, default="data/splits",
+        help="Directorio con las particiones train/val de split_dataset.py (default: data/splits)"
     )
     parser.add_argument(
         "--dropout_rate", type=float, default=0.5,
@@ -418,6 +434,6 @@ if __name__ == "__main__":
     
     main(
         args.width, args.height, args.batch_size, args.epochs, 
-        args.learning_rate, args.validation_split, args.dropout_rate, 
-        args.base_model
+        args.learning_rate, args.dropout_rate, 
+        args.base_model, args.splits_dir
     )
