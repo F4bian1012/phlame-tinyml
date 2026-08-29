@@ -1,0 +1,7 @@
+# Keep the level's results (confusion matrices, latency tables, rig conditions)
+# and ignore anything heavy that lands here (dumped frames, raw captures).
+*
+!.gitignore
+!*.png
+!*.csv
+!*.json

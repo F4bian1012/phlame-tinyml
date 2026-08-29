@@ -200,18 +200,21 @@ def main():
     
     plt.figure(figsize=(10, 8))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names)
-    plt.title('Matriz de Confusión - Inferencia TFLite')
+    plt.title(f'SIL Confusion Matrix - {os.path.splitext(os.path.basename(args.model_path))[0]}')
     plt.ylabel('Etiqueta Real')
     plt.xlabel('Etiqueta Predicha')
     plt.tight_layout()
     
-    out_dir = os.path.dirname(args.model_path)
-    if not out_dir:
-        out_dir = "."
-        
+    # Las matrices del nivel SIL viven con el resto de resultados de la escalera
+    # (results/mil, results/pil, results/hil), no junto al .tflite. El nombre se
+    # deriva del modelo, igual que en test_model.py y pil_benchmark.py, para que
+    # dos corridas con modelos distintos no se pisen la matriz.
+    out_dir = os.path.join("results", "sil")
+    os.makedirs(out_dir, exist_ok=True)
+
     model_basename = os.path.basename(args.model_path)
     model_name_without_ext = os.path.splitext(model_basename)[0]
-    cm_plot_name = f"Matriz_CM_{model_name_without_ext}.png"
+    cm_plot_name = f"Matriz_{model_name_without_ext}.png"
     cm_plot_path = os.path.join(out_dir, cm_plot_name)
     
     plt.savefig(cm_plot_path)
