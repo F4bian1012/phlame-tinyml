@@ -1,0 +1,59 @@
+{
+  "created_utc": "2026-08-29T17:18:11+00:00",
+  "script": "split_dataset.py",
+  "input_dir": "data/processed/160x120",
+  "output_dir": "data/splits",
+  "seed": 42,
+  "proportions": {
+    "train": 0.7,
+    "val": 0.15,
+    "test": 0.15
+  },
+  "class_names": [
+    "Class1",
+    "Class2"
+  ],
+  "class_names_source": "models/class_names.txt",
+  "label_map": {
+    "Class1": 0,
+    "Class2": 1
+  },
+  "counts_per_class": {
+    "Class1": {
+      "total": 4387,
+      "train": 3071,
+      "val": 658,
+      "test": 658
+    },
+    "Class2": {
+      "total": 3138,
+      "train": 2197,
+      "val": 471,
+      "test": 470
+    }
+  },
+  "totals": {
+    "train": 5268,
+    "val": 1129,
+    "test": 1128,
+    "dataset": 7525
+  },
+  "class_balance_pct": {
+    "Class1": 58.3,
+    "Class2": 41.7
+  },
+  "hil_subset": {
+    "requested": 200,
+    "selected": 200,
+    "per_class": {
+      "Class1": 117,
+      "Class2": 83
+    },
+    "seed": 43
+  },
+  "integrity": {
+    "splits_disjoint": true,
+    "images_accounted_for": true
+  },
+  "dry_run": false
+}

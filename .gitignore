@@ -16,6 +16,12 @@ data/augmented/*
 !data/processed/.gitkeep
 !data/augmented/.gitkeep
 
+# Splits: ignore the copied images, keep the manifests and the report so the
+# partition stays reproducible (split_dataset.py rebuilds the images from them)
+data/splits/*/
+!data/splits/*_manifest.csv
+!data/splits/split_report.json
+
 # Models (Exclude heavy weights)
 models/checkpoints/*
 !models/checkpoints/.gitkeep
