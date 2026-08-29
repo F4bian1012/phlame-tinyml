@@ -19,17 +19,13 @@ BATCH_SIZE = 32
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Test Model and Calculate Metrics")
-    parser.add_argument('--width', type=int, default=96, help="Image width")
-    parser.add_argument('--height', type=int, default=96, help="Image height")
-    parser.add_argument('--learning_rate', type=float, default=0.0001, help="Learning rate")
-    parser.add_argument('--model_path', type=str, default=None, help="Ruta al modelo entrenado")
+    parser.add_argument('--width', type=int, default=160, help="Image width")
+    parser.add_argument('--height', type=int, default=120, help="Image height")
+    parser.add_argument('--model_path', type=str, required=True, help="Ruta al modelo .keras a evaluar (obligatorio)")
     parser.add_argument('--data_dir', type=str, default=None, help="Ruta a la partición de prueba (default: data/splits/test, generada por split_dataset.py)")
     parser.add_argument('--class_names_path', type=str, default="models/class_names.txt", help="Ruta al archivo txt con los nombres de las clases")
     
     args = parser.parse_args()
-    
-    if args.model_path is None:
-        args.model_path = f"models/checkpoints/MobileNet+32+20+{args.learning_rate}+{args.width}+{args.height}.keras"
 
     # MIL evalua la particion de test reservada por split_dataset.py, no el
     # directorio completo: de lo contrario la accuracy reportada incluiria las
@@ -125,10 +121,11 @@ def main():
     plt.xlabel('Etiqueta Predicha')
     plt.tight_layout()
     
-    out_dir = os.path.dirname(args.model_path)
-    if not out_dir:
-        out_dir = "."
-        
+    # Las matrices del nivel MIL viven junto al resto de resultados de la
+    # escalera (results/pil, results/hil), no mezcladas con los checkpoints.
+    out_dir = os.path.join("results", "mil")
+    os.makedirs(out_dir, exist_ok=True)
+
     model_basename = os.path.basename(args.model_path)
     model_name_without_ext = os.path.splitext(model_basename)[0]
     cm_plot_name = f"Matriz_{model_name_without_ext}.png"
