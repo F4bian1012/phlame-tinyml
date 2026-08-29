@@ -15,7 +15,7 @@ An open-source, highly structured MLOps framework — evaluated across a phase-l
   - [Key Features](#key-features)
 - [Architecture & MLOps Pipeline](#architecture--mlops-pipeline)
   - [Repository Structure](#repository-structure)
-- [Serial Protocol (HIL Bench)](#serial-protocol-hil-bench)
+- [Serial Protocol (PIL Bench)](#serial-protocol-pil-bench)
 - [Core Scripts Overview (`src/`)](#core-scripts-overview-src)
   - [1. Data Engineering](#1-data-engineering)
   - [2. Model Training (ML Pipelines)](#2-model-training-ml-pipelines)
@@ -111,6 +111,9 @@ graph TD
     subgraph "Python MLOps Training (src/)"
         SPLITS -->|train + val| TRAIN[train_*.py]:::python
         TRAIN -->|Saves| KERAS("models/checkpoints/{model_name}.keras"):::artifact
+        KERAS --> MIL_EVAL["test_model.py<br/>(MIL)"]:::python
+        SPLITS -.->|test| MIL_EVAL
+        MIL_EVAL -->|Saves| CM_MIL("results/mil/Matriz_{model}.png"):::artifact
         KERAS --> PRUNE[prune_model.py]:::python
         PRUNE -->|Pruned| KERAS_PRUNED("models/checkpoints/{model_name}_pruned.keras"):::artifact
         KERAS --> OPT[quantize_int8_basic.py]:::python
@@ -119,6 +122,7 @@ graph TD
         OPT -->|Converts| TFLITE(models/tflite/model_int8.tflite):::artifact
         TFLITE --> EVAL["test_tflite_model.py<br/>(SIL)"]:::python
         SPLITS -.->|test| EVAL
+        EVAL -->|Saves| CM_SIL("results/sil/Matriz_{model}.png"):::artifact
     end
 
     subgraph "Embedded Deployment (deployment/)"
@@ -127,9 +131,11 @@ graph TD
         C_ENGINE --> INFERENCE((Portenta H7 Inference)):::hardware
     end
 
-    subgraph "Hardware-in-the-Loop (HIL)"
+    subgraph "On-Device Benches"
         SPLITS -.->|test, via pil_benchmark.py| INFERENCE
-        INFERENCE -.->|Serial Protocol| CM_PLOT(results/pil/PIL_Confusion_Matrix.png):::artifact
+        INFERENCE -.->|Serial Protocol| CM_PIL("results/pil/Matriz_{model}.png<br/>results/pil/latency_metrics_{model}.csv"):::artifact
+        CAM(("HM01B0 camera<br/>physical scene")):::hardware -.->|hil_camera_benchmark.py| INFERENCE
+        INFERENCE -.->|Per-phase DWT timing| CM_HIL("results/hil/HIL_Confusion_Matrix.png<br/>results/hil/hil_latencies.csv"):::artifact
     end
 ```
 
