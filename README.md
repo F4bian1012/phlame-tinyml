@@ -59,7 +59,8 @@ It bridges the gap between high-level Python model training and static, memory-c
 phlame-tinyml/
 ├── data/                    # Local datasets (ignored in git)
 │   ├── raw/                 # Raw unprocessed images
-│   └── processed/           # Resized & grayscale images
+│   ├── processed/           # Resized & grayscale images
+│   └── splits/              # Disjoint train/val/test partitions + manifests
 ├── deployment/              # C++ Firmware for edge deployment
 │   ├── hil_camera_firmware/ # Portenta H7 Camera-in-the-Loop firmware
 │   └── pil_firmware/        # Portenta H7 Processor-in-the-Loop firmware
@@ -71,6 +72,7 @@ phlame-tinyml/
 ├── src/                     # Core Python MLOps scripts
 │   ├── process_images.py    
 │   ├── reshape_images.py    
+│   ├── split_dataset.py     # Reproducible train/val/test partition
 │   ├── train_*.py           # Training pipelines (MobileNet, ResNet, SqueezeNet)
 │   ├── prune_model.py       
 │   ├── quantize_int8_basic.py
@@ -99,10 +101,11 @@ graph TD
 
     subgraph "Data Pipeline"
         RAW[data/raw]:::data --> PROC[data/processed]:::data
+        PROC -->|split_dataset.py| SPLITS("data/splits<br/>train / val / test"):::data
     end
 
     subgraph "Python MLOps Training (src/)"
-        PROC --> TRAIN[train_*.py]:::python
+        SPLITS --> TRAIN[train_*.py]:::python
         TRAIN -->|Saves| KERAS("models/checkpoints/{model_name}.keras"):::artifact
         KERAS --> PRUNE[prune_model.py]:::python
         PRUNE -->|Pruned| KERAS_PRUNED("models/checkpoints/{model_name}_pruned.keras"):::artifact
@@ -176,16 +179,18 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 *   **`train_resnet.py`**: Training pipeline for ResNet classification architectures (`ResNet8`, `ResNet18`) adapted for tiny edge classification.
 *   **`train_squeezenet.py`**: Training pipeline for the ultra-lightweight `SqueezeNet` architecture, offering a balance between size and accuracy.
 
+**Common Input for Training Scripts:** the `train`/`val` partitions produced by `split_dataset.py` (`--splits_dir`, default `data/splits`). The scripts no longer take a `--validation_split`, since the partition is fixed on disk.
+
 **Common Output Artifacts for Training Scripts:**
 - **Keras Model**: `models/checkpoints/{model_name}+{hyperparameters}.keras` - The trained FP32 model ready for evaluation or quantization.
 - **Class Names**: `models/class_names.txt` - Ordered list of class labels derived from the dataset structure.
 - **Training History Plot**: `tensorboard_logs/{model_name}_training_history+{hyperparameters}.png` - Matplotlib visualization of training/validation loss and accuracy.
 
 ### 3. Model Optimization & Evaluation
-*   **`test_model.py`**: Evaluates Keras `.keras` models by generating core statistics (Accuracy, Precision, Recall, F1-Score) and exporting a detailed classification report alongside a saved Seaborn-based Confusion Matrix plot.
+*   **`test_model.py`**: The **MIL** level. Evaluates Keras `.keras` models by generating core statistics (Accuracy, Precision, Recall, F1-Score) and exporting a detailed classification report alongside a saved Seaborn-based Confusion Matrix plot. Reads the held-out `data/splits/test` partition (`--data_dir`), never the full dataset, so the reported accuracy excludes the images the model trained on.
 *   **`prune_model.py`**: Applies manual magnitude-based unstructured pruning (either globally or layer-wise) to sparsify weights in Conv2D and Dense layers. Calculates and outputs initial/final model sparsity.
 *   **`quantize_int8_basic.py`**: Quantizes standard FP32 `.keras` models to full-INT8 `.tflite` format. Employs a representative dataset of 100 samples from the processed dataset to precisely calibrate activation scales and zero-points. Enforces strict INT8 input/output tensors for optimal MCU compatibility.
-*   **`test_tflite_model.py`**: Validates full-INT8 `.tflite` quantized models sequentially. Simulates microcontroller execution constraints by performing manual input scaling/quantization and output dequantization dynamically, exporting a Seaborn-based Confusion Matrix.
+*   **`test_tflite_model.py`**: The **SIL** level. Validates full-INT8 `.tflite` quantized models sequentially. Simulates microcontroller execution constraints by performing manual input scaling/quantization and output dequantization dynamically, exporting a Seaborn-based Confusion Matrix. Reads the same `data/splits/test` partition as MIL, so the MIL→SIL gap is attributable to quantization alone and not to a different sample of images.
 
 **Common Output Artifacts for Optimization & Evaluation:**
 - **Confusion Matrix (Keras)**: `models/checkpoints/Matriz_CM_{model_name}.png` - Visual evaluation of the floating-point model's predictions.
@@ -262,8 +267,13 @@ python src/process_images.py --raw_path data/raw --path_processed data/processed
 python src/reshape_images.py --width 160 --height 120
 ```
 
+Finally, partition the resized dataset into disjoint `train`/`val`/`test` splits. This step is **required** before training: materializing the partition on disk is what guarantees that every level of the fidelity ladder evaluates exactly the same held-out images, instead of each stage re-sampling the full directory (which leaks training data into the reported accuracy):
+```bash
+python src/split_dataset.py --input_dir data/processed/160x120 --output_dir data/splits --seed 42
+```
+
 ### 3. Model Training
-Train a state-of-the-art vision architecture (e.g., MobileNetV2) using the command-line interface. The script will dynamically generate checkpoints and TensorBoard logs.
+Train a state-of-the-art vision architecture (e.g., MobileNetV2) using the command-line interface. Training reads `data/splits/train` and `data/splits/val`, and fails with instructions if the partition is missing. The script will dynamically generate checkpoints and TensorBoard logs.
 ```bash 
 python src/train_mobilenet.py --base_model MobileNetV2 --width 160 --height 120 --batch_size 32 --epochs 20 --learning_rate 0.0001
 ```
@@ -273,16 +283,16 @@ python src/train_mobilenet.py --base_model MobileNetV2 --width 160 --height 120 
 ### 4. Model Evaluation
 Evaluate your `.keras` model, automatically generating a Confusion Matrix and extensive statistical metrics (F1-score, Precision, Recall). You can explicitly specify the model you want to evaluate using the `--model_path` argument:
 ```bash
-python src/test_model.py --width 160 --height 120 --model_path models/checkpoints/MobileNetV2+32+20+0.0001+0.2+160+120.keras
+python src/test_model.py --width 160 --height 120 --model_path models/checkpoints/MobileNetV2+32+20+0.0001+160+120.keras
 ```
-*(If `--model_path` is omitted, the script will attempt to load a default MobileNet model based on the provided dimensions).*
+*(If `--model_path` is omitted, the script will attempt to load a default MobileNet model based on the provided dimensions. `--data_dir` defaults to `data/splits/test`).*
 
 ### 5. Optimization & INT8 Quantization
 Convert the float32 Keras model into an ultra-lightweight integer-only TFLite model, strictly necessary for MCUs without a vector FPU:
 ```bash
 python src/quantize_int8_basic.py --model_path models/checkpoints/{model_name}.keras 
 ```
-*Note: You can validate the quantized model against the dataset using `python src/test_tflite_model.py`.*
+*Note: You can validate the quantized model against the held-out test partition using `python src/test_tflite_model.py --model_path models/tflite/{model_name}_int8.tflite`.*
 
 ### 6. Embedded Deployment
 Once the model is optimized, convert the `.tflite` file into a C-array header for the Arduino IDE. By default the header is written into **both** firmware sketches (`deployment/pil_firmware/model.h` and `deployment/hil_camera_firmware/model.h`), so the PIL and HIL benches always run the same model:
