@@ -13,13 +13,18 @@ Uso básico (una imagen):
   python send_multiple_images_serial.py --port COM3 --image ruta/imagen.png
 
 Uso básico (carpeta completa):
-  python send_multiple_images_serial.py --port COM3 --folder data/processed/160x120/Class1
+  python pil_benchmark.py --port COM3
+
+El nivel PIL evalúa la partición de test reservada por split_dataset.py, la misma
+que consumen MIL y SIL, para que la brecha entre niveles sea atribuible al nivel
+y no a un muestreo distinto de imágenes.
 
 Opciones:
-  --port    Puerto serial (ej. COM3, /dev/ttyUSB0)  [requerido]
-  --image   Ruta a una imagen concreta a enviar
-  --folder  Carpeta con imágenes a enviar en secuencia
-            (default: data\processed\160x120\Class1)
+  --port        Puerto serial (ej. COM3, /dev/ttyUSB0)  [requerido]
+  --image       Ruta a una imagen concreta a enviar
+  --splits_dir  Directorio de particiones de split_dataset.py
+                (default: data\splits; el banco usa SOLO <splits_dir>\test)
+  --folder      Carpeta explícita a enviar, en vez de <splits_dir>\test
   --baud    Tasa de baudios (default: 115200)
   --width   Ancho objetivo del tensor (default: 120)
   --height  Alto objetivo del tensor (default: 160)
@@ -412,15 +417,19 @@ def parse_args():
     source.add_argument('--image',  default=None,
                         help="Ruta a una imagen concreta a enviar")
     source.add_argument('--folder', default=None,
-                        help="Carpeta con imágenes a enviar en secuencia "
-                             "(default: data\\processed\\160x120)")
+                        help="Carpeta explicita a enviar, en vez de la particion "
+                             "de test (default: <splits_dir>/test)")
+
+    parser.add_argument('--splits_dir', default="data/splits",
+                        help="Directorio con las particiones de split_dataset.py "
+                             "(el banco PIL usa SOLO <splits_dir>/test)")
 
     parser.add_argument('--baud',   type=int, default=115200,
                         help="Baudrate (default: 115200)")
     parser.add_argument('--width',  type=int, default=320,
-                        help="Ancho del tensor de entrada (default: 120)")
+                        help="Ancho del tensor de entrada (default: 320)")
     parser.add_argument('--height', type=int, default=320,
-                        help="Alto del tensor de entrada (default: 160)")
+                        help="Alto del tensor de entrada (default: 320)")
     parser.add_argument('--color',  action='store_true',
                         help="Enviar en color RGB (default: escala de grises)")
     parser.add_argument('--delay',  type=float, default=1.0,
@@ -462,7 +471,26 @@ def normalize_port(port: str) -> str:
     return port
 
 
-DEFAULT_FOLDER = os.path.join('data', 'processed', '160x120')
+def resolve_folder(args):
+    """--folder explicito manda; si no, la particion de test de split_dataset.py.
+
+    PIL nunca debe leer el dataset completo: incluiria las imagenes con las que
+    se entreno el modelo, y la brecha SIL->PIL dejaria de ser atribuible al
+    hardware.
+    """
+    if args.folder:
+        return args.folder
+
+    folder = os.path.join(args.splits_dir, 'test')
+    if not os.path.isdir(folder):
+        print(f"ERROR: no se encontro la particion de prueba en {folder}")
+        print("Ejecuta primero la particion del dataset:")
+        print(f"  python src/split_dataset.py"
+              f" --input_dir data/processed/{args.width}x{args.height}"
+              f" --output_dir {args.splits_dir}")
+        sys.exit(1)
+    return folder
+
 
 if __name__ == '__main__':
     args = parse_args()
@@ -479,7 +507,7 @@ if __name__ == '__main__':
             pre_delay=args.delay,
         )
     else:
-        folder = args.folder if args.folder is not None else DEFAULT_FOLDER
+        folder = resolve_folder(args)
         send_folder(
             port=port,
             baud=args.baud,
