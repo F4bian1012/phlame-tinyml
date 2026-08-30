@@ -139,6 +139,107 @@ def normalize_port(port: str) -> str:
     return port
 
 
+def collect_from_manifest(manifest_path: str, use_all_test=False, seed=42):
+    """
+    Enumera (ruta_imagen, etiqueta_int) desde el manifiesto de la particion de
+    test generado por src/split_dataset.py.
+
+    Por defecto usa SOLO las filas con hil_subset == 1 (el subconjunto marcado
+    para el rig fisico). Con use_all_test=True recorre las 1128 imagenes.
+
+    Por que el manifiesto y no la carpeta:
+      - El manifiesto es el UNICO lugar donde vive la marca hil_subset. Sin ese
+        filtro la sesion de laboratorio pasa de ~200 a 1128 estimulos.
+      - El orden de las clases se toma del propio manifiesto (label -> class_name
+        ordenado por label entero), de modo que el indice coincide con el argmax
+        que devuelve el firmware. Enumerar subcarpetas puede dar otro orden.
+      - Deja constancia auditable de QUE imagenes se evaluaron: el CSV esta
+        versionado en git.
+
+    Retorna (image_data, class_names).
+    """
+    if not os.path.isfile(manifest_path):
+        print(f"[ERROR] No existe el manifiesto: {manifest_path}")
+        print("        Genera la particion primero:")
+        print("          python src/split_dataset.py")
+        print("        O apunta al manifiesto con --manifest RUTA.")
+        sys.exit(1)
+
+    with open(manifest_path, newline='', encoding='utf-8') as fh:
+        rows = list(csv.DictReader(fh))
+    if not rows:
+        print(f"[ERROR] El manifiesto esta vacio: {manifest_path}")
+        sys.exit(1)
+
+    requeridas = {'class_name', 'label', 'src_path', 'dst_path'}
+    faltan = requeridas - set(rows[0].keys())
+    if faltan:
+        print(f"[ERROR] El manifiesto no tiene las columnas {sorted(faltan)}.")
+        print(f"        Columnas encontradas: {sorted(rows[0].keys())}")
+        sys.exit(1)
+
+    # Orden de clases desde el manifiesto: label entero -> nombre
+    label_a_nombre = {}
+    for r in rows:
+        label_a_nombre[int(r['label'])] = r['class_name']
+    class_names = [label_a_nombre[k] for k in sorted(label_a_nombre)]
+    print(f"[INFO] Clases desde el manifiesto (orden = indice del firmware): "
+          f"{class_names}")
+
+    # Filtro del subconjunto marcado para el rig
+    if use_all_test:
+        sel = rows
+        print(f"[INFO] --all-test: se usan las {len(sel)} imagenes de test.")
+    else:
+        if 'hil_subset' not in rows[0]:
+            print("[ERROR] El manifiesto no tiene columna 'hil_subset'.")
+            print("        Regenera la particion o usa --all-test.")
+            sys.exit(1)
+        sel = [r for r in rows
+               if str(r['hil_subset']).strip() in ('1', 'True', 'true')]
+        if not sel:
+            print("[ERROR] Ninguna fila tiene hil_subset == 1.")
+            print("        Regenera la particion o usa --all-test.")
+            sys.exit(1)
+        print(f"[INFO] Subconjunto HIL: {len(sel)} de {len(rows)} imagenes "
+              f"(hil_subset == 1).")
+
+    # Resolucion de rutas: dst_path (particion materializada) y si no, src_path
+    image_data = []
+    ausentes = []
+    for r in sel:
+        ruta = None
+        for cand in (r['dst_path'], r['src_path']):
+            if cand and os.path.isfile(cand):
+                ruta = cand
+                break
+        if ruta is None:
+            ausentes.append(r['dst_path'] or r['src_path'])
+            continue
+        image_data.append((ruta, int(r['label'])))
+
+    if ausentes:
+        print(f"[ERROR] {len(ausentes)} imagenes del manifiesto no existen en "
+              f"disco. Primeras 5:")
+        for p in ausentes[:5]:
+            print(f"          {p}")
+        print("        Materializa la particion con:")
+        print("          python src/split_dataset.py")
+        sys.exit(1)
+
+    reparto = Counter(class_names[lbl] for _, lbl in image_data)
+    print(f"[INFO] Reparto por clase: {dict(reparto)}")
+
+    # Barajar SIEMPRE con semilla fija. El manifiesto viene agrupado por clase:
+    # presentar en ese orden mostraria una clase con el chip frio y la otra
+    # caliente, confundiendo la deriva termica con el efecto de clase y dejando
+    # la matriz de confusion sin interpretacion posible.
+    random.seed(seed)
+    random.shuffle(image_data)
+    print(f"[INFO] Orden de presentacion barajado (semilla {seed}).")
+    return image_data, class_names
+
+
 def collect_dataset(folder: str, n_samples=None, seed=None):
     """
     Enumera (ruta_imagen, etiqueta_int) desde subcarpetas por clase,
@@ -618,8 +719,21 @@ def write_outputs(rows, class_names, conditions, output_dir):
 
 def run_benchmark(args):
     port = normalize_port(args.port)
-    image_data, class_names = collect_dataset(args.folder, args.count,
-                                              args.seed)
+    if args.folder:
+        print(f"[WARN] --folder pasado explicitamente: se usa {args.folder} "
+              f"y NO se aplica el filtro hil_subset del manifiesto.")
+        fuente = f"folder:{os.path.abspath(args.folder)}"
+        image_data, class_names = collect_dataset(args.folder, args.count,
+                                                  args.seed)
+    else:
+        fuente = f"manifest:{os.path.abspath(args.manifest)}"
+        image_data, class_names = collect_from_manifest(
+            args.manifest, use_all_test=args.all_test, seed=args.seed)
+        if args.count is not None and args.count < len(image_data):
+            random.seed(args.seed)
+            image_data = random.sample(image_data, args.count)
+            print(f"[INFO] --count {args.count}: recortado a {args.count} "
+                  f"estimulos.")
 
     print(f"[INFO] Conectando a {port} @ {args.baud} baud ...")
     try:
@@ -666,7 +780,13 @@ def run_benchmark(args):
         'utc_start': datetime.now(timezone.utc).isoformat(),
         'port': args.port,
         'baud': args.baud,
-        'dataset_folder': os.path.abspath(args.folder),
+        'stimulus_source': fuente,
+        'manifest': (os.path.abspath(args.manifest)
+                     if not args.folder else None),
+        'manifest_subset': ('all-test' if args.all_test else 'hil_subset==1')
+                           if not args.folder else None,
+        'dataset_folder': (os.path.abspath(args.folder)
+                           if args.folder else None),
         'class_names': class_names,
         'n_stimuli': len(image_data),
         'settle_s': args.settle,
@@ -799,10 +919,20 @@ def parse_args():
                         help="Puerto serial (ej. COM9 o /dev/ttyUSB0)")
     parser.add_argument('--baud', type=int, default=115200,
                         help="Baudrate (default: 115200)")
-    parser.add_argument('--folder', default=os.path.join('data', 'processed',
-                                                         '160x120'),
-                        help="Dataset con subcarpetas por clase "
-                             "(default: data/processed/160x120)")
+    parser.add_argument('--manifest',
+                        default=os.path.join('data', 'splits',
+                                             'test_manifest.csv'),
+                        help="Manifiesto de la particion de test "
+                             "(default: data/splits/test_manifest.csv). "
+                             "Fuente por defecto de los estimulos.")
+    parser.add_argument('--all-test', action='store_true',
+                        help="Usar las 1128 imagenes de test en vez de las "
+                             "marcadas con hil_subset == 1 (~200). Multiplica "
+                             "por ~5.6 la duracion de la sesion.")
+    parser.add_argument('--folder', default=None,
+                        help="OVERRIDE explicito: dataset con subcarpetas por "
+                             "clase. Si se pasa, se ignora el manifiesto y NO "
+                             "se aplica el filtro hil_subset.")
     parser.add_argument('--count', type=int, default=None, metavar='N',
                         help="Nº de estímulos aleatorios (default: todos)")
     parser.add_argument('--seed', type=int, default=42,

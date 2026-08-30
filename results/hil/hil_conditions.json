@@ -1,0 +1,27 @@
+{
+  "rig": "monitor-controlled-stimulus (checklist Fase 1C, opcion a)",
+  "utc_start": "2026-08-30T14:16:30.420133+00:00",
+  "port": "COM9",
+  "baud": 115200,
+  "stimulus_source": "manifest:data\\splits\\test_manifest.csv",
+  "manifest": "data\\splits\\test_manifest.csv",
+  "manifest_subset": "hil_subset==1",
+  "dataset_folder": null,
+  "class_names": [
+    "Class1",
+    "Class2"
+  ],
+  "n_stimuli": 200,
+  "settle_s": 1.5,
+  "gap_s": 0.5,
+  "seed": 42,
+  "illuminance_lux": null,
+  "camera_to_screen_distance_cm": null,
+  "ambient_temp_c": null,
+  "frame_dump": false,
+  "sil_model": null,
+  "mil_model": null,
+  "frames_dir": null,
+  "notes": "",
+  "utc_end": "2026-08-30T14:24:13.293645+00:00"
+}

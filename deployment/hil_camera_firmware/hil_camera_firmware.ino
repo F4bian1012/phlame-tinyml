@@ -20,8 +20,9 @@
 //   'F' '0'  -> desactivar frame-dump   (responde "FRAME_DUMP:ON|OFF")
 //
 // Handshake de arranque (lineas parseables):
+//   CAM_INIT:OK | CAM_INIT:FAIL   la camara se inicializa PRIMERO, antes de
+//                                 SDRAM y TFLite (ver nota en setup())
 //   INPUT_SHAPE:<H>x<W>x<C>   geometria del tensor de entrada
-//   CAM_INIT:OK | CAM_INIT:FAIL
 //   READY_HIL                 listo para recibir triggers
 //
 // Telemetria por inferencia:
@@ -395,6 +396,38 @@ void handleSerialCommands() {
 }
 
 void setup() {
+  Serial.begin(115200);
+  // Espera ACOTADA: un 'while (!Serial)' sin limite deja la placa colgada en
+  // silencio si nadie abre el puerto, y desde el host es indistinguible de un
+  // firmware que no arranca.
+  uint32_t t_serial = millis();
+  while (!Serial && (millis() - t_serial) < 5000) {
+  }
+  delay(2000);
+
+  // Habilitar el contador de ciclos DWT para medir latencia con precision de
+  // 1 ciclo. Debe hacerse una sola vez, aqui.
+  dwt_enable_cycle_counter();
+
+  // --- Inicializar la camara HM01B0 (160x120 gris, 30 fps) ------------------
+  // Se inicializa antes que SDRAM y TFLite para que un fallo del sensor se
+  // reporte cuanto antes, y para que este arranque sea equivalente al del
+  // sketch de diagnostico deployment/camera_test/camera_test.ino.
+  // OJO con el valor de retorno: Camera::begin() devuelve bool (true = exito),
+  // a diferencia del resto de la API de la libreria (grabFrame, setFrameRate...)
+  // que sigue el convenio C de 0 = exito. Compararlo con == 0 invierte la
+  // logica y reporta CAM_INIT:FAIL justo cuando la camara arranca bien.
+  if (cam.begin(CAMERA_R160x120, CAMERA_GRAYSCALE, CAM_FPS)) {
+    Serial.println("CAM_INIT:OK");
+  } else {
+    Serial.println("CAM_INIT:FAIL");
+    Serial.println("ERROR: Vision Shield no detectado. Sistema detenido.");
+    Serial.flush();
+    while (1)
+      ;
+  }
+
+  // --- SDRAM: buffer de imagen + arena de tensores ---------------------------
   SDRAM.begin();
 
   // Buffer de trabajo del frame redimensionado, en SDRAM
@@ -402,15 +435,6 @@ void setup() {
 
   // Memoria con 16 bytes extra para alineacion
   uint8_t *raw_arena = (uint8_t *)ea_malloc(kTensorArenaSize + 16);
-
-  Serial.begin(115200);
-  while (!Serial) {
-  }
-  delay(2000);
-
-  // Habilitar el contador de ciclos DWT para medir latencia con precision de
-  // 1 ciclo. Debe hacerse una sola vez, aqui.
-  dwt_enable_cycle_counter();
 
   if (raw_arena == nullptr || image_buffer == nullptr) {
     Serial.println("ERROR: No hay SDRAM disponible para Arena o Image Buffer.");
@@ -489,17 +513,6 @@ void setup() {
     Serial.print(input->params.scale, 8);
     Serial.print(" zero_point=");
     Serial.println(input->params.zero_point);
-  }
-
-  // --- Inicializar la camara HM01B0 (160x120 gris, 30 fps) ---
-  if (cam.begin(CAMERA_R160x120, CAMERA_GRAYSCALE, CAM_FPS) == 0) {
-    Serial.println("CAM_INIT:OK");
-  } else {
-    Serial.println("CAM_INIT:FAIL");
-    Serial.println("ERROR: Vision Shield no detectado. Sistema detenido.");
-    Serial.flush();
-    while (1)
-      ;
   }
 
   Serial.println("Setup completado exitosamente.");
