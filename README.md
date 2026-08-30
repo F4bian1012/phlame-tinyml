@@ -103,40 +103,45 @@ graph TD
     classDef hardware fill:#00979D,stroke:#005C5F,stroke-width:2px,color:#fff;
     classDef artifact fill:#FFD43B,stroke:#FFE873,stroke-width:2px,color:#000;
 
-    subgraph "Data Pipeline"
+    subgraph DATA["1 - Data Pipeline"]
+        direction TB
         RAW[data/raw]:::data --> PROC[data/processed]:::data
         PROC -->|split_dataset.py| SPLITS("data/splits<br/>train / val / test"):::data
     end
 
-    subgraph "Python MLOps Training (src/)"
-        SPLITS -->|train + val| TRAIN[train_*.py]:::python
-        TRAIN -->|Saves| KERAS("models/checkpoints/{model_name}.keras"):::artifact
-        KERAS --> MIL_EVAL["test_model.py<br/>(MIL)"]:::python
-        SPLITS -.->|test| MIL_EVAL
-        MIL_EVAL -->|Saves| CM_MIL("results/mil/Matriz_{model}.png"):::artifact
-        KERAS --> PRUNE[prune_model.py]:::python
-        PRUNE -->|Pruned| KERAS_PRUNED("models/checkpoints/{model_name}_pruned.keras"):::artifact
-        KERAS --> OPT[quantize_int8_basic.py]:::python
-        KERAS_PRUNED --> OPT
-        SPLITS -.->|train: INT8 calibration| OPT
-        OPT -->|Converts| TFLITE(models/tflite/model_int8.tflite):::artifact
-        TFLITE --> EVAL["test_tflite_model.py<br/>(SIL)"]:::python
-        SPLITS -.->|test| EVAL
-        EVAL -->|Saves| CM_SIL("results/sil/Matriz_{model}.png"):::artifact
+    subgraph TRAINING["2 - Training and Optimization (src/)"]
+        direction TB
+        TRAIN["train_*.py<br/><small>reads train + val</small>"]:::python
+        TRAIN -->|Saves| KERAS("models/checkpoints/{model}.keras"):::artifact
+        KERAS --> MIL["test_model.py (MIL)<br/><small>reads splits/test</small>"]:::python
+        MIL --> CM_MIL("results/mil/Matriz_{model}.png"):::artifact
+        KERAS --> PRUNE["prune_model.py<br/><small>optional</small>"]:::python
+        PRUNE --> OPT["quantize_int8_basic.py<br/><small>calibrates on splits/train</small>"]:::python
+        OPT --> TFLITE("models/tflite/{model}_int8.tflite"):::artifact
+        TFLITE --> SIL["test_tflite_model.py (SIL)<br/><small>reads splits/test</small>"]:::python
+        SIL --> CM_SIL("results/sil/Matriz_{model}.png"):::artifact
     end
 
-    subgraph "Embedded Deployment (deployment/)"
-        TFLITE -->|tflite_to_c.py| HEADER("pil_firmware/model.h<br/>hil_camera_firmware/model.h"):::artifact
-        HEADER -.->|compile_upload_arduino.py| C_ENGINE[pil_firmware.ino]:::hardware
-        C_ENGINE --> INFERENCE((Portenta H7 Inference)):::hardware
+    subgraph DEPLOY["3 - Embedded Deployment (deployment/)"]
+        direction TB
+        HEADER["tflite_to_c.py<br/><small>--target pil | hil | both</small>"]:::python
+        HEADER --> MODEL_H("pil_firmware/model.h<br/>hil_camera_firmware/model.h"):::artifact
+        MODEL_H --> FLASH["compile_upload_arduino.py<br/><small>--target pil | hil</small>"]:::python
+        FLASH --> BOARD((Portenta H7)):::hardware
     end
 
-    subgraph "On-Device Benches"
-        SPLITS -.->|test, via pil_benchmark.py| INFERENCE
-        INFERENCE -.->|Serial Protocol| CM_PIL("results/pil/Matriz_{model}.png<br/>results/pil/latency_metrics_{model}.csv"):::artifact
-        CAM(("HM01B0 camera<br/>physical scene")):::hardware -.->|hil_camera_benchmark.py| INFERENCE
-        INFERENCE -.->|Per-phase DWT timing| CM_HIL("results/hil/HIL_Confusion_Matrix.png<br/>results/hil/hil_latencies.csv"):::artifact
+    subgraph BENCH["4 - On-Device Benches"]
+        direction TB
+        PIL["pil_benchmark.py (PIL)<br/><small>streams splits/test over serial</small>"]:::python
+        PIL --> CM_PIL("results/pil/Matriz_{model}.png<br/>results/pil/latency_metrics_{model}.csv"):::artifact
+        HIL["hil_camera_benchmark.py (HIL)<br/><small>HM01B0 camera, physical scene</small>"]:::python
+        HIL --> CM_HIL("results/hil/HIL_Confusion_Matrix.png<br/>results/hil/hil_latencies.csv"):::artifact
     end
+
+    SPLITS --> TRAIN
+    TFLITE --> HEADER
+    BOARD --> PIL
+    BOARD --> HIL
 ```
 
 ---
