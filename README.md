@@ -247,7 +247,7 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 | Board            | Arduino Portenta H7 (STM32H747XI, dual-core Cortex-M7 @ 480 MHz)     |
 | External RAM     | 8 MB SDRAM (required — tensor arena + image buffer live here)        |
 | Camera (capture) | Portenta Vision Shield, HM01B0 monochrome sensor (160×120, 30 fps)   |
-| Flash            | 2 MB internal (holds the quantized model via `model.h`)              |
+| Flash            | 2 MB internal — shared by firmware (~673 KB) and `model.h`           |
 | Host link        | USB-C, 115200 baud serial                                            |
 
 **Memory configuration (firmware).** The tensor arena is allocated in **SDRAM**,
@@ -264,8 +264,44 @@ not internal SRAM:
   residual `Add` in ResNet18, `Concatenation` in SqueezeNet's fire modules), and
   `AllOpsResolver` avoids re-editing a fixed op list when switching models. This
   trades a larger firmware binary (all kernels linked, not just the ones the
-  loaded model needs) for that flexibility — an acceptable trade on the Portenta
-  H7's 2 MB flash.
+  loaded model needs) for that flexibility — see the flash budget below.
+
+**Flash budget (this is a hard limit).** The model is linked into the firmware as
+a C array, so the quantized model and the firmware code share the same 2 MB of
+internal flash. Measured on the PIL firmware with `AllOpsResolver`:
+
+| | Size |
+|---|---|
+| Firmware code (TFLite-Micro + all kernels, no model) | ~673 KB |
+| Internal flash (STM32H747, `0x08000000`–`0x081FFFFF`) | 2048 KB |
+| **Headroom left for `model.h`** | **~1375 KB** |
+
+Which of the framework's INT8 models fit, at 160×120:
+
+| Model | `.tflite` | Binary | Fits |
+|---|---|---|---|
+| `MobileNet` | 311 KB | 0.96 MB | yes |
+| `MobileNetV2` | 631 KB | 1.27 MB | yes |
+| `SqueezeNet` | 808 KB | 1.45 MB | yes |
+| `MobileNetV3Small` | 817 KB | 1.46 MB | yes |
+| `ResNet8` | 1249 KB | 1.88 MB | yes, 126 KB to spare |
+| `MobileNetV3Large` | 2181 KB | 2.79 MB | **no** — 0.79 MB over |
+| `ResNet18` | 11057 KB | 11.46 MB | **no** — 9.46 MB over |
+
+`MobileNetV3Large` and `ResNet18` train and quantize fine, and are valid MIL/SIL
+targets on the PC, but they cannot be deployed to this board without pruning or a
+smaller input resolution. To free room for a borderline model, swap
+`AllOpsResolver` for a `MicroMutableOpResolver` listing only the operators that
+model uses.
+
+**Troubleshooting: `Last page at 0x08... is not writeable`.** `arduino-cli upload`
+failing with `exit status 64` and this message means the binary overflowed the
+2 MB flash — the address in the message is where the binary *would* have ended.
+Subtract `0x08000000` to get its size. The usual cause is a stale `model.h` from a
+larger model: regenerate it for the model you actually mean to deploy with
+`python src/tflite_to_c.py models/tflite/{model_name}_int8.tflite`. The
+`Invalid DFU suffix signature` warning that `dfu-util` prints alongside it is
+unrelated and harmless.
 
 **Toolchain.** Arduino CLI + `arduino:mbed_portenta` core + `Chirale_TensorFlowLite`
 library (see `requirements.txt`).
