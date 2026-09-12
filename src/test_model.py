@@ -3,6 +3,7 @@ from tensorflow import keras
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
+import hashlib
 import json
 import os
 from datetime import datetime, timezone
@@ -18,6 +19,25 @@ except ImportError:
     exit(1)
 
 BATCH_SIZE = 32
+
+def _sha256_archivo(path, chunk=1024 * 1024):
+    """SHA-256 del archivo del modelo, leido por bloques.
+
+    Por bloques porque un .keras puede pesar decenas de MB y no hace falta
+    tenerlo entero en memoria solo para resumirlo.
+
+    Devuelve None si la ruta no es un archivo (p.ej. un SavedModel, que es una
+    carpeta): es preferible un JSON sin checksum que perder toda la evaluacion
+    en la ultima linea, despues de haber corrido la inferencia completa.
+    """
+    if not os.path.isfile(path):
+        return None
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for bloque in iter(lambda: fh.read(chunk), b""):
+            h.update(bloque)
+    return h.hexdigest()
+
 
 def _json_safe(o):
     """Convierte tipos de numpy a tipos nativos de Python.
@@ -120,11 +140,17 @@ def main():
     # Calcular métricas globales (weighted sirve bien si hay clases desbalanceadas)
     accuracy = accuracy_score(y_true, y_pred)
     precision, recall, f1, _ = precision_recall_fscore_support(y_true, y_pred, average='weighted', zero_division=0)
+    # 'macro' promedia las clases sin ponderar por soporte. Con el dataset
+    # desbalanceado, el F1 'weighted' queda dominado por la clase mayoritaria y
+    # puede ocultar que la minoritaria va mal; el macro las pesa igual. Las dos
+    # cifras juntas hacen visible esa diferencia en vez de promediarla.
+    _, _, f1_macro, _ = precision_recall_fscore_support(y_true, y_pred, average='macro', zero_division=0)
     
     print(f"Accuracy (Exactitud): {accuracy:.4f}")
     print(f"Precision:            {precision:.4f}")
     print(f"Recall (Exhaustividad):{recall:.4f}")
-    print(f"F1-Score:             {f1:.4f}")
+    print(f"F1-Score (weighted):  {f1:.4f}")
+    print(f"F1-Score (macro):     {f1_macro:.4f}")
     
     # Reporte detallado por clase
     print("\nReporte de Clasificación Detallado:")
@@ -162,12 +188,23 @@ def main():
     # Matriz_*.png: derivado del modelo, para que dos corridas no se pisen.
     metrics_path = os.path.join(out_dir, f"metrics_{model_name_without_ext}.json")
 
+    # El checksum ata estas metricas al artefacto exacto que las produjo. Si
+    # mas adelante una corrida no reproduce estas cifras, el hash dice de
+    # inmediato si cambio el modelo o si cambio otra cosa (los datos, el
+    # preprocesado, la particion). Sin el, un .keras regenerado con el mismo
+    # nombre es indistinguible del original.
+    modelo_sha256 = _sha256_archivo(args.model_path)
+    modelo_bytes = os.path.getsize(args.model_path) if os.path.isfile(args.model_path) else None
+    print(f"SHA-256 del modelo:   {modelo_sha256}")
+
     resultados = {
         "nivel": "MIL",
         "generado_utc": datetime.now(timezone.utc).isoformat(),
         "modelo": {
             "path": args.model_path,
             "nombre": model_name_without_ext,
+            "sha256": modelo_sha256,
+            "bytes": modelo_bytes,
         },
         "dataset": {
             "data_dir": args.data_dir,
@@ -180,6 +217,7 @@ def main():
             "precision_weighted": float(precision),
             "recall_weighted": float(recall),
             "f1_weighted": float(f1),
+            "f1_macro": float(f1_macro),
         },
         "metricas_por_clase": report_dict,
         "matriz_confusion": {
