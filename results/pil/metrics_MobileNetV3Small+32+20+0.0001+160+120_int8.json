@@ -1,11 +1,11 @@
 {
   "nivel": "PIL",
-  "generado_utc": "2026-09-12T03:29:10.999264+00:00",
+  "generado_utc": "2026-09-12T15:46:48.151410+00:00",
   "modelo": {
-    "path": ".\\models\\tflite\\MobileNetV3Large+32+20+0.0001+160+120_int8.tflite",
-    "nombre": "MobileNetV3Large+32+20+0.0001+160+120_int8",
-    "sha256": "9a89f28e6880f10c42e2162aa12380ec82bedccad7c23156dcc455e40b8f5c91",
-    "bytes": 2233176,
+    "path": ".\\models\\tflite\\MobileNetV3Small+32+20+0.0001+160+120_int8.tflite",
+    "nombre": "MobileNetV3Small+32+20+0.0001+160+120_int8",
+    "sha256": "a1124c8f199ae177032f3000392de7c01fbed9f595bb405076c1cd8952206598",
+    "bytes": 836896,
     "nota": "checksum del .tflite indicado con --model_path. El banco NO lo carga ni lo compara contra la placa: acredita que este archivo es el mismo que evaluo SIL, no que sea el que esta flasheado."
   },
   "corrida": {
@@ -88,84 +88,84 @@
     "por_campo": {
       "TEMP_C": {
         "n": 940,
-        "media": 35.85212765957447,
-        "mediana": 36.0,
-        "desv_std": 0.5599765557629187,
-        "min": 33.0,
-        "max": 38.0,
-        "p95": 37.0
+        "media": 30.840425531914892,
+        "mediana": 31.0,
+        "desv_std": 0.6017934058194633,
+        "min": 29.0,
+        "max": 33.0,
+        "p95": 32.0
       },
       "CYC_PRE": {
         "n": 940,
-        "media": 1277239.294680851,
-        "mediana": 1278551.0,
-        "desv_std": 5006.2891115205575,
-        "min": 1226692.0,
-        "max": 1293066.0,
-        "p95": 1281776.0
+        "media": 1277573.805319149,
+        "mediana": 1278687.0,
+        "desv_std": 5331.364829480309,
+        "min": 1225620.0,
+        "max": 1292853.0,
+        "p95": 1282486.0
       },
       "CYC_INF": {
         "n": 940,
-        "media": 194819134.08297873,
-        "mediana": 194820363.0,
-        "desv_std": 48628.93357546989,
-        "min": 194679007.0,
-        "max": 194968055.0,
-        "p95": 194897431.0
+        "media": 194819391.26595744,
+        "mediana": 194819421.0,
+        "desv_std": 49053.7600167418,
+        "min": 194669217.0,
+        "max": 194967240.0,
+        "p95": 194904524.0
       },
       "CYC_POST": {
         "n": 940,
-        "media": 295.4404255319149,
-        "mediana": 293.0,
-        "desv_std": 112.859161215735,
-        "min": 195.0,
-        "max": 1501.0,
-        "p95": 413.0
+        "media": 292.0234042553191,
+        "mediana": 289.0,
+        "desv_std": 97.87037723572128,
+        "min": 193.0,
+        "max": 1733.0,
+        "p95": 411.0
       },
       "CYC_TOTAL": {
         "n": 940,
-        "media": 196096668.8180851,
-        "mediana": 196098127.0,
-        "desv_std": 48383.454370695836,
-        "min": 195958082.0,
-        "max": 196245714.0,
-        "p95": 196173118.0
+        "media": 196097257.09468085,
+        "mediana": 196097512.0,
+        "desv_std": 48792.58528636424,
+        "min": 195948212.0,
+        "max": 196247156.0,
+        "p95": 196180642.0
       },
       "US_PRE": {
         "n": 940,
-        "media": 3193.098236170213,
-        "mediana": 3196.3775,
-        "desv_std": 12.51571281012161,
-        "min": 3066.73,
-        "max": 3232.665,
-        "p95": 3204.44
+        "media": 3193.934513829787,
+        "mediana": 3196.7174999999997,
+        "desv_std": 13.32841345780727,
+        "min": 3064.05,
+        "max": 3232.133,
+        "p95": 3206.215
       },
       "US_INF": {
         "n": 940,
-        "media": 487047.8353712766,
-        "mediana": 487050.90650000004,
-        "desv_std": 121.57198565831946,
-        "min": 486697.5,
-        "max": 487420.125,
-        "p95": 487243.563
+        "media": 487048.4778042553,
+        "mediana": 487048.578,
+        "desv_std": 122.63498481461741,
+        "min": 486673.031,
+        "max": 487418.094,
+        "p95": 487261.313
       },
       "US_POST": {
         "n": 940,
-        "media": 0.7385904255319149,
-        "mediana": 0.733,
-        "desv_std": 0.28224744110903516,
-        "min": 0.488,
-        "max": 3.752,
-        "p95": 1.033
+        "media": 0.7300659574468086,
+        "mediana": 0.723,
+        "desv_std": 0.2447752352113623,
+        "min": 0.482,
+        "max": 4.332,
+        "p95": 1.028
       },
       "US_TOTAL": {
         "n": 940,
-        "media": 490241.6714914894,
-        "mediana": 490245.313,
-        "desv_std": 120.9587821413973,
-        "min": 489895.219,
-        "max": 490614.281,
-        "p95": 490432.781
+        "media": 490243.14285,
+        "mediana": 490243.7815,
+        "desv_std": 121.98149061707186,
+        "min": 489870.5,
+        "max": 490617.875,
+        "p95": 490451.594
       }
     }
   },
@@ -174,8 +174,8 @@
     "1": 471
   },
   "artefactos": {
-    "matriz_png": "results\\pil\\Matriz_MobileNetV3Large+32+20+0.0001+160+120_int8.png",
-    "latencias_csv": "results\\pil\\latency_metrics_MobileNetV3Large+32+20+0.0001+160+120_int8.csv",
-    "predicciones_csv": "results\\pil\\predictions_MobileNetV3Large+32+20+0.0001+160+120_int8.csv"
+    "matriz_png": "results\\pil\\Matriz_MobileNetV3Small+32+20+0.0001+160+120_int8.png",
+    "latencias_csv": "results\\pil\\latency_metrics_MobileNetV3Small+32+20+0.0001+160+120_int8.csv",
+    "predicciones_csv": "results\\pil\\predictions_MobileNetV3Small+32+20+0.0001+160+120_int8.csv"
   }
 }
