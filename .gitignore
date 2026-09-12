@@ -41,3 +41,9 @@ models/checkpoints/*
 # OS
 .DS_Store
 Thumbs.db
+
+# Trabajo aislado fuera del arbol principal: puerto a Arduino Nicla Vision
+# (sketches nuevos + copias de los scripts del host + parche contra 3db7bde).
+# Son ~4 MB, dominados por los dos model.h. Quitar esta regla cuando se decida
+# integrarlo; ver nicla_vision_port/_LEEME.md
+nicla_vision_port/
