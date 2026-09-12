@@ -41,6 +41,10 @@ import random
 import time
 import sys
 import csv
+import hashlib
+import json
+import statistics
+from datetime import datetime, timezone
 
 try:
     import serial
@@ -61,6 +65,90 @@ MARKER_START = b'#'   # 0x23
 MARKER_END   = b'@'   # 0x40
 ESCAPE_BYTE  = 0x1B   # ESC
 BYTES_TO_ESCAPE = {0x23, 0x40, 0x1B}  # '#', '@', ESC
+
+
+def _json_safe(o):
+    """Convierte a tipos nativos lo que json.dump no sabe serializar.
+
+    classification_report(output_dict=True) devuelve numpy: np.int64 en
+    "support" y np.float64 en las metricas, y json.dump falla con TypeError.
+    No se importa numpy aqui porque en este script solo entra dentro de las
+    funciones; se usa el protocolo .tolist()/.item(), que es justo lo que
+    exponen tanto los escalares como los arrays de numpy.
+    """
+    if hasattr(o, "tolist"):
+        return o.tolist()
+    if hasattr(o, "item"):
+        return o.item()
+    raise TypeError("No se puede serializar a JSON: %r (%s)" % (o, type(o).__name__))
+
+
+def _sha256_archivo(path, chunk=1024 * 1024):
+    """SHA-256 del archivo, leido por bloques.
+
+    Devuelve None si la ruta no es un archivo: es preferible un JSON sin
+    checksum que perder el banco entero en la ultima linea, despues de haber
+    enviado todas las imagenes a la placa.
+    """
+    if not path or not os.path.isfile(path):
+        return None
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for bloque in iter(lambda: fh.read(chunk), b""):
+            h.update(bloque)
+    return h.hexdigest()
+
+
+def _resumen_latencias(filas, campos):
+    """Estadisticos por campo a partir de las lineas CYC_*/US_*/TEMP_C.
+
+    Los valores llegan como texto por el puerto serie y pueden faltar (una
+    imagen sin respuesta deja el campo vacio), asi que se descartan los no
+    numericos en vez de abortar el resumen entero. Un campo sin ninguna
+    medida valida queda en None, que es informacion: dice que el firmware no
+    lo reporto.
+
+    p95 por rango mas cercano sobre la muestra ordenada (sin interpolar): con
+    pocas imagenes es mas honesto que inventar un valor intermedio.
+    """
+    resumen = {}
+    for campo in campos:
+        vals = []
+        for fila in filas:
+            try:
+                vals.append(float(fila.get(campo, "")))
+            except (TypeError, ValueError):
+                continue
+        if not vals:
+            resumen[campo] = None
+            continue
+        ordenados = sorted(vals)
+        idx95 = int(round(0.95 * (len(ordenados) - 1)))
+        resumen[campo] = {
+            "n": len(vals),
+            "media": statistics.fmean(vals),
+            "mediana": statistics.median(vals),
+            "desv_std": statistics.stdev(vals) if len(vals) > 1 else 0.0,
+            "min": ordenados[0],
+            "max": ordenados[-1],
+            "p95": ordenados[idx95],
+        }
+    return resumen
+
+
+def _nombre_clase(idx, class_names):
+    """Nombre de la clase a partir del indice que devuelve la placa.
+
+    El firmware devuelve un entero crudo. Si no corresponde a ninguna clase
+    conocida (firmware flasheado con otro modelo, o dataset distinto) se marca
+    como Invalida_<n> en vez de reventar la fila: el CSV debe registrar lo que
+    paso, incluida una respuesta incoherente.
+    """
+    if idx is None or idx < 0:
+        return ""
+    if idx < len(class_names):
+        return class_names[idx]
+    return "Invalida_%d" % idx
 
 
 def escape_payload(raw_bytes: bytes) -> bytes:
@@ -188,6 +276,7 @@ def send_folder(port: str, baud: int, folder: str,
                 width: int, height: int, grayscale: bool,
                 pre_delay: float, gap: float,
                 model_tag: str,
+                model_path: str = None,
                 n_samples: int = None):
     """
     Envía imágenes de `folder` al Arduino en secuencia.
@@ -269,10 +358,24 @@ def send_folder(port: str, baud: int, folder: str,
     metrics_headers = ["TEMP_C", "CYC_PRE", "CYC_INF", "CYC_POST", "CYC_TOTAL", "US_PRE", "US_INF", "US_POST", "US_TOTAL"]
     csv_writer.writerow(["Image"] + metrics_headers)
 
+    # CSV aparte con la prediccion por imagen. Separado del de latencias
+    # para no alterar el esquema de aquel, que ya tiene corridas hechas;
+    # ambos comparten la columna Image y se pueden cruzar por nombre.
+    # RelPath desambigua: dos clases pueden tener archivos homonimos.
+    pred_csv_path = os.path.join("results", "pil",
+                                 f"predictions_{model_tag}.csv")
+    pred_file = open(pred_csv_path, "w", newline="", encoding="utf-8")
+    pred_writer = csv.writer(pred_file, delimiter=";")
+    pred_writer.writerow(["Image", "RelPath", "TrueLabel", "TrueClass",
+                          "PredLabel", "PredClass", "Correct"])
+
     class_counts: Counter = Counter()
     errors = 0
     y_true = []
     y_pred = []
+    # Se acumulan ademas del CSV: el JSON resume por fase y releer el CSV
+    # recien escrito solo para eso seria dar un rodeo.
+    latencias = []
 
     for idx, (image_path, true_label) in enumerate(image_data, start=1):
         print(f"\n[INFO] ({idx}/{total}) Procesando: {os.path.basename(image_path)}")
@@ -321,6 +424,7 @@ def send_folder(port: str, baud: int, folder: str,
             row.append(current_metrics.get(h, ""))
         csv_writer.writerow(row)
         csv_file.flush()
+        latencias.append(dict(current_metrics))
 
         if predicted_class is not None:
             class_counts[predicted_class] += 1
@@ -332,12 +436,36 @@ def send_folder(port: str, baud: int, folder: str,
             errors += 1
             print(f"  [WARN] No se recibió clase predicha para esta imagen.")
 
+        # Una fila por imagen, se sepa o no la etiqueta y responda o no la
+        # placa: las celdas vacias distinguen "no habia etiqueta" de "no
+        # hubo respuesta", y ambas cosas importan al interpretar el banco.
+        etiqueta_conocida = (true_label != -1)
+        hubo_respuesta = (predicted_class is not None)
+        if etiqueta_conocida and hubo_respuesta:
+            correcto = 1 if true_label == predicted_class else 0
+        else:
+            correcto = ""
+        pred_writer.writerow([
+            os.path.basename(image_path),
+            os.path.relpath(image_path, folder),
+            true_label if etiqueta_conocida else "",
+            _nombre_clase(true_label, class_names) if etiqueta_conocida else "",
+            predicted_class if hubo_respuesta else "",
+            _nombre_clase(predicted_class, class_names) if hubo_respuesta else "",
+            correcto,
+        ])
+        # flush por fila, igual que el CSV de latencias: un banco por serie
+        # puede interrumpirse y lo ya medido no deberia perderse.
+        pred_file.flush()
+
         if idx < total:
             print(f"[INFO] Esperando {gap}s antes de la siguiente imagen...")
             time.sleep(gap)
 
     csv_file.close()
     print(f"\n[INFO] Métricas de latencia guardadas en {csv_path}")
+    pred_file.close()
+    print(f"[INFO] Predicciones por imagen guardadas en {pred_csv_path}")
 
     ser.close()
     print("\n[INFO] Puerto cerrado. Todas las imágenes enviadas.")
@@ -357,6 +485,13 @@ def send_folder(port: str, baud: int, folder: str,
             print(f"  {cls:>6}  {cnt:>9}  {pct:>10.1f}%")
     print("=" * 45)
 
+    # Valores por defecto: si no hay etiquetas reales o falta sklearn, el JSON
+    # se escribe igual con estos campos en null y la latencia intacta.
+    metricas_globales = None
+    report_dict = None
+    matriz_confusion = None
+    cm_plot_path = None
+
     # Generación de la matriz de confusión y métricas si tenemos verdaderas etiquetas
     if y_true and len(y_true) > 0:
         try:
@@ -374,7 +509,11 @@ def send_folder(port: str, baud: int, folder: str,
             print(f"Accuracy (Exactitud): {accuracy:.4f}")
             print(f"Precision:            {precision:.4f}")
             print(f"Recall (Exhaustividad):{recall:.4f}")
-            print(f"F1-Score:             {f1:.4f}")
+            # macro ademas de weighted: mismo criterio que en MIL y SIL, para que
+            # las columnas de la escalera sean comparables entre si.
+            _, _, f1_macro, _ = precision_recall_fscore_support(y_true, y_pred, average='macro', zero_division=0)
+            print(f"F1-Score (weighted):  {f1:.4f}")
+            print(f"F1-Score (macro):     {f1_macro:.4f}")
 
             labels_present = sorted(list(set(y_true + y_pred)))
             target_names = []
@@ -407,9 +546,92 @@ def send_folder(port: str, baud: int, folder: str,
             plt.savefig(cm_plot_path)
             print(f"Gráfico de la matriz de confusión guardado en: {cm_plot_path}")
 
+            # Se recogen aqui, dentro del try, para que el JSON de mas abajo
+            # los encuentre ya calculados; si sklearn falta quedan en None.
+            metricas_globales = {
+                "accuracy": float(accuracy),
+                "precision_weighted": float(precision),
+                "recall_weighted": float(recall),
+                "f1_weighted": float(f1),
+                "f1_macro": float(f1_macro),
+            }
+            report_dict = classification_report(y_true, y_pred, labels=labels_present,
+                                                target_names=target_names,
+                                                zero_division=0, output_dict=True)
+            matriz_confusion = {
+                "labels": target_names,
+                "matriz": cm.tolist(),
+                "orden": "filas = etiqueta real, columnas = etiqueta predicha",
+            }
+
+
         except ImportError:
             print("\n[WARN] Faltan librerías para matriz de confusión (seaborn, sklearn, matplotlib).")
             print("Instálalas con: pip install scikit-learn seaborn matplotlib")
+
+    # ------------------------------------------------------------------
+    # JSON de resultados del nivel PIL.
+    #
+    # Se escribe SIEMPRE, incluso si no hubo etiquetas reales o si falta
+    # sklearn: lo que este nivel aporta de forma exclusiva es la latencia
+    # medida en la placa, y perderla porque no se pudo calcular una matriz de
+    # confusion seria absurdo. Los campos de clasificacion quedan en null
+    # cuando no se pudieron calcular, que tambien es informacion.
+    # ------------------------------------------------------------------
+    json_dir = os.path.join("results", "pil")
+    os.makedirs(json_dir, exist_ok=True)
+    metrics_path = os.path.join(json_dir, f"metrics_{model_tag}.json")
+
+    resultados = {
+        "nivel": "PIL",
+        "generado_utc": datetime.now(timezone.utc).isoformat(),
+        "modelo": {
+            "path": model_path,
+            "nombre": model_tag,
+            "sha256": _sha256_archivo(model_path),
+            "bytes": os.path.getsize(model_path) if model_path and os.path.isfile(model_path) else None,
+            "nota": ("checksum del .tflite indicado con --model_path. El banco NO lo "
+                     "carga ni lo compara contra la placa: acredita que este archivo "
+                     "es el mismo que evaluo SIL, no que sea el que esta flasheado."),
+        },
+        "corrida": {
+            "puerto": port,
+            "baud": baud,
+            "input_shape": {"width": width, "height": height,
+                            "channels": 1 if grayscale else 3},
+            "pre_delay_s": pre_delay,
+            "gap_s": gap,
+            "n_samples_pedidas": n_samples,
+        },
+        "dataset": {
+            "folder": folder,
+            "class_names": list(class_names),
+            "n_imagenes": total,
+            "n_respondidas": respondidas,
+            "n_sin_respuesta": errors,
+        },
+        "metricas_globales": metricas_globales,
+        "metricas_por_clase": report_dict,
+        "matriz_confusion": matriz_confusion,
+        "latencia": {
+            "fuente": ("contador de ciclos DWT->CYCCNT del Cortex-M7, reportado por "
+                       "el firmware en las lineas CYC_*/US_*"),
+            "n_imagenes_con_medida": len(latencias),
+            "metodo_p95": "rango mas cercano sobre la muestra ordenada, sin interpolar",
+            "por_campo": _resumen_latencias(latencias, metrics_headers),
+        },
+        "conteo_predicciones": {str(k): v for k, v in sorted(class_counts.items())},
+        "artefactos": {
+            "matriz_png": cm_plot_path,
+            "latencias_csv": csv_path,
+            "predicciones_csv": pred_csv_path,
+        },
+    }
+
+    with open(metrics_path, "w", encoding="utf-8") as fh:
+        json.dump(resultados, fh, indent=2, ensure_ascii=False, default=_json_safe)
+    print(f"[INFO] Métricas en JSON guardadas en {metrics_path}")
+
 
 
 def parse_args():
@@ -535,5 +757,6 @@ if __name__ == '__main__':
             pre_delay=args.delay,
             gap=args.gap,
             model_tag=model_tag,
+            model_path=args.model_path,
             n_samples=args.count,
         )
