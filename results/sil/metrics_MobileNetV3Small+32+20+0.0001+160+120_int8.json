@@ -1,0 +1,77 @@
+{
+  "nivel": "SIL",
+  "generado_utc": "2026-09-12T02:01:19.956222+00:00",
+  "modelo": {
+    "path": "models/tflite/MobileNetV3Small+32+20+0.0001+160+120_int8.tflite",
+    "nombre": "MobileNetV3Small+32+20+0.0001+160+120_int8",
+    "sha256": "a1124c8f199ae177032f3000392de7c01fbed9f595bb405076c1cd8952206598",
+    "bytes": 836896
+  },
+  "dataset": {
+    "splits_dir": "data/splits",
+    "data_dir": "data/splits/test",
+    "n_muestras": 940,
+    "class_names": [
+      "Class1",
+      "Class2"
+    ],
+    "image_size": {
+      "width": 160,
+      "height": 120
+    }
+  },
+  "metricas_globales": {
+    "accuracy": 0.9180851063829787,
+    "precision_weighted": 0.9181021408749112,
+    "recall_weighted": 0.9180851063829787,
+    "f1_weighted": 0.9180842720217839,
+    "f1_macro": 0.9180842720217839
+  },
+  "metricas_por_clase": {
+    "Class1": {
+      "precision": 0.9154334038054969,
+      "recall": 0.9212765957446809,
+      "f1-score": 0.9183457051961824,
+      "support": 470.0
+    },
+    "Class2": {
+      "precision": 0.9207708779443254,
+      "recall": 0.9148936170212766,
+      "f1-score": 0.9178228388473852,
+      "support": 470.0
+    },
+    "accuracy": 0.9180851063829787,
+    "macro avg": {
+      "precision": 0.9181021408749112,
+      "recall": 0.9180851063829787,
+      "f1-score": 0.9180842720217839,
+      "support": 940.0
+    },
+    "weighted avg": {
+      "precision": 0.9181021408749112,
+      "recall": 0.9180851063829787,
+      "f1-score": 0.9180842720217839,
+      "support": 940.0
+    }
+  },
+  "matriz_confusion": {
+    "labels": [
+      "Class1",
+      "Class2"
+    ],
+    "matriz": [
+      [
+        433,
+        37
+      ],
+      [
+        40,
+        430
+      ]
+    ],
+    "orden": "filas = etiqueta real, columnas = etiqueta predicha"
+  },
+  "artefactos": {
+    "matriz_png": "results/sil/Matriz_MobileNetV3Small+32+20+0.0001+160+120_int8.png"
+  }
+}
