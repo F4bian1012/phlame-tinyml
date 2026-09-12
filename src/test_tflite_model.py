@@ -2,7 +2,9 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
+import json
 import os
+from datetime import datetime, timezone
 
 try:
     import seaborn as sns
@@ -11,6 +13,23 @@ except ImportError:
     print("Por favor instala scikit-learn y seaborn para calcular las métricas.")
     print("Ejecuta: pip install scikit-learn seaborn")
     exit(1)
+
+def _json_safe(o):
+    """Convierte tipos de numpy a tipos nativos de Python.
+
+    classification_report(output_dict=True) devuelve el campo "support" como
+    np.int64 y las metricas como np.float64, y json.dump no sabe serializarlos:
+    sin esto el volcado falla con TypeError despues de haber corrido toda la
+    inferencia.
+    """
+    if isinstance(o, np.integer):
+        return int(o)
+    if isinstance(o, np.floating):
+        return float(o)
+    if isinstance(o, np.ndarray):
+        return o.tolist()
+    raise TypeError("No se puede serializar a JSON: %r (%s)" % (o, type(o).__name__))
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Test TFLite Model and Calculate Metrics exactly like test_model.py")
@@ -193,7 +212,10 @@ def main():
     print(f"F1-Score:             {f1:.4f}")
     
     print("\nReporte de Clasificación Detallado:")
+    # Se pide dos veces: el texto para la consola y el dict para el JSON. Son la
+    # misma llamada con output_dict, asi que las cifras no pueden divergir.
     print(classification_report(y_true, y_pred, target_names=class_names, labels=range(len(class_names)), zero_division=0))
+    report_dict = classification_report(y_true, y_pred, target_names=class_names, labels=range(len(class_names)), zero_division=0, output_dict=True)
 
     print("\nGenerando Matriz de Confusión...")
     cm = confusion_matrix(y_true, y_pred, labels=range(len(class_names)))
@@ -219,6 +241,48 @@ def main():
     
     plt.savefig(cm_plot_path)
     print(f"\n Gráfico de la matriz de confusión guardado en {cm_plot_path}")
+
+    # Ademas del PNG se guarda un JSON con las mismas cifras. La imagen sirve
+    # para mirar, pero no para comparar niveles de la escalera ni para que otro
+    # script lea los numeros; el JSON si. Mismo criterio de nombre que
+    # Matriz_*.png: derivado del modelo, para que dos corridas no se pisen.
+    metrics_path = os.path.join(out_dir, f"metrics_{model_name_without_ext}.json")
+
+    resultados = {
+        "nivel": "SIL",
+        "generado_utc": datetime.now(timezone.utc).isoformat(),
+        "modelo": {
+            "path": args.model_path,
+            "nombre": model_name_without_ext,
+        },
+        "dataset": {
+            "splits_dir": args.splits_dir,
+            "data_dir": args.data_dir,
+            "n_muestras": int(len(y_true)),
+            "class_names": list(class_names),
+            "image_size": {"width": args.width, "height": args.height},
+        },
+        "metricas_globales": {
+            "accuracy": float(accuracy),
+            "precision_weighted": float(precision),
+            "recall_weighted": float(recall),
+            "f1_weighted": float(f1),
+        },
+        "metricas_por_clase": report_dict,
+        "matriz_confusion": {
+            "labels": list(class_names),
+            "matriz": cm.tolist(),
+            "orden": "filas = etiqueta real, columnas = etiqueta predicha",
+        },
+        "artefactos": {
+            "matriz_png": cm_plot_path,
+        },
+    }
+
+    with open(metrics_path, "w", encoding="utf-8") as fh:
+        json.dump(resultados, fh, indent=2, ensure_ascii=False, default=_json_safe)
+    print(f"Métricas en JSON guardadas en {metrics_path}")
+
 
 if __name__ == "__main__":
     main()
