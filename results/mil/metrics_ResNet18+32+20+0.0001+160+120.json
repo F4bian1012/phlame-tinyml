@@ -1,0 +1,76 @@
+{
+  "nivel": "MIL",
+  "generado_utc": "2026-09-12T01:54:46.713822+00:00",
+  "modelo": {
+    "path": "models/checkpoints/ResNet18+32+20+0.0001+160+120.keras",
+    "nombre": "ResNet18+32+20+0.0001+160+120",
+    "sha256": "5842b8db2df3407fd18115c940a7914936f6141c8d08610341ee23a7ab78a0de",
+    "bytes": 134478846
+  },
+  "dataset": {
+    "data_dir": "data/splits/test",
+    "n_muestras": 940,
+    "class_names": [
+      "Class1",
+      "Class2"
+    ],
+    "image_size": {
+      "width": 160,
+      "height": 120
+    }
+  },
+  "metricas_globales": {
+    "accuracy": 0.9393617021276596,
+    "precision_weighted": 0.9404163887262842,
+    "recall_weighted": 0.9393617021276596,
+    "f1_weighted": 0.9393253770081907,
+    "f1_macro": 0.9393253770081907
+  },
+  "metricas_por_clase": {
+    "Class1": {
+      "precision": 0.9188640973630832,
+      "recall": 0.9638297872340426,
+      "f1-score": 0.940809968847352,
+      "support": 470.0
+    },
+    "Class2": {
+      "precision": 0.9619686800894854,
+      "recall": 0.9148936170212766,
+      "f1-score": 0.9378407851690295,
+      "support": 470.0
+    },
+    "accuracy": 0.9393617021276596,
+    "macro avg": {
+      "precision": 0.9404163887262843,
+      "recall": 0.9393617021276596,
+      "f1-score": 0.9393253770081907,
+      "support": 940.0
+    },
+    "weighted avg": {
+      "precision": 0.9404163887262842,
+      "recall": 0.9393617021276596,
+      "f1-score": 0.9393253770081907,
+      "support": 940.0
+    }
+  },
+  "matriz_confusion": {
+    "labels": [
+      "Class1",
+      "Class2"
+    ],
+    "matriz": [
+      [
+        453,
+        17
+      ],
+      [
+        40,
+        430
+      ]
+    ],
+    "orden": "filas = etiqueta real, columnas = etiqueta predicha"
+  },
+  "artefactos": {
+    "matriz_png": "results/mil/Matriz_ResNet18+32+20+0.0001+160+120.png"
+  }
+}
