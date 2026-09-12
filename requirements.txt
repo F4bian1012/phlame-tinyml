@@ -1,29 +1,58 @@
 # ==============================================================================
 # Phlame Framework - Python Dependencies
-# Grouped by component to ensure clean environment reproduction (Python 3.10+)
+# Grouped by component to ensure clean environment reproduction
+# ==============================================================================
+# Verified working combination (Windows 11, 2026-09-11):
+#   Python 3.13.14 | tensorflow 2.21.0 | keras 3.13.2 | numpy 2.4.2
+#   opencv-python 4.13.0.92 | pillow 11.3.0 | matplotlib 3.10.8 | tensorboard 2.20.0
 # ==============================================================================
 
 # --- Core Machine Learning & Deep Learning ---
-tensorflow>=2.15.0
-tensorflow-intel>=2.15.0; sys_platform == 'win32'
-
-# --- Model Compression & Optimization ---
-tensorflow-model-optimization>=0.7.5
+# Floor raised from 2.15 to 2.16 to match the verified stack. The previous
+# `tensorflow-intel ; sys_platform == 'win32'` line was dropped: this Windows
+# environment runs tensorflow 2.21 with tensorflow-intel NOT installed, so the
+# extra requirement is unnecessary and only pushes pip toward an older build.
+tensorflow>=2.16.0
 
 # --- Image Processing & Datasets ---
 opencv-python>=4.8.0
 pillow>=10.0.0
-numpy>=1.24.0
-pandas>=2.0.0
+# Floor raised from 1.24 to 2.0: the opencv-python and tensorflow wheels in the
+# verified stack are built against the numpy 2.x ABI, and importing them with
+# numpy 1.x installed fails.
+numpy>=2.0.0
+# Metricas de evaluacion (accuracy, matriz de confusion, classification_report):
+# test_model.py, test_tflite_model.py, pil_benchmark.py, hil_camera_benchmark.py
 scikit-learn>=1.3.0
 
 # --- Hardware Interface & Communication ---
+# Protocolo serie con la placa: pil_benchmark.py, hil_camera_benchmark.py
 pyserial>=3.5
 
 # --- Visualization & Logging ---
 matplotlib>=3.7.0
+# Mapas de calor de las matrices de confusion (los mismos cuatro scripts)
 seaborn>=0.12.0
+# Callback keras.callbacks.TensorBoard en train_mobilenet.py y train_resnet.py
 tensorboard>=2.15.0
+
+# ==============================================================================
+# Opcional
+# ==============================================================================
+# tflite-runtime
+#   Rama de respaldo de hil_camera_benchmark.py (~linea 454) para evaluar SIL
+#   sin TensorFlow. Con `tensorflow` instalado nunca se ejecuta, y no existe
+#   wheel oficial para Windows. Instalar solo en un host sin TensorFlow.
+
+# ==============================================================================
+# Declarados anteriormente, sin uso en el codigo actual (revisado 2026-09-11)
+# Se dejan comentados en vez de borrados por si el uso estaba previsto.
+# ==============================================================================
+# pandas>=2.0.0
+#   Ningun script del repositorio lo importa.
+# tensorflow-model-optimization>=0.7.5
+#   prune_model.py implementa el pruning a mano con np.percentile sobre los
+#   pesos; no importa tfmot en ningun punto.
 
 # ==============================================================================
 # Hardware & Deployment Dependencies (Non-Python)
