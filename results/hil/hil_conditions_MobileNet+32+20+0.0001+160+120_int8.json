@@ -1,0 +1,41 @@
+{
+  "rig": "monitor-controlled-stimulus (checklist Fase 1C, opcion a)",
+  "utc_start": "2026-09-13T00:08:10.519757+00:00",
+  "model_tag": "MobileNet+32+20+0.0001+160+120_int8",
+  "firmware_model": {
+    "model_bytes": 318968,
+    "model_fnv1a": "5573ccec",
+    "arena_used_bytes": 181492
+  },
+  "expected_model": {
+    "path": "C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\models\\tflite\\MobileNet+32+20+0.0001+160+120_int8.tflite",
+    "bytes": 318968,
+    "fnv1a": "5573ccec",
+    "sha256": "dd178ec41042def71b78bbc19df99e018a2a3a4f865f2da1a1102a83b9f65712"
+  },
+  "model_identity_verified": true,
+  "conditions_complete": true,
+  "port": "COM9",
+  "baud": 115200,
+  "stimulus_source": "manifest:C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\data\\splits\\test_manifest.csv",
+  "manifest": "C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\data\\splits\\test_manifest.csv",
+  "manifest_subset": "hil_subset==1",
+  "dataset_folder": null,
+  "class_names": [
+    "Class1",
+    "Class2"
+  ],
+  "n_stimuli": 200,
+  "settle_s": 1.5,
+  "gap_s": 0.5,
+  "seed": 42,
+  "illuminance_lux": 10.0,
+  "camera_to_screen_distance_cm": 24.0,
+  "ambient_temp_c": 24.0,
+  "frame_dump": true,
+  "sil_model": "C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\models\\tflite\\MobileNet+32+20+0.0001+160+120_int8.tflite",
+  "mil_model": "C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\models\\checkpoints\\MobileNet+32+20+0.0001+160+120.keras",
+  "frames_dir": "C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\data\\hil_frames",
+  "notes": "monitor samsung ; tripode fijo; sin luz natural",
+  "utc_end": "2026-09-13T00:19:26.714028+00:00"
+}
