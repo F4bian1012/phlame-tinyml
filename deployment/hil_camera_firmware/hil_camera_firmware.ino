@@ -90,7 +90,7 @@ int image_bytes_ready = 0;
 // ---- MEDICION DE LATENCIA: contador de ciclos DWT->CYCCNT ----
 // El Cortex-M7 lleva una unidad Data Watchpoint & Trace (DWT) con un contador
 // de ciclos de nucleo de 32 bits (CYCCNT). Cuenta 1 por ciclo de reloj, asi
-// que la resolucion es 1/SystemCoreClock (~2.08 ns a 480 MHz), muchisimo mas
+// que la resolucion es 1/SystemCoreClock (2.5 ns a 400 MHz, valor medido: SystemCoreClock), muchisimo mas
 // fina que millis()/micros(). Se habilita una vez en setup().
 // A 480 MHz el contador de 32 bits desborda cada ~8.95 s; como cada fase dura
 // muy por debajo de eso, la resta unsigned (t_fin - t_ini) es correcta incluso
@@ -395,6 +395,36 @@ void handleSerialCommands() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Huella del modelo (actividad 43). El banco del PC calcula la misma FNV-1a
+// sobre el .tflite y aborta si no coincide: convierte "la placa llevaba otro
+// modelo" de fallo silencioso en fallo ruidoso. g_model[] es el .tflite byte a
+// byte (tflite_to_c.py), asi que las huellas deben ser identicas.
+// Coste: una pasada por flash (~1-3 ms a 400 MHz por MB). Solo en setup().
+// ---------------------------------------------------------------------------
+static uint32_t fnv1a32(const uint8_t *p, size_t n) {
+  uint32_t h = 2166136261u;
+  for (size_t i = 0; i < n; i++) {
+    h ^= p[i];
+    h *= 16777619u;
+  }
+  return h;
+}
+
+static void printModelFingerprint() {
+  Serial.print("MODEL_BYTES:");
+  Serial.println(g_model_len);
+  Serial.print("MODEL_FNV1A:");
+  char hex[9];
+  snprintf(hex, sizeof(hex), "%08lx", (unsigned long)fnv1a32(g_model, g_model_len));
+  Serial.println(hex);
+  if (interpreter != nullptr) {
+    Serial.print("ARENA_USED:");
+    Serial.println((unsigned long)interpreter->arena_used_bytes());
+  }
+  Serial.flush();
+}
+
 void setup() {
   Serial.begin(115200);
   // Espera ACOTADA: un 'while (!Serial)' sin limite deja la placa colgada en
@@ -514,6 +544,9 @@ void setup() {
     Serial.print(" zero_point=");
     Serial.println(input->params.zero_point);
   }
+
+  // Identidad del modelo cargado: el banco la compara con el .tflite del PC
+  printModelFingerprint();
 
   Serial.println("Setup completado exitosamente.");
   Serial.println("Comandos: 'T'=capturar+inferir  'F1'/'F0'=frame-dump on/off");
