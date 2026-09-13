@@ -1,0 +1,216 @@
+{
+  "nivel": "HIL",
+  "generado_utc": "2026-09-13T00:57:45.361491+00:00",
+  "modelo": {
+    "path": "C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\models\\tflite\\SqueezeNet+32+20+0.0001+160+120_int8.tflite",
+    "nombre": "SqueezeNet+32+20+0.0001+160+120_int8",
+    "sha256": "d3e401a1bcc81a53b7cbd4bac824054a642ccbcfa032f9417bea9b853c84a857",
+    "bytes": 827568,
+    "fnv1a_tflite": "d88bd241",
+    "fnv1a_chip": "d88bd241",
+    "identidad_verificada": true,
+    "nota": "identidad_verificada=True significa que la huella FNV-1a del g_model[] en la placa coincide con la del .tflite indicado: el chip ejecuto exactamente ese archivo."
+  },
+  "corrida": {
+    "puerto": "COM9",
+    "baud": 115200,
+    "settle_s": 1.5,
+    "gap_s": 0.5,
+    "seed": 42,
+    "frame_dump": true,
+    "condiciones_completas": true,
+    "illuminance_lux": 10.0,
+    "camera_to_screen_distance_cm": 24.0,
+    "ambient_temp_c": 24.0
+  },
+  "dataset": {
+    "stimulus_source": "manifest:C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\data\\splits\\test_manifest.csv",
+    "manifest_subset": "hil_subset==1",
+    "class_names": [
+      "Class1",
+      "Class2"
+    ],
+    "n_estimulos": 200,
+    "n_respondidas": 200,
+    "n_sin_respuesta": 0
+  },
+  "metricas_globales": {
+    "accuracy": 0.89,
+    "precision_weighted": 0.8914090726615816,
+    "recall_weighted": 0.89,
+    "f1_weighted": 0.8899009108197379,
+    "precision_macro": 0.8914090726615818,
+    "recall_macro": 0.89,
+    "f1_macro": 0.8899009108197378
+  },
+  "metricas_por_clase": {
+    "Class1": {
+      "precision": 0.8679245283018868,
+      "recall": 0.92,
+      "f1-score": 0.8932038834951457,
+      "support": 100.0
+    },
+    "Class2": {
+      "precision": 0.9148936170212766,
+      "recall": 0.86,
+      "f1-score": 0.8865979381443299,
+      "support": 100.0
+    },
+    "accuracy": 0.89,
+    "macro avg": {
+      "precision": 0.8914090726615818,
+      "recall": 0.89,
+      "f1-score": 0.8899009108197378,
+      "support": 200.0
+    },
+    "weighted avg": {
+      "precision": 0.8914090726615816,
+      "recall": 0.89,
+      "f1-score": 0.8899009108197379,
+      "support": 200.0
+    }
+  },
+  "matriz_confusion": {
+    "labels": [
+      "Class1",
+      "Class2"
+    ],
+    "matriz": [
+      [
+        92,
+        8
+      ],
+      [
+        14,
+        86
+      ]
+    ],
+    "orden": "filas = etiqueta real, columnas = etiqueta predicha"
+  },
+  "latencia": {
+    "fuente": "contador de ciclos DWT->CYCCNT del Cortex-M7, reportado por el firmware en las lineas CYC_*/US_*; incluye la fase CAPTURE",
+    "n_imagenes_con_medida": 200,
+    "metodo_p95": "rango mas cercano sobre la muestra ordenada, sin interpolar",
+    "por_campo": {
+      "TS_MS": {
+        "n": 200,
+        "media": 439975.39,
+        "mediana": 439898.5,
+        "desv_std": 245922.84557806738,
+        "min": 17118.0,
+        "max": 862613.0,
+        "p95": 820193.0
+      },
+      "TEMP_C": {
+        "n": 200,
+        "media": 37.21,
+        "mediana": 37.0,
+        "desv_std": 0.5723090847105355,
+        "min": 36.0,
+        "max": 39.0,
+        "p95": 38.0
+      },
+      "CYC_CAPTURE": {
+        "n": 200,
+        "media": 770435.78,
+        "mediana": 824773.5,
+        "desv_std": 166615.1967686709,
+        "min": 481764.0,
+        "max": 997603.0,
+        "p95": 977605.0
+      },
+      "CYC_PRE": {
+        "n": 200,
+        "media": 1358061.5,
+        "mediana": 1357840.0,
+        "desv_std": 2456.554450616599,
+        "min": 1352490.0,
+        "max": 1372660.0,
+        "p95": 1361829.0
+      },
+      "CYC_INF": {
+        "n": 200,
+        "media": 450496100.43,
+        "mediana": 450492918.0,
+        "desv_std": 65738.77459889193,
+        "min": 450353277.0,
+        "max": 450632259.0,
+        "p95": 450603053.0
+      },
+      "CYC_POST": {
+        "n": 200,
+        "media": 254.77,
+        "mediana": 257.0,
+        "desv_std": 11.347729058004045,
+        "min": 245.0,
+        "max": 333.0,
+        "p95": 259.0
+      },
+      "CYC_TOTAL": {
+        "n": 200,
+        "media": 452624852.48,
+        "mediana": 452671819.5,
+        "desv_std": 174027.31374824976,
+        "min": 452219492.0,
+        "max": 452920685.0,
+        "p95": 452861743.0
+      },
+      "US_CAPTURE": {
+        "n": 200,
+        "media": 1926.0894549999998,
+        "mediana": 2061.9335,
+        "desv_std": 416.53800732020767,
+        "min": 1204.41,
+        "max": 2494.008,
+        "p95": 2444.012
+      },
+      "US_PRE": {
+        "n": 200,
+        "media": 3395.15377,
+        "mediana": 3394.6,
+        "desv_std": 6.141400697703163,
+        "min": 3381.225,
+        "max": 3431.65,
+        "p95": 3404.573
+      },
+      "US_INF": {
+        "n": 200,
+        "media": 1126240.249375,
+        "mediana": 1126232.3125,
+        "desv_std": 164.34877124054125,
+        "min": 1125883.25,
+        "max": 1126580.625,
+        "p95": 1126507.625
+      },
+      "US_POST": {
+        "n": 200,
+        "media": 0.6368150000000001,
+        "mediana": 0.642,
+        "desv_std": 0.028074394617975815,
+        "min": 0.613,
+        "max": 0.832,
+        "p95": 0.647
+      },
+      "US_TOTAL": {
+        "n": 200,
+        "media": 1131562.134375,
+        "mediana": 1131679.5,
+        "desv_std": 435.06942276879937,
+        "min": 1130548.75,
+        "max": 1132301.75,
+        "p95": 1132154.25
+      }
+    }
+  },
+  "validacion_cruzada": {
+    "sil_en_pc": "C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\models\\tflite\\SqueezeNet+32+20+0.0001+160+120_int8.tflite",
+    "mil_en_pc": "C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\models\\checkpoints\\SqueezeNet+32+20+0.0001+160+120.keras",
+    "n_con_sil": 200,
+    "n_con_mil": 200
+  },
+  "artefactos": {
+    "matriz_png": "results\\hil\\HIL_Confusion_Matrix_SqueezeNet+32+20+0.0001+160+120_int8.png",
+    "latencias_csv": "results\\hil\\hil_latencies_SqueezeNet+32+20+0.0001+160+120_int8.csv",
+    "condiciones_json": "results\\hil\\hil_conditions_SqueezeNet+32+20+0.0001+160+120_int8.json"
+  }
+}
