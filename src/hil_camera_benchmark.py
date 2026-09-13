@@ -25,10 +25,11 @@ de cada inferencia es conocido por construccion:
        del estimulo presentado
 
 Salidas (en --output-dir, default results/hil/):
-  - HIL_Confusion_Matrix.png : matriz de confusion del lazo sensor->prediccion
-  - hil_latencies.csv        : una fila por inferencia con latencias por fase
+  - HIL_Confusion_Matrix_<tag>.png : matriz de confusion del lazo sensor->prediccion
+  - hil_latencies_<tag>.csv        : una fila por inferencia con latencias por fase
+  - metrics_<tag>.json             : metricas (mismo esquema que MIL/SIL/PIL)
                                (CAPTURE/PRE/INF/POST/TOTAL), TEMP_C y ground truth
-  - hil_conditions.json      : condiciones del rig (lux, distancia, notas...)
+  - hil_conditions_<tag>.json      : condiciones del rig + huella del modelo
                                — el protocolo ambiental que pide un revisor
 
 Firmware companion: deployment/hil_camera_firmware/hil_camera_firmware.ino
@@ -73,6 +74,166 @@ import sys
 import time
 from collections import Counter
 from datetime import datetime, timezone
+import hashlib
+
+
+# ---------------------------------------------------------------------------
+# Identidad del modelo (actividad 43)
+#
+# El firmware imprime al arrancar, ANTES de READY_HIL:
+#     MODEL_BYTES:<g_model_len>      tamanio del array g_model[] en flash
+#     MODEL_FNV1A:<hex32>            FNV-1a de 32 bits sobre esos bytes
+#     ARENA_USED:<bytes>             interpreter->arena_used_bytes()
+#
+# g_model[] es el .tflite byte a byte (tflite_to_c.py), asi que la misma
+# FNV-1a calculada en el PC sobre el .tflite debe coincidir EXACTAMENTE con
+# la del chip. Si no coincide, la placa NO lleva el modelo que el operador
+# cree, y el banco aborta antes de gastar la sesion de rig.
+#
+# FNV-1a y no SHA-256 porque el firmware no tiene mbedtls a mano y FNV son
+# cuatro lineas de C; 32 bits bastan para distinguir 7 modelos.
+# ---------------------------------------------------------------------------
+FNV1A32_OFFSET = 0x811C9DC5
+FNV1A32_PRIME = 0x01000193
+
+
+def fnv1a32_bytes(data: bytes) -> int:
+    h = FNV1A32_OFFSET
+    for b in data:
+        h ^= b
+        h = (h * FNV1A32_PRIME) & 0xFFFFFFFF
+    return h
+
+
+def fnv1a32_file(path: str, chunk: int = 1 << 20) -> int:
+    h = FNV1A32_OFFSET
+    with open(path, 'rb') as fh:
+        for block in iter(lambda: fh.read(chunk), b''):
+            for b in block:
+                h ^= b
+                h = (h * FNV1A32_PRIME) & 0xFFFFFFFF
+    return h
+
+
+def sha256_file(path: str, chunk: int = 1 << 20):
+    if not os.path.isfile(path):
+        return None
+    h = hashlib.sha256()
+    with open(path, 'rb') as fh:
+        for block in iter(lambda: fh.read(chunk), b''):
+            h.update(block)
+    return h.hexdigest()
+
+
+def parse_firmware_fingerprint(lines):
+    """Extrae MODEL_BYTES / MODEL_FNV1A / ARENA_USED de las lineas de arranque.
+    Devuelve dict con None en lo que el firmware no haya impreso (firmware viejo)."""
+    fw = {'model_bytes': None, 'model_fnv1a': None, 'arena_used_bytes': None}
+    for l in lines:
+        if l.startswith("MODEL_BYTES:"):
+            fw['model_bytes'] = int(l.split(":", 1)[1].strip())
+        elif l.startswith("MODEL_FNV1A:"):
+            fw['model_fnv1a'] = l.split(":", 1)[1].strip().lower().replace("0x", "")
+        elif l.startswith("ARENA_USED:"):
+            fw['arena_used_bytes'] = int(l.split(":", 1)[1].strip())
+    return fw
+
+
+def expected_model_fingerprint(tflite_path: str):
+    """Huella del .tflite que el operador DICE haber flasheado."""
+    if not tflite_path or not os.path.isfile(tflite_path):
+        return None
+    return {
+        'path': os.path.abspath(tflite_path),
+        'bytes': os.path.getsize(tflite_path),
+        'fnv1a': f"{fnv1a32_file(tflite_path):08x}",
+        'sha256': sha256_file(tflite_path),
+    }
+
+
+def previous_runs_fingerprints(output_dir: str):
+    """Lee los hil_conditions_*.json ya existentes: (model_tag, fnv1a)."""
+    out = []
+    if not os.path.isdir(output_dir):
+        return out
+    for name in sorted(os.listdir(output_dir)):
+        if name.startswith("hil_conditions_") and name.endswith(".json"):
+            try:
+                with open(os.path.join(output_dir, name), encoding='utf-8') as f:
+                    c = json.load(f)
+                fw = (c.get('firmware_model') or {})
+                out.append((c.get('model_tag'), fw.get('model_fnv1a'), name))
+            except Exception:
+                continue
+    return out
+
+
+def verify_model_identity(fw, expected, model_tag, output_dir, allow_mismatch=False):
+    """
+    Tres comprobaciones, en este orden:
+      1. el firmware imprimio huella (si no: firmware viejo, se avisa);
+      2. la huella del chip == la del .tflite indicado (si no: ABORTA);
+      3. ninguna corrida PREVIA en output_dir tiene la misma huella bajo
+         OTRA etiqueta (si la hay: ABORTA — es exactamente el fallo
+         'ResNet8 etiquetado como ResNet18').
+    Devuelve True si la identidad quedo verificada positivamente.
+    """
+    ok = False
+    if fw['model_fnv1a'] is None:
+        print("[WARN] El firmware NO imprimio MODEL_FNV1A: es un firmware sin "
+              "huella. La etiqueta de esta corrida NO esta verificada contra "
+              "la placa. Reflashea hil_camera_firmware.ino actualizado.")
+    elif expected is None:
+        print("[WARN] Sin --tflite: no puedo comparar la huella del chip "
+              f"({fw['model_fnv1a']}, {fw['model_bytes']} B) contra nada. "
+              "Pasa --tflite <ruta> para verificar la identidad.")
+    else:
+        same = (fw['model_fnv1a'] == expected['fnv1a']
+                and fw['model_bytes'] == expected['bytes'])
+        print(f"[INFO] Huella chip   : fnv1a={fw['model_fnv1a']} bytes={fw['model_bytes']}")
+        print(f"[INFO] Huella .tflite: fnv1a={expected['fnv1a']} bytes={expected['bytes']}  "
+              f"({os.path.basename(expected['path'])})")
+        if same:
+            print("[OK]   IDENTIDAD VERIFICADA: la placa ejecuta exactamente el "
+                  ".tflite indicado.")
+            ok = True
+        else:
+            print("[ERROR] LA PLACA NO LLEVA ESE MODELO. La huella del chip no "
+                  "coincide con el .tflite indicado. Regenera model.h con "
+                  "tflite_to_c.py, recompila, reflashea y reintenta.")
+            if not allow_mismatch:
+                sys.exit(2)
+            print("[WARN] --allow-model-mismatch: continuo bajo tu responsabilidad.")
+
+    # 3) colision con corridas previas bajo otra etiqueta
+    if fw['model_fnv1a'] is not None:
+        for prev_tag, prev_fnv, fname in previous_runs_fingerprints(output_dir):
+            if prev_fnv == fw['model_fnv1a'] and prev_tag and prev_tag != model_tag:
+                print(f"[ERROR] La huella {fw['model_fnv1a']} ya existe en {fname} "
+                      f"bajo la etiqueta '{prev_tag}'. Estas a punto de medir EL "
+                      f"MISMO binario con la etiqueta '{model_tag}'. Reflashea.")
+                if not allow_mismatch:
+                    sys.exit(2)
+    return ok
+
+
+def check_required_conditions(args):
+    """Actividad 50: sin condiciones fisicas la corrida no es reportable."""
+    missing = [n for n, v in (("--lux", args.lux),
+                              ("--distance-cm", args.distance_cm),
+                              ("--ambient-temp", args.ambient_temp)) if v is None]
+    if missing and not args.allow_missing_conditions:
+        print("[ERROR] Faltan condiciones del rig: " + ", ".join(missing) + ".")
+        print("        Dos corridas del mismo modelo difirieron 0,074 de F1-macro "
+              "sin registro de la causa: sin estas variables el nivel HIL no es "
+              "reportable. Pasalas, o usa --allow-missing-conditions para una "
+              "prueba de humo.")
+        sys.exit(2)
+    if missing:
+        print("[WARN] Condiciones incompletas (" + ", ".join(missing) +
+              "): corrida marcada como NO reportable en hil_conditions.")
+    if not args.notes.strip():
+        print("[WARN] --notes vacio: anota al menos monitor, brillo y soporte.")
 
 try:
     import serial
@@ -321,7 +482,7 @@ def wait_ready(ser, timeout_s=30.0):
         timeout_s=timeout_s)
     if hit == "READY_HIL":
         print("[OK]   Firmware HIL listo (camara HM01B0 inicializada).")
-        return
+        return parse_firmware_fingerprint(lines)
     if hit == "CAM_INIT:FAIL":
         print("[ERROR] La camara HM01B0 no inicializo (CAM_INIT:FAIL). "
               "¿Vision Shield conectado?")
@@ -574,11 +735,49 @@ def show_stimulus(image_path, settle_s):
 # Reporte
 # --------------------------------------------------------------------------
 
-def write_outputs(rows, class_names, conditions, output_dir):
+def _json_safe(o):
+    """numpy -> tipos nativos (classification_report devuelve np.int64/np.float64)."""
+    try:
+        import numpy as _np
+        if isinstance(o, _np.integer):
+            return int(o)
+        if isinstance(o, _np.floating):
+            return float(o)
+        if isinstance(o, _np.ndarray):
+            return o.tolist()
+    except ImportError:
+        pass
+    raise TypeError(f"no serializable: {type(o).__name__}")
+
+
+def _latency_summary(rows):
+    """Resumen por campo de telemetria, mismo formato que pil_benchmark.py."""
+    out = {}
+    for field in TELEMETRY_FIELDS:
+        key = field.lower()
+        vals = [r[key] for r in rows if r.get(key) is not None]
+        if not vals:
+            continue
+        arr = np.sort(np.array(vals, dtype=float))
+        k = max(0, min(len(arr) - 1, int(round(0.95 * (len(arr) - 1)))))
+        out[field] = {'n': int(len(arr)), 'media': float(arr.mean()),
+                      'mediana': float(np.median(arr)), 'desv_std': float(arr.std(ddof=1)) if len(arr) > 1 else 0.0,
+                      'min': float(arr.min()), 'max': float(arr.max()), 'p95': float(arr[k])}
+    return out
+
+
+def write_outputs(rows, class_names, conditions, output_dir, model_tag):
+    """
+    Actividad 55: TODAS las salidas llevan el model_tag en el nombre. Antes eran
+    fijas (HIL_Confusion_Matrix.png, hil_latencies.csv, hil_conditions.json) y
+    cada corrida borraba la anterior: la primera corrida de MobileNet se perdio asi.
+    Actividad 63: ademas se escribe metrics_<tag>.json con el MISMO esquema que
+    MIL/SIL/PIL (f1_macro, matriz cruda con orientacion declarada, sha256).
+    """
     os.makedirs(output_dir, exist_ok=True)
 
     # --- CSV de latencias sensor->prediccion ---
-    csv_path = os.path.join(output_dir, "hil_latencies.csv")
+    csv_path = os.path.join(output_dir, f"hil_latencies_{model_tag}.csv")
     fieldnames = (['idx', 'utc_iso', 'image', 'true_label', 'true_class',
                    'pred_label', 'pred_class', 'sil_label', 'sil_class',
                    'mil_label', 'mil_class', 'frame_file']
@@ -590,7 +789,7 @@ def write_outputs(rows, class_names, conditions, output_dir):
     print(f"[OK]   Latencias por fase guardadas en: {csv_path}")
 
     # --- Condiciones del rig (protocolo ambiental) ---
-    cond_path = os.path.join(output_dir, "hil_conditions.json")
+    cond_path = os.path.join(output_dir, f"hil_conditions_{model_tag}.json")
     with open(cond_path, 'w', encoding='utf-8') as f:
         json.dump(conditions, f, indent=2, ensure_ascii=False)
     print(f"[OK]   Condiciones del rig guardadas en: {cond_path}")
@@ -638,9 +837,94 @@ def write_outputs(rows, class_names, conditions, output_dir):
         plt.ylabel('True Label (stimulus shown)')
         plt.xlabel('Predicted Label (HM01B0 -> Portenta H7)')
         plt.tight_layout()
-        cm_path = os.path.join(output_dir, "HIL_Confusion_Matrix.png")
+        cm_path = os.path.join(output_dir, f"HIL_Confusion_Matrix_{model_tag}.png")
         plt.savefig(cm_path)
+        plt.close()
         print(f"[OK]   Matriz de confusión HIL guardada en: {cm_path}")
+
+        # --- metrics_<tag>.json: mismo esquema que MIL / SIL / PIL ---
+        p_m, r_m, f_m, _ = precision_recall_fscore_support(
+            y_true, y_pred, average='macro', zero_division=0)
+        report_dict = classification_report(
+            y_true, y_pred, labels=labels_present, target_names=target_names,
+            zero_division=0, output_dict=True)
+        n_total = len(rows)
+        n_resp = len(y_true)
+        exp = conditions.get('expected_model') or {}
+        resultados = {
+            "nivel": "HIL",
+            "generado_utc": datetime.now(timezone.utc).isoformat(),
+            "modelo": {
+                "path": exp.get('path'),
+                "nombre": model_tag,
+                "sha256": exp.get('sha256'),
+                "bytes": exp.get('bytes'),
+                "fnv1a_tflite": exp.get('fnv1a'),
+                "fnv1a_chip": (conditions.get('firmware_model') or {}).get('model_fnv1a'),
+                "identidad_verificada": conditions.get('model_identity_verified'),
+                "nota": ("identidad_verificada=True significa que la huella FNV-1a del "
+                         "g_model[] en la placa coincide con la del .tflite indicado: "
+                         "el chip ejecuto exactamente ese archivo."),
+            },
+            "corrida": {
+                "puerto": conditions.get('port'),
+                "baud": conditions.get('baud'),
+                "settle_s": conditions.get('settle_s'),
+                "gap_s": conditions.get('gap_s'),
+                "seed": conditions.get('seed'),
+                "frame_dump": conditions.get('frame_dump'),
+                "condiciones_completas": conditions.get('conditions_complete'),
+                "illuminance_lux": conditions.get('illuminance_lux'),
+                "camera_to_screen_distance_cm": conditions.get('camera_to_screen_distance_cm'),
+                "ambient_temp_c": conditions.get('ambient_temp_c'),
+            },
+            "dataset": {
+                "stimulus_source": conditions.get('stimulus_source'),
+                "manifest_subset": conditions.get('manifest_subset'),
+                "class_names": list(class_names),
+                "n_estimulos": n_total,
+                "n_respondidas": n_resp,
+                "n_sin_respuesta": n_total - n_resp,
+            },
+            "metricas_globales": {
+                "accuracy": float(accuracy),
+                "precision_weighted": float(precision),
+                "recall_weighted": float(recall),
+                "f1_weighted": float(f1),
+                "precision_macro": float(p_m),
+                "recall_macro": float(r_m),
+                "f1_macro": float(f_m),
+            },
+            "metricas_por_clase": report_dict,
+            "matriz_confusion": {
+                "labels": target_names,
+                "matriz": cm.tolist(),
+                "orden": "filas = etiqueta real, columnas = etiqueta predicha",
+            },
+            "latencia": {
+                "fuente": ("contador de ciclos DWT->CYCCNT del Cortex-M7, reportado por "
+                           "el firmware en las lineas CYC_*/US_*; incluye la fase CAPTURE"),
+                "n_imagenes_con_medida": sum(1 for r in rows if r.get('us_total') is not None),
+                "metodo_p95": "rango mas cercano sobre la muestra ordenada, sin interpolar",
+                "por_campo": _latency_summary(rows),
+            },
+            "validacion_cruzada": {
+                "sil_en_pc": conditions.get('sil_model'),
+                "mil_en_pc": conditions.get('mil_model'),
+                "n_con_sil": sum(1 for r in rows if r.get('sil_label') is not None),
+                "n_con_mil": sum(1 for r in rows if r.get('mil_label') is not None),
+            },
+            "artefactos": {
+                "matriz_png": cm_path,
+                "latencias_csv": csv_path,
+                "condiciones_json": cond_path,
+            },
+        }
+        metrics_path = os.path.join(output_dir, f"metrics_{model_tag}.json")
+        with open(metrics_path, "w", encoding="utf-8") as fh:
+            json.dump(resultados, fh, indent=2, ensure_ascii=False, default=_json_safe)
+        print(f"[OK]   Métricas (JSON, mismo esquema que MIL/SIL/PIL) en: {metrics_path}")
+        print(f"       F1-macro = {f_m:.4f}   errores = {int(cm.sum() - np.trace(cm))}")
     except ImportError:
         print("\n[WARN] Faltan librerías para la matriz de confusión.")
         print("Instálalas con: pip install scikit-learn seaborn matplotlib")
@@ -719,6 +1003,25 @@ def write_outputs(rows, class_names, conditions, output_dir):
 
 def run_benchmark(args):
     port = normalize_port(args.port)
+
+    # --- Actividad 50: condiciones fisicas obligatorias (falla ANTES del rig) ---
+    check_required_conditions(args)
+
+    # --- Actividad 43/55: etiqueta del modelo y .tflite esperado ---
+    tflite_path = args.tflite or args.sil_model
+    if args.model_tag:
+        model_tag = args.model_tag
+    elif tflite_path:
+        model_tag = os.path.splitext(os.path.basename(tflite_path))[0]
+    else:
+        print("[ERROR] Necesito saber que modelo va en la placa para nombrar las "
+              "salidas: pasa --tflite <ruta al .tflite flasheado> (recomendado, "
+              "ademas verifica la huella) o al menos --model-tag <nombre>.")
+        sys.exit(2)
+    expected = expected_model_fingerprint(tflite_path)
+    if tflite_path and expected is None:
+        print(f"[ERROR] No existe el .tflite indicado: {tflite_path}")
+        sys.exit(2)
     if args.folder:
         print(f"[WARN] --folder pasado explicitamente: se usa {args.folder} "
               f"y NO se aplica el filtro hil_subset del manifiesto.")
@@ -746,7 +1049,9 @@ def run_benchmark(args):
     time.sleep(args.delay)
 
     # Handshake con el firmware HIL dedicado (hil_camera_firmware.ino)
-    wait_ready(ser)
+    fw = wait_ready(ser)
+    identity_ok = verify_model_identity(fw, expected, model_tag, args.output_dir,
+                                        allow_mismatch=args.allow_model_mismatch)
 
     # Validacion cruzada: frame-dump + MIL/SIL en PC
     sil_model = None
@@ -778,6 +1083,12 @@ def run_benchmark(args):
     conditions = {
         'rig': 'monitor-controlled-stimulus (checklist Fase 1C, opcion a)',
         'utc_start': datetime.now(timezone.utc).isoformat(),
+        'model_tag': model_tag,
+        'firmware_model': fw,
+        'expected_model': expected,
+        'model_identity_verified': identity_ok,
+        'conditions_complete': all(v is not None for v in
+                                   (args.lux, args.distance_cm, args.ambient_temp)),
         'port': args.port,
         'baud': args.baud,
         'stimulus_source': fuente,
@@ -907,7 +1218,7 @@ def run_benchmark(args):
           f"|  Fallos: {errors}")
     print("=" * 45)
 
-    write_outputs(rows, class_names, conditions, args.output_dir)
+    write_outputs(rows, class_names, conditions, args.output_dir, model_tag)
 
 
 def parse_args():
@@ -958,6 +1269,22 @@ def parse_args():
                         help="Distancia cámara↔pantalla [cm]")
     parser.add_argument('--ambient-temp', type=float, default=None,
                         help="Temperatura ambiente [°C]")
+    # Identidad del modelo (actividad 43) y nombres de salida (actividad 55)
+    parser.add_argument('--tflite', default=None, metavar='TFLITE',
+                        help="Ruta al .tflite INT8 que generó el model.h "
+                             "flasheado. Se compara su huella FNV-1a con la "
+                             "que imprime el firmware al arrancar y el banco "
+                             "ABORTA si no coinciden. Si no se pasa, se usa "
+                             "--sil-model como referencia.")
+    parser.add_argument('--model-tag', default=None, metavar='NOMBRE',
+                        help="Etiqueta para los nombres de salida (default: "
+                             "nombre del .tflite sin extensión).")
+    parser.add_argument('--allow-model-mismatch', action='store_true',
+                        help="NO abortar si la huella del chip no coincide "
+                             "(solo depuración; la corrida queda marcada).")
+    parser.add_argument('--allow-missing-conditions', action='store_true',
+                        help="NO abortar si faltan --lux/--distance-cm/"
+                             "--ambient-temp (solo pruebas de humo).")
     parser.add_argument('--notes', default="",
                         help="Notas libres del montaje (encuadre, soporte, "
                              "modelo de monitor, brillo...)")
