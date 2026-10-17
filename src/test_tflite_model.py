@@ -66,7 +66,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Test TFLite Model and Calculate Metrics exactly like test_model.py")
     parser.add_argument('--width', type=int, default=160, help="Image width")
     parser.add_argument('--height', type=int, default=120, help="Image height")
-    parser.add_argument('--model_path', default="models/tflite/MobileNetV3Large+32+20+1e-06+320+320_int8.tflite", type=str, required=False, help="Ruta al modelo TFLite entrenado (ej. models/tflite/modelo_int8.tflite)")
+    parser.add_argument('--model_path', type=str, required=True, help="Ruta al modelo .tflite a evaluar (obligatorio)")
     parser.add_argument('--splits_dir', type=str, default="data/splits",
                         help="Directorio con las particiones de split_dataset.py "
                              "(la evaluacion usa SOLO <splits_dir>/test)")
