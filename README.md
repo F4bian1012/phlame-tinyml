@@ -22,7 +22,7 @@ An open-source, highly structured MLOps framework — evaluated across a phase-l
   - [3. Model Optimization & Evaluation](#3-model-optimization--evaluation)
   - [4. Embedded Conversion & Deployment](#4-embedded-conversion--deployment)
   - [5. Camera-in-the-Loop HIL Evaluation](#5-camera-in-the-loop-hil-evaluation)
-  - [6. Results Format](#6-results-format)
+- [Results Format](#results-format)
 - [Hardware Requirements](#hardware-requirements)
 - [Quickstart & Usage](#quickstart--usage)
   - [1. Prerequisites & Installation](#1-prerequisites--installation)
@@ -49,7 +49,7 @@ It bridges the gap between high-level Python model training and static, memory-c
 - **Transfer Learning Support:** Automated pipelines for seven architectures — `MobileNet`, `MobileNetV2`, `MobileNetV3Large`, `MobileNetV3Small` (ImageNet transfer learning, adapted to single-channel inputs), plus `ResNet8`, `ResNet18` and `SqueezeNet` trained from scratch for tiny edge classification.
 - **Model Compression:** Magnitude-based unstructured pruning (global or layer-wise) and Full Integer Quantization (INT8), which stores weights in a quarter of the FP32 size.
 - **Hardware-in-the-Loop Integration:** Real-time serial streaming and camera-in-the-loop evaluation on the Portenta H7 Vision Shield. The HIL firmware reports an FNV-1a fingerprint of the model it carries, and the bench refuses to measure if it does not match the expected `.tflite` — a stale `model.h` cannot silently produce results.
-- **Academic Reproducibility:** Optional seeded class balancing, then a seeded, stratified `train`/`val`/`test` partition materialized on disk with CSV manifests, so all four levels evaluate the same held-out images. Every level writes the same machine-readable outputs — a `metrics_*.json` carrying the SHA-256 of the evaluated model, and a per-image predictions table — so the ladder can be compared programmatically and image by image, not only through confusion-matrix plots (see [Results Format](#6-results-format)).
+- **Academic Reproducibility:** Optional seeded class balancing, then a seeded, stratified `train`/`val`/`test` partition materialized on disk with CSV manifests, so all four levels evaluate the same held-out images. Every level writes the same machine-readable outputs — a `metrics_*.json` carrying the SHA-256 of the evaluated model, and a per-image predictions table — so the ladder can be compared programmatically and image by image, not only through confusion-matrix plots (see [Results Format](#results-format)).
 
 ---
 
@@ -229,7 +229,7 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 - **Pruned Model**: `models/checkpoints/{model_name}_pruned.keras` - The sparse representation of the model after magnitude pruning.
 - **Quantized TFLite Model**: `models/tflite/{model_name}_int8.tflite` - The fully integer quantized, microcontroller-ready binary file.
 - **Confusion Matrix (SIL)**: `results/sil/Matriz_{model_name}_int8.png` - Visual evaluation of the quantized model simulating MCU arithmetic constraints.
-- **Metrics (MIL / SIL)**: `results/{mil,sil}/metrics_{model_name}[_int8].json` - Machine-readable metrics plus the model's SHA-256 (see [Results Format](#6-results-format)).
+- **Metrics (MIL / SIL)**: `results/{mil,sil}/metrics_{model_name}[_int8].json` - Machine-readable metrics plus the model's SHA-256 (see [Results Format](#results-format)).
 - **Per-Image Predictions (MIL / SIL)**: `results/{mil,sil}/predictions_{model_name}[_int8].csv` - True and predicted class for every test image.
 
 ### 4. Embedded Conversion & Deployment
@@ -237,16 +237,31 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 *   **`compile_upload_arduino.py`**: Automation utility that interacts directly with `arduino-cli` to compile and upload the firmware. `--target pil|hil` selects which of the two sketches to flash (the board runs one at a time). It handles core installations (`arduino:mbed_portenta`), auto-detects the connected board's COM port, and mitigates Windows path syntax issues natively.
 *   **`pil_benchmark.py`**: The **PIL** level. It sends dataset images to the Arduino Portenta via a custom Serial protocol (with byte escaping). It reads predictions back in real-time, matching them with the true folder-based classes to generate extensive statistical metrics and a Seaborn-based Confusion Matrix plot comparing on-chip inference with ground-truth. Streams `<splits_dir>/test` by default (`--splits_dir`, default `data/splits`) — the same held-out partition MIL and SIL evaluate, so the SIL→PIL gap isolates the move to real silicon. Names its Confusion Matrix and latency CSV after the `--model_path` flashed on the board, matching `test_model.py`, so successive runs on different models accumulate instead of overwriting. Data is injected over the wire — the camera is not in the loop. It also writes `metrics_{model}.json` — the MIL/SIL schema plus the run configuration and a per-field latency summary (n, mean, median, std, min, max, p95) — and `predictions_{model}.csv`. The JSON is written even when there are no labels or scikit-learn is missing, because latency is what this level uniquely contributes. Its `sha256` identifies the `--model_path` file; the PIL bench does not load that file nor compare it against the board.
 
+**Common Output Artifacts for Embedded Conversion & Deployment:**
+- **C Model Header**: `deployment/{pil_firmware,hil_camera_firmware}/model.h` - 16-byte aligned C byte array (`g_model[]` and `g_model_len`) linked into the PIL and HIL firmware sketches.
+- **Confusion Matrix (PIL)**: `results/pil/Matriz_{model_name}_int8.png` - Visual evaluation of on-chip inference against the held-out test partition.
+- **Per-Phase Latencies (PIL)**: `results/pil/latency_metrics_{model_name}_int8.csv` - Per-image cycle counts (`CYC_*`), microsecond latencies (`US_*`), and MCU temperature.
+- **Metrics (PIL)**: `results/pil/metrics_{model_name}_int8.json` - Machine-readable classification metrics, run metadata, and per-phase latency statistics (see [Results Format](#results-format)).
+- **Per-Image Predictions (PIL)**: `results/pil/predictions_{model_name}_int8.csv` - True and on-chip predicted class for every test image.
+
 ---
 
 ### 5. Camera-in-the-Loop HIL Evaluation
 *   **`hil_camera_benchmark.py`**: The **true Hardware-in-the-Loop (HIL)** bench. The host displays each dataset image on-screen as a controlled visual stimulus; the Portenta's own **HM01B0 camera** captures the physical scene and runs the full sensor→prediction pipeline on-device, so ground truth is known by construction (the label of the displayed stimulus). Stimuli come from `data/splits/test_manifest.csv`: by default the images flagged `hil_subset == 1` (200, balanced across classes), `--all-test` for the whole test split, or `--folder` to bypass the manifest. Before measuring, the bench compares the FNV-1a fingerprint that the firmware prints at boot with that of the expected `.tflite` (`--tflite`, or `--sil-model` if omitted) and aborts on a mismatch; it also aborts if `--lux`, `--distance-cm` or `--ambient-temp` are missing (`--allow-model-mismatch` and `--allow-missing-conditions` exist for debugging and smoke tests, and mark the run accordingly), and warns (`warn_condition_drift()`) if any physical condition differs from previous sessions in `results/hil/`. Records per-phase latency (`CAPTURE`/`PRE`/`INF`/`POST`/`TOTAL`, via DWT cycle counter) and rig conditions alongside predictions. Optionally recovers the exact captured frame (`--dump-frames`) to cross-run it through the **MIL** (`--mil-model`) and **SIL** (`--sil-model`) levels on the PC, decomposing the end-to-end gap into its quantization (MIL vs SIL), execution (SIL vs HIL), and physical-frontend (PIL vs HIL) components.
     - **Active thermal control (constant-speed fan):** The stimulus rig uses active forced-air cooling over the Portenta H7 + Vision Shield so the MCU operates in thermal steady state from the first stimulus to the last. Across the 200-inference sessions, end-to-end thermal drift is $0.1\text{–}0.3\ ^\circ\text{C}$ (first vs. last image), within-run temperature standard deviation is $0.59\ ^\circ\text{C}$ (matching the $1\ ^\circ\text{C}$ quantization step of the STM32H7 internal sensor), temperature–latency correlation is $|r| \le 0.10$ ($p \ge 0.17$), and temperature–accuracy Mann–Whitney is $p = 0.19$ ($n = 800$ inferences), ruling out thermal throttling or sensor warm-up drift.
     - Firmware companion: `deployment/hil_camera_firmware/hil_camera_firmware.ino` — a dedicated sketch, independent from the PIL firmware (`pil_firmware.ino`), which remains untouched as a serial-only fallback.
-    - Outputs, named after the model (`--model-tag` overrides the name, `--output-dir` the folder): `HIL_Confusion_Matrix_{model}.png`, `metrics_{model}.json` (MIL/SIL/PIL schema plus the chip-vs-file fingerprint check and the cross-run models), `hil_latencies_{model}.csv` (one row per inference: phase latencies, temperature, ground truth, and the HIL/SIL/MIL predictions on the same frame), and `hil_conditions_{model}.json` (rig protocol and model identity).
     - Repeated runs of the same model go to their own folder, e.g. `results/hil/rep1/` with `--model-tag MobileNetV2_rep1`, so a session never overwrites another.
 
-### 6. Results Format
+**Common Output Artifacts for Camera-in-the-Loop HIL Evaluation:**
+- **Confusion Matrix (HIL)**: `results/hil/HIL_Confusion_Matrix_{model_name}_int8.png` - Visual evaluation of the camera-in-the-loop inference compared with the displayed stimulus ground truth.
+- **Metrics (HIL)**: `results/hil/metrics_{model_name}_int8.json` - Classification metrics (same schema as MIL/SIL/PIL), on-chip vs. file `FNV-1a` fingerprint verification, cross-validation summary, and per-phase latency statistics (see [Results Format](#results-format)).
+- **Per-Phase Latencies & Cross-Run Predictions (HIL)**: `results/hil/hil_latencies_{model_name}_int8.csv` - One row per inference with `CAPTURE`/`PRE`/`INF`/`POST`/`TOTAL` latency (`CYC_*` and `US_*`), MCU temperature, stimulus ground truth, and paired HIL/SIL/MIL predictions on the same captured frame.
+- **Rig Conditions (HIL)**: `results/hil/hil_conditions_{model_name}_int8.json` - Environmental protocol of the stimulus rig (illuminance in lux, camera-to-screen distance in cm, ambient temperature in °C, notes) and model identity.
+- **Captured Camera Frames (optional, `--dump-frames`)**: `data/hil_frames/frame_{idx}_{class}_{image}.png` - Exact $160\times 120$ grayscale frames captured by the HM01B0 sensor and streamed back over serial for cross-level MIL/SIL evaluation.
+
+---
+
+## Results Format
 
 Every level writes a confusion-matrix PNG for reading and two machine-readable files for comparing:
 
@@ -414,43 +429,31 @@ Compile and upload the C++ firmware automatically to your Portenta H7 using our 
 ```bash
 python src/compile_upload_arduino.py --target pil
 ```
-*(Use `--target hil` for the camera-in-the-loop firmware of section 8. The board's port is auto-detected via `arduino-cli board list`, so no port argument is needed; `--path_proyecto` still accepts an arbitrary sketch folder. Alternatively, you can open the project folder in the Arduino IDE and click Upload).*
+*(Use `--target hil` for the camera-in-the-loop firmware of section 8. The board's port is auto-detected via `arduino-cli board list`, so no port argument is needed; `--path_proyecto` still accepts an arbitrary sketch folder. Alternatively, you can open the project folder in the Arduino IDE and click Upload.)*
 
 ### 7. Processor-in-the-Loop (PIL) Evaluation
 Once the firmware is running on your Portenta H7, you can evaluate the model's on-chip performance by injecting data over serial. The bench streams the held-out `data/splits/test` partition over USB Serial and compares the board's inferences with the real labels to generate metrics and a Confusion Matrix plot:
 ```bash
 python src/pil_benchmark.py --model_path models/tflite/{model_name}_int8.tflite --width 160 --height 120 --port COM9 --baud 115200
 ```
-*(This is Processor-in-the-Loop: the real chip runs inference, but the image is injected over the wire — the camera and physical scene are not part of the loop. `--model_path` is not loaded on the host: it names the run's artifacts after the model flashed on the board, the same convention `test_model.py` uses, so benchmarking a second model no longer overwrites the first one's results. Override the partition root with `--splits_dir`, or send an arbitrary folder with `--folder`; `--count N` sends a random subset. Note `--width`/`--height` default to 320×320, so pass them explicitly for a 160×120 model.)*
-
-**Common Output Artifacts for PIL Evaluation:**
-- **Confusion Matrix (PIL)**: `results/pil/Matriz_{model_name}_int8.png` - Visual evaluation of the on-chip inference compared with real labels.
-- **Per-Phase Latencies (PIL)**: `results/pil/latency_metrics_{model_name}_int8.csv` - One row per image with `CYC_*`/`US_*` phase latencies and MCU temperature.
-- **Metrics (PIL)**: `results/pil/metrics_{model_name}_int8.json` - Classification metrics, run configuration and latency summary per phase.
-- **Per-Image Predictions (PIL)**: `results/pil/predictions_{model_name}_int8.csv` - What the board answered for each image; joins with the latency CSV on `Image`.
+*(This is Processor-in-the-Loop: the real chip runs inference, but the image is injected over the wire — the camera and physical scene are not part of the loop. `--model_path` is not loaded on the host: it names the run's artifacts after the model flashed on the board, the same convention `test_model.py` uses, so benchmarking a second model no longer overwrites the first one's results. Override the partition root with `--splits_dir`, or send an arbitrary folder with `--folder`; `--count N` sends a random subset. Note `--width`/`--height` default to 320×320, so pass them explicitly for a 160×120 model. The Confusion Matrix, `latency_metrics_{model}_int8.csv`, `metrics_{model}_int8.json` and `predictions_{model}_int8.csv` are written to `results/pil/`.)*
 
 ### 8. Hardware-in-the-Loop (HIL) Evaluation — Camera-in-the-Loop
 Flash the camera-enabled sketch with `python src/compile_upload_arduino.py --target hil` (dedicated firmware, independent from the PIL one). Then run the camera-in-the-loop bench: the host displays each stimulus image full-screen, the Portenta's HM01B0 camera captures the physical scene, and the script matches the on-device prediction with the known stimulus label:
 ```bash
 python src/hil_camera_benchmark.py --port COM9 \
-    --settle 1.5 --lux 320 --distance-cm 25 --ambient-temp 24 \
+    --settle 1.0 --lux 10 --distance-cm 24 --ambient-temp 24 \
     --sil-model models/tflite/{model_name}_int8.tflite \
     --mil-model models/checkpoints/{model_name}.keras
 ```
-*(This is the true Hardware-in-the-Loop level: ground truth is known by construction from the displayed stimulus, and `--sil-model`/`--mil-model` enable cross-running the exact captured frame through the lower fidelity levels to decompose the gap. Stimuli default to the `hil_subset` of `data/splits/test_manifest.csv`; use `--all-test` for the whole test split. The bench aborts if the firmware's model fingerprint does not match the `.tflite` — `--tflite` sets it explicitly, otherwise `--sil-model` is used — or if any of `--lux`, `--distance-cm`, `--ambient-temp` is missing.)*
+*(This is the true Hardware-in-the-Loop level: ground truth is known by construction from the displayed stimulus, and `--sil-model`/`--mil-model` enable cross-running the exact captured frame through the lower fidelity levels to decompose the gap. Stimuli default to the `hil_subset` of `data/splits/test_manifest.csv`; use `--all-test` for the whole test split. The bench aborts if the firmware's model fingerprint does not match the `.tflite` — `--tflite` sets it explicitly, otherwise `--sil-model` is used — or if any of `--lux`, `--distance-cm`, `--ambient-temp` is missing. `HIL_Confusion_Matrix_{model}_int8.png`, `metrics_{model}_int8.json`, `hil_latencies_{model}_int8.csv` and `hil_conditions_{model}_int8.json` are written to `results/hil/`, plus `data/hil_frames/` when `--dump-frames` is passed.)*
 
 For repeated sessions with the same model, give each its own folder and tag:
 ```bash
-python src/hil_camera_benchmark.py --port COM9 --settle 1.5 --lux 320 --distance-cm 25 --ambient-temp 24 \
+python src/hil_camera_benchmark.py --port COM9 --settle 1.0 --lux 10 --distance-cm 24 --ambient-temp 24 \
     --sil-model models/tflite/{model_name}_int8.tflite \
     --output-dir results/hil/rep1 --model-tag {model_name}_rep1 --notes "replica 1"
 ```
-
-**Common Output Artifacts for HIL Evaluation:**
-- **Confusion Matrix (HIL)**: `results/hil/HIL_Confusion_Matrix_{model_name}_int8.png` - Visual evaluation of the camera-in-the-loop inference compared with the stimulus ground truth.
-- **Metrics (HIL)**: `results/hil/metrics_{model_name}_int8.json` - Same schema as the other levels, plus the chip-vs-file model fingerprint check and latency summary.
-- **Per-Phase Latencies**: `results/hil/hil_latencies_{model_name}_int8.csv` - One row per inference with `CAPTURE`/`PRE`/`INF`/`POST`/`TOTAL` latency, MCU temperature, ground truth, and the HIL/SIL/MIL predictions on the captured frame.
-- **Rig Conditions**: `results/hil/hil_conditions_{model_name}_int8.json` - Environmental protocol of the stimulus rig (lux, distance, ambient temperature, notes) and the model identity.
 
 ---
 
