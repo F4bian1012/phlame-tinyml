@@ -1,6 +1,6 @@
 {
   "nivel": "SIL",
-  "generado_utc": "2026-09-12T01:28:44.672360+00:00",
+  "generado_utc": "2026-10-16T23:56:22.805090+00:00",
   "modelo": {
     "path": "models/tflite/MobileNet+32+20+0.0001+160+120_int8.tflite",
     "nombre": "MobileNet+32+20+0.0001+160+120_int8",
@@ -9,7 +9,7 @@
   },
   "dataset": {
     "splits_dir": "data/splits",
-    "data_dir": "data/splits/test",
+    "data_dir": "data/splits\\test",
     "n_muestras": 940,
     "class_names": [
       "Class1",
@@ -72,6 +72,7 @@
     "orden": "filas = etiqueta real, columnas = etiqueta predicha"
   },
   "artefactos": {
-    "matriz_png": "results/sil/Matriz_MobileNet+32+20+0.0001+160+120_int8.png"
+    "matriz_png": "results\\sil\\Matriz_MobileNet+32+20+0.0001+160+120_int8.png",
+    "predicciones_csv": "results\\sil\\predictions_MobileNet+32+20+0.0001+160+120_int8.csv"
   }
 }
