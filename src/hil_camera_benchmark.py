@@ -324,11 +324,11 @@ def collect_from_manifest(manifest_path: str, use_all_test=False, seed=42):
     test generado por src/split_dataset.py.
 
     Por defecto usa SOLO las filas con hil_subset == 1 (el subconjunto marcado
-    para el rig fisico). Con use_all_test=True recorre las 1128 imagenes.
+    para el rig fisico). Con use_all_test=True recorre las 940 imagenes.
 
     Por que el manifiesto y no la carpeta:
       - El manifiesto es el UNICO lugar donde vive la marca hil_subset. Sin ese
-        filtro la sesion de laboratorio pasa de ~200 a 1128 estimulos.
+        filtro la sesion de laboratorio pasa de ~200 a 940 estimulos.
       - El orden de las clases se toma del propio manifiesto (label -> class_name
         ordenado por label entero), de modo que el indice coincide con el argmax
         que devuelve el firmware. Enumerar subcarpetas puede dar otro orden.
@@ -1255,9 +1255,9 @@ def parse_args():
                              "(default: data/splits/test_manifest.csv). "
                              "Fuente por defecto de los estimulos.")
     parser.add_argument('--all-test', action='store_true',
-                        help="Usar las 1128 imagenes de test en vez de las "
+                        help="Usar las 940 imagenes de test en vez de las "
                              "marcadas con hil_subset == 1 (~200). Multiplica "
-                             "por ~5.6 la duracion de la sesion.")
+                             "por ~4.7 la duracion de la sesion.")
     parser.add_argument('--folder', default=None,
                         help="OVERRIDE explicito: dataset con subcarpetas por "
                              "clase. Si se pasa, se ignora el manifiesto y NO "
