@@ -1,0 +1,59 @@
+{
+  "created_utc": "2026-10-17T03:41:04+00:00",
+  "script": "split_dataset.py",
+  "input_dir": "data/processed/vww_160x120",
+  "output_dir": "data/splits_vww",
+  "seed": 42,
+  "proportions": {
+    "train": 0.7,
+    "val": 0.15,
+    "test": 0.15
+  },
+  "class_names": [
+    "non_person",
+    "person"
+  ],
+  "class_names_source": "subcarpetas de data/processed/vww_160x120 (class_names.txt no encontrado)",
+  "label_map": {
+    "non_person": 0,
+    "person": 1
+  },
+  "counts_per_class": {
+    "non_person": {
+      "total": 1000,
+      "train": 700,
+      "val": 150,
+      "test": 150
+    },
+    "person": {
+      "total": 1000,
+      "train": 700,
+      "val": 150,
+      "test": 150
+    }
+  },
+  "totals": {
+    "train": 1400,
+    "val": 300,
+    "test": 300,
+    "dataset": 2000
+  },
+  "class_balance_pct": {
+    "non_person": 50.0,
+    "person": 50.0
+  },
+  "hil_subset": {
+    "requested": 200,
+    "selected": 200,
+    "per_class": {
+      "non_person": 100,
+      "person": 100
+    },
+    "seed": 43
+  },
+  "integrity": {
+    "splits_disjoint": true,
+    "images_accounted_for": true
+  },
+  "dry_run": false
+}

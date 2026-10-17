@@ -1,0 +1,78 @@
+{
+  "nivel": "SIL",
+  "generado_utc": "2026-10-17T04:05:24.368125+00:00",
+  "modelo": {
+    "path": "models/tflite/MobileNetV2_VWW+32+20+0.0001+160+120_int8.tflite",
+    "nombre": "MobileNetV2_VWW+32+20+0.0001+160+120_int8",
+    "sha256": "57a30e52f320cb6bbcab37796c869986a8fdb2fef655dd58fe57813a4e3e4eb1",
+    "bytes": 645640
+  },
+  "dataset": {
+    "splits_dir": "data/splits_vww",
+    "data_dir": "data/splits_vww/test",
+    "n_muestras": 300,
+    "class_names": [
+      "non_person",
+      "person"
+    ],
+    "image_size": {
+      "width": 160,
+      "height": 120
+    }
+  },
+  "metricas_globales": {
+    "accuracy": 0.6766666666666666,
+    "precision_weighted": 0.6770522471159414,
+    "recall_weighted": 0.6766666666666666,
+    "f1_weighted": 0.6764905337350334,
+    "f1_macro": 0.6764905337350335
+  },
+  "metricas_por_clase": {
+    "non_person": {
+      "precision": 0.6853146853146853,
+      "recall": 0.6533333333333333,
+      "f1-score": 0.6689419795221843,
+      "support": 150.0
+    },
+    "person": {
+      "precision": 0.6687898089171974,
+      "recall": 0.7,
+      "f1-score": 0.6840390879478827,
+      "support": 150.0
+    },
+    "accuracy": 0.6766666666666666,
+    "macro avg": {
+      "precision": 0.6770522471159414,
+      "recall": 0.6766666666666666,
+      "f1-score": 0.6764905337350335,
+      "support": 300.0
+    },
+    "weighted avg": {
+      "precision": 0.6770522471159414,
+      "recall": 0.6766666666666666,
+      "f1-score": 0.6764905337350334,
+      "support": 300.0
+    }
+  },
+  "matriz_confusion": {
+    "labels": [
+      "non_person",
+      "person"
+    ],
+    "matriz": [
+      [
+        98,
+        52
+      ],
+      [
+        45,
+        105
+      ]
+    ],
+    "orden": "filas = etiqueta real, columnas = etiqueta predicha"
+  },
+  "artefactos": {
+    "matriz_png": "results/sil/Matriz_MobileNetV2_VWW+32+20+0.0001+160+120_int8.png",
+    "predicciones_csv": "results/sil/predictions_MobileNetV2_VWW+32+20+0.0001+160+120_int8.csv"
+  }
+}
