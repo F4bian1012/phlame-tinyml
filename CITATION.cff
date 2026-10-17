@@ -1,36 +1,49 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
-title: "Phlame: TinyML-MLOps Framework for ARM Cortex-M7"
+title: "PHLAME: A Phase-Level Hardware-in-the-Loop Framework for Reproducible Fidelity-Ladder Evaluation of TinyML Image Classifiers on ARM Cortex-M Microcontrollers"
 abstract: >-
-  An open-source MLOps pipeline to train, compress (pruning + INT8 quantization)
-  and deploy deep-learning computer-vision models on resource-constrained
-  microcontrollers, including a Hardware-in-the-Loop (HIL) measurement bench for
-  on-device inference evaluation on the Arduino Portenta H7.
+  An open-source, reproducible framework for evaluating TinyML vision
+  classifiers across the four-level MIL–SIL–PIL–HIL fidelity ladder on ARM
+  Cortex-M7 microcontrollers (Arduino Portenta H7 + Vision Shield HM01B0).
+  PHLAME couples deterministic dataset partitioning and INT8 post-training
+  quantization with cycle-accurate DWT phase-level latency profiling
+  (CAPTURE, PRE, INF, POST, TOTAL), on-chip FNV-1a model-identity
+  verification, environmental condition tracking, and a camera-in-the-loop
+  HIL bench that decomposes the simulation-to-hardware gap into quantization,
+  on-chip execution, and optical-frontend effects.
 type: software
 authors:
   - family-names: "Villavisan"
-    given-names: "J."
-    # TODO: completa tu nombre de pila y añade ORCID si lo tienes
-    # orcid: "https://orcid.org/0000-0000-0000-0000"
+    given-names: "Jheyson Fabian"
+    orcid: "https://orcid.org/0000-0002-2777-1257"
+    affiliation: "Escuela Tecnológica Instituto Técnico Central, Bogotá, Colombia"
 repository-code: "https://github.com/F4bian1012/phlame-tinyml"
 url: "https://github.com/F4bian1012/phlame-tinyml"
 license: MIT
 version: "1.0.0"
-date-released: "2026-07-04"
+date-released: "2026-10-16"
 keywords:
   - TinyML
   - MLOps
   - Hardware-in-the-Loop
+  - Processor-in-the-Loop
+  - fidelity ladder
+  - camera-in-the-loop
   - microcontrollers
-  - edge-AI
-  - quantization
+  - ARM Cortex-M7
   - Arduino Portenta H7
+  - TensorFlow Lite Micro
+  - INT8 quantization
+  - edge-AI
+  - cycle-accurate profiling
 preferred-citation:
   type: article
-  title: "Phlame: TinyML-MLOps Framework with a Hardware-in-the-Loop Measurement Bench for ARM Cortex-M7 Microcontrollers"
+  title: "PHLAME: A Phase-Level Hardware-in-the-Loop Framework for Reproducible Fidelity-Ladder Evaluation of TinyML Image Classifiers on ARM Cortex-M Microcontrollers"
   authors:
     - family-names: "Villavisan"
-      given-names: "J."
+      given-names: "Jheyson Fabian"
+      orcid: "https://orcid.org/0000-0002-2777-1257"
+      affiliation: "Escuela Tecnológica Instituto Técnico Central, Bogotá, Colombia"
   journal: "SoftwareX"
   publisher: "Elsevier"
   year: 2026
