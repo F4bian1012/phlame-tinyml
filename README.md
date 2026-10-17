@@ -103,11 +103,6 @@ flowchart TD
     classDef artifact fill:#FFD43B,stroke:#9C7C00,stroke-width:2px,color:#000;
     classDef hardware fill:#00979D,stroke:#005C5F,stroke-width:2px,color:#fff;
 
-    subgraph LEGEND["Legend"]
-        direction LR
-        L1["script"]:::python ~~~ L2("artifact"):::artifact ~~~ L3[("data")]:::data ~~~ L4{{"hardware"}}:::hardware
-    end
-
     subgraph DATA["1 · Data preparation"]
         direction TB
         RAW[("data/raw")]:::data
@@ -125,18 +120,17 @@ flowchart TD
         TRAIN["train_*.py<br/><small>reads train + val</small>"]:::python
         KERAS("models/checkpoints/<br/>{model}.keras"):::artifact
         CURVES("results/<br/>training_curves/"):::artifact
-        PRUNE["prune_model.py<br/><small>optional</small>"]:::python
+        PRUNE["prune_model.py<br/><small>optional, writes<br/>{model}_pruned.keras</small>"]:::python
         QUANT["quantize_int8_basic.py<br/><small>calibrates on train</small>"]:::python
         TFLITE("models/tflite/<br/>{model}_int8.tflite"):::artifact
         TRAIN --> KERAS
         TRAIN --> CURVES
-        KERAS --> QUANT
-        KERAS -.-> PRUNE -.-> QUANT
-        QUANT --> TFLITE
+        KERAS <-.-> PRUNE
+        KERAS --> QUANT --> TFLITE
     end
 
-    subgraph DEPLOY["3 · Embedded deployment"]
-        direction TB
+    subgraph DEPLOY["3 · Embedded deployment, from the .tflite"]
+        direction LR
         HEADER["tflite_to_c.py<br/><small>--target pil, hil, both</small>"]:::python
         MODEL_H("deployment/*/<br/>model.h"):::artifact
         FLASH["compile_upload_arduino.py<br/><small>--target pil or hil</small>"]:::python
@@ -144,33 +138,47 @@ flowchart TD
         HEADER --> MODEL_H --> FLASH --> BOARD
     end
 
-    subgraph LADDER["4 · Fidelity ladder, on splits/test"]
+    subgraph LADDER["4 · Fidelity ladder, on data/splits/test"]
         direction TB
-        MIL["MIL · test_model.py<br/><small>float model on PC</small>"]:::python
-        MIL_OUT("results/mil/<br/><small>PNG · JSON · predictions CSV</small>"):::artifact
-        SIL["SIL · test_tflite_model.py<br/><small>INT8 model on PC</small>"]:::python
-        SIL_OUT("results/sil/<br/><small>PNG · JSON · predictions CSV</small>"):::artifact
-        PIL["PIL · pil_benchmark.py<br/><small>chip, image over serial</small>"]:::python
-        PIL_OUT("results/pil/<br/><small>PNG · JSON · predictions CSV<br/>latency CSV</small>"):::artifact
-        HIL["HIL · hil_camera_benchmark.py<br/><small>chip + camera, hil_subset</small>"]:::python
-        HIL_OUT("results/hil/<br/><small>PNG · JSON · latency CSV<br/>rig conditions JSON</small>"):::artifact
-        SCREEN{{"Monitor<br/><small>shows the stimulus</small>"}}:::hardware
-        CAM{{"HM01B0 camera<br/><small>Vision Shield</small>"}}:::hardware
-        MIL --> MIL_OUT
-        SIL --> SIL_OUT
-        PIL --> PIL_OUT
-        HIL --> HIL_OUT
-        HIL --> SCREEN --> CAM
+        subgraph R_MIL["MIL · float model on PC"]
+            direction LR
+            MIL["test_model.py<br/><small>reads the .keras</small>"]:::python
+            MIL_OUT("results/mil/<br/><small>PNG · JSON · predictions CSV</small>"):::artifact
+            MIL --> MIL_OUT
+        end
+        subgraph R_SIL["SIL · INT8 model on PC"]
+            direction LR
+            SIL["test_tflite_model.py<br/><small>reads the .tflite</small>"]:::python
+            SIL_OUT("results/sil/<br/><small>PNG · JSON · predictions CSV</small>"):::artifact
+            SIL --> SIL_OUT
+        end
+        subgraph R_PIL["PIL · real chip, image over serial"]
+            direction LR
+            PIL["pil_benchmark.py<br/><small>talks to the Portenta</small>"]:::python
+            PIL_OUT("results/pil/<br/><small>PNG · JSON · predictions CSV<br/>+ latency CSV</small>"):::artifact
+            PIL --> PIL_OUT
+        end
+        subgraph R_HIL["HIL · real chip and camera, hil_subset"]
+            direction LR
+            HIL["hil_camera_benchmark.py<br/><small>talks to the Portenta</small>"]:::python
+            HIL_OUT("results/hil/<br/><small>PNG · JSON · latency CSV<br/>+ rig conditions JSON</small>"):::artifact
+            SCREEN{{"Monitor<br/><small>shows the stimulus</small>"}}:::hardware
+            CAM{{"HM01B0 camera<br/><small>on the Portenta</small>"}}:::hardware
+            HIL --> HIL_OUT
+            HIL --> SCREEN --> CAM
+        end
+        R_MIL --> R_SIL --> R_PIL --> R_HIL
     end
 
-    LEGEND ~~~ DATA
-    SPLITS --> TRAIN
-    KERAS --> MIL
-    TFLITE --> SIL
-    TFLITE --> HEADER
-    BOARD <--> PIL
-    BOARD <--> HIL
-    CAM --> BOARD
+    subgraph LEGEND["Legend"]
+        direction LR
+        L1["script"]:::python ~~~ L2("artifact"):::artifact ~~~ L3[("data")]:::data ~~~ L4{{"hardware"}}:::hardware
+    end
+
+    DATA --> TRAINING
+    TRAINING --> DEPLOY
+    DEPLOY --> LADDER
+    LADDER ~~~ LEGEND
 ```
 
 ---
