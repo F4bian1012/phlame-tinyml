@@ -21,7 +21,8 @@
     "condiciones_completas": true,
     "illuminance_lux": 10.0,
     "camera_to_screen_distance_cm": 24.0,
-    "ambient_temp_c": 24.0
+    "ambient_temp_c": 24.0,
+    "nota_correccion": "camera_to_screen_distance_cm corregido de 23.0 a 24.0 cm (error de digitacion en CLI; el tripode permanecio fijo a 24.0 cm como en el resto del protocolo)"
   },
   "dataset": {
     "stimulus_source": "manifest:data/splits/test_manifest.csv",

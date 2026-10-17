@@ -36,6 +36,6 @@
   "sil_model": "models/tflite/MobileNetV3Small+32+20+0.0001+160+120_int8.tflite",
   "mil_model": "models/checkpoints/MobileNetV3Small+32+20+0.0001+160+120.keras",
   "frames_dir": "data/hil_frames",
-  "notes": "monitor samsung ; tripode fijo; sin luz natural",
+  "notes": "monitor samsung ; tripode fijo; sin luz natural (correccion post-hoc: camera_to_screen_distance_cm corregido de 23.0 a 24.0 cm por error de digitacion en CLI; el tripode permanecio fijo a 24.0 cm como en el resto del protocolo)",
   "utc_end": "2026-09-13T00:40:01.085089+00:00"
 }

@@ -92,7 +92,7 @@ int image_bytes_ready = 0;
 // de ciclos de nucleo de 32 bits (CYCCNT). Cuenta 1 por ciclo de reloj, asi
 // que la resolucion es 1/SystemCoreClock (2.5 ns a 400 MHz, valor medido: SystemCoreClock), muchisimo mas
 // fina que millis()/micros(). Se habilita una vez en setup().
-// A 480 MHz el contador de 32 bits desborda cada ~8.95 s; como cada fase dura
+// A 400 MHz el contador de 32 bits desborda cada ~10.74 s; como cada fase dura
 // muy por debajo de eso, la resta unsigned (t_fin - t_ini) es correcta incluso
 // con un desbordamiento.
 static inline void dwt_enable_cycle_counter() {
