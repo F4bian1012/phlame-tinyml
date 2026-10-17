@@ -152,8 +152,9 @@ def imprimir_reparto(detalle, total_encontradas, total_seleccionadas):
     print()
 
 
-def reshape_images(width, height, input_dir, balance, max_per_class, seed, dry_run):
-    output_dir = os.path.join(PROCESSED_BASE_DIR, "%dx%d" % (width, height))
+def reshape_images(width, height, input_dir, balance, max_per_class, seed, dry_run, output_dir=None):
+    if not output_dir:
+        output_dir = os.path.join(PROCESSED_BASE_DIR, "%dx%d" % (width, height))
 
     print("Searching for images recursively in %s..." % input_dir)
     por_clase = collect_by_class(input_dir)
@@ -258,6 +259,8 @@ if __name__ == "__main__":
     parser.add_argument("--height", type=int, default=28, help="Target height")
     parser.add_argument("--input_dir", type=str, default="data/processed/grayscale",
                         help="Input directory")
+    parser.add_argument("--output_dir", type=str, default=None,
+                        help="Output directory (default: data/processed/{width}x{height})")
     parser.add_argument("--balance", choices=["none", "undersample"], default="none",
                         help="'undersample' recorta cada clase al tamano de la mas "
                              "pequena. No hay sobremuestreo a proposito: duplicar "
@@ -277,4 +280,4 @@ if __name__ == "__main__":
 
     raise SystemExit(reshape_images(args.width, args.height, args.input_dir,
                                     args.balance, args.max_per_class,
-                                    args.seed, args.dry_run))
+                                    args.seed, args.dry_run, args.output_dir))

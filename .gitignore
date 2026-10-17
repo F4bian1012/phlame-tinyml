@@ -10,17 +10,23 @@ venv/
 
 # Data (Exclude large files, keep structure)
 data/raw/*
+data/raw_vww/*
 data/processed/*
 data/augmented/*
+data/hil_frames*/
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 !data/augmented/.gitkeep
+!data/raw_vww/vww_subset_report.json
 
 # Splits: ignore the copied images, keep the manifests and the report so the
 # partition stays reproducible (split_dataset.py rebuilds the images from them)
 data/splits/*/
+data/splits_vww/*/
 !data/splits/*_manifest.csv
 !data/splits/split_report.json
+!data/splits_vww/*_manifest.csv
+!data/splits_vww/split_report.json
 
 # Models (Exclude heavy weights)
 models/checkpoints/*
