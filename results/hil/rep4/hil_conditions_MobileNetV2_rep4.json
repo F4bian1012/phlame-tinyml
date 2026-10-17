@@ -8,7 +8,7 @@
     "arena_used_bytes": 356404
   },
   "expected_model": {
-    "path": "C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\models\\tflite\\MobileNetV2+32+20+0.0001+160+120_int8.tflite",
+    "path": "models/tflite/MobileNetV2+32+20+0.0001+160+120_int8.tflite",
     "bytes": 645640,
     "fnv1a": "ed97c23a",
     "sha256": "eaf083dd1baad4958d842c41407ca09189bd9789420801f92c490a76d8d49180"
@@ -17,8 +17,8 @@
   "conditions_complete": true,
   "port": "COM9",
   "baud": 115200,
-  "stimulus_source": "manifest:C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\data\\splits\\test_manifest.csv",
-  "manifest": "C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\data\\splits\\test_manifest.csv",
+  "stimulus_source": "manifest:data/splits/test_manifest.csv",
+  "manifest": "data/splits/test_manifest.csv",
   "manifest_subset": "hil_subset==1",
   "dataset_folder": null,
   "class_names": [

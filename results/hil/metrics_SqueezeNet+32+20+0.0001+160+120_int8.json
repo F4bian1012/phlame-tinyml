@@ -2,7 +2,7 @@
   "nivel": "HIL",
   "generado_utc": "2026-09-13T00:57:45.361491+00:00",
   "modelo": {
-    "path": "C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\models\\tflite\\SqueezeNet+32+20+0.0001+160+120_int8.tflite",
+    "path": "models/tflite/SqueezeNet+32+20+0.0001+160+120_int8.tflite",
     "nombre": "SqueezeNet+32+20+0.0001+160+120_int8",
     "sha256": "d3e401a1bcc81a53b7cbd4bac824054a642ccbcfa032f9417bea9b853c84a857",
     "bytes": 827568,
@@ -24,7 +24,7 @@
     "ambient_temp_c": 24.0
   },
   "dataset": {
-    "stimulus_source": "manifest:C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\data\\splits\\test_manifest.csv",
+    "stimulus_source": "manifest:data/splits/test_manifest.csv",
     "manifest_subset": "hil_subset==1",
     "class_names": [
       "Class1",
@@ -203,14 +203,14 @@
     }
   },
   "validacion_cruzada": {
-    "sil_en_pc": "C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\models\\tflite\\SqueezeNet+32+20+0.0001+160+120_int8.tflite",
-    "mil_en_pc": "C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\models\\checkpoints\\SqueezeNet+32+20+0.0001+160+120.keras",
+    "sil_en_pc": "models/tflite/SqueezeNet+32+20+0.0001+160+120_int8.tflite",
+    "mil_en_pc": "models/checkpoints/SqueezeNet+32+20+0.0001+160+120.keras",
     "n_con_sil": 200,
     "n_con_mil": 200
   },
   "artefactos": {
-    "matriz_png": "results\\hil\\HIL_Confusion_Matrix_SqueezeNet+32+20+0.0001+160+120_int8.png",
-    "latencias_csv": "results\\hil\\hil_latencies_SqueezeNet+32+20+0.0001+160+120_int8.csv",
-    "condiciones_json": "results\\hil\\hil_conditions_SqueezeNet+32+20+0.0001+160+120_int8.json"
+    "matriz_png": "results/hil/HIL_Confusion_Matrix_SqueezeNet+32+20+0.0001+160+120_int8.png",
+    "latencias_csv": "results/hil/hil_latencies_SqueezeNet+32+20+0.0001+160+120_int8.csv",
+    "condiciones_json": "results/hil/hil_conditions_SqueezeNet+32+20+0.0001+160+120_int8.json"
   }
 }

@@ -2,7 +2,7 @@
   "nivel": "HIL",
   "generado_utc": "2026-09-13T00:01:20.870585+00:00",
   "modelo": {
-    "path": "C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\models\\tflite\\MobileNetV2+32+20+0.0001+160+120_int8.tflite",
+    "path": "models/tflite/MobileNetV2+32+20+0.0001+160+120_int8.tflite",
     "nombre": "MobileNetV2+32+20+0.0001+160+120_int8",
     "sha256": "eaf083dd1baad4958d842c41407ca09189bd9789420801f92c490a76d8d49180",
     "bytes": 645640,
@@ -24,7 +24,7 @@
     "ambient_temp_c": 24.0
   },
   "dataset": {
-    "stimulus_source": "manifest:C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\data\\splits\\test_manifest.csv",
+    "stimulus_source": "manifest:data/splits/test_manifest.csv",
     "manifest_subset": "hil_subset==1",
     "class_names": [
       "Class1",
@@ -203,14 +203,14 @@
     }
   },
   "validacion_cruzada": {
-    "sil_en_pc": "C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\models\\tflite\\MobileNetV2+32+20+0.0001+160+120_int8.tflite",
-    "mil_en_pc": "C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\models\\checkpoints\\MobileNetV2+32+20+0.0001+160+120.keras",
+    "sil_en_pc": "models/tflite/MobileNetV2+32+20+0.0001+160+120_int8.tflite",
+    "mil_en_pc": "models/checkpoints/MobileNetV2+32+20+0.0001+160+120.keras",
     "n_con_sil": 200,
     "n_con_mil": 200
   },
   "artefactos": {
-    "matriz_png": "results\\hil\\HIL_Confusion_Matrix_MobileNetV2+32+20+0.0001+160+120_int8.png",
-    "latencias_csv": "results\\hil\\hil_latencies_MobileNetV2+32+20+0.0001+160+120_int8.csv",
-    "condiciones_json": "results\\hil\\hil_conditions_MobileNetV2+32+20+0.0001+160+120_int8.json"
+    "matriz_png": "results/hil/HIL_Confusion_Matrix_MobileNetV2+32+20+0.0001+160+120_int8.png",
+    "latencias_csv": "results/hil/hil_latencies_MobileNetV2+32+20+0.0001+160+120_int8.csv",
+    "condiciones_json": "results/hil/hil_conditions_MobileNetV2+32+20+0.0001+160+120_int8.json"
   }
 }

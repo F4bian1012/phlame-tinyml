@@ -2,7 +2,7 @@
   "nivel": "HIL",
   "generado_utc": "2026-09-13T01:24:50.125453+00:00",
   "modelo": {
-    "path": "C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\models\\tflite\\ResNet8+32+20+0.0001+160+120_int8.tflite",
+    "path": "models/tflite/ResNet8+32+20+0.0001+160+120_int8.tflite",
     "nombre": "ResNet8+32+20+0.0001+160+120_int8",
     "sha256": "f0f293903dd31efc964ad5c4f74a6898b134558272139676bc9e374338ceeac4",
     "bytes": 1279176,
@@ -24,7 +24,7 @@
     "ambient_temp_c": 24.0
   },
   "dataset": {
-    "stimulus_source": "manifest:C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\data\\splits\\test_manifest.csv",
+    "stimulus_source": "manifest:data/splits/test_manifest.csv",
     "manifest_subset": "hil_subset==1",
     "class_names": [
       "Class1",
@@ -203,14 +203,14 @@
     }
   },
   "validacion_cruzada": {
-    "sil_en_pc": "C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\models\\tflite\\ResNet8+32+20+0.0001+160+120_int8.tflite",
-    "mil_en_pc": "C:\\Users\\fabia\\Desktop\\1_BackUpUniandesOneDrive\\02_ETITC\\Investigacion_TinyML\\PHLAME_repo_actual\\models\\checkpoints\\ResNet8+32+20+0.0001+160+120.keras",
+    "sil_en_pc": "models/tflite/ResNet8+32+20+0.0001+160+120_int8.tflite",
+    "mil_en_pc": "models/checkpoints/ResNet8+32+20+0.0001+160+120.keras",
     "n_con_sil": 200,
     "n_con_mil": 200
   },
   "artefactos": {
-    "matriz_png": "results\\hil\\HIL_Confusion_Matrix_ResNet8+32+20+0.0001+160+120_int8.png",
-    "latencias_csv": "results\\hil\\hil_latencies_ResNet8+32+20+0.0001+160+120_int8.csv",
-    "condiciones_json": "results\\hil\\hil_conditions_ResNet8+32+20+0.0001+160+120_int8.json"
+    "matriz_png": "results/hil/HIL_Confusion_Matrix_ResNet8+32+20+0.0001+160+120_int8.png",
+    "latencias_csv": "results/hil/hil_latencies_ResNet8+32+20+0.0001+160+120_int8.csv",
+    "condiciones_json": "results/hil/hil_conditions_ResNet8+32+20+0.0001+160+120_int8.json"
   }
 }
