@@ -96,53 +96,81 @@ phlame-tinyml/
 The project rigorously separates Data Science environments (`src/`) from Embedded Engineering firmware (`deployment/`).
 
 ```mermaid
-graph TD
-    %% Styling
-    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px,color:#000;
-    classDef data fill:#D5E8D4,stroke:#82B366,stroke-width:2px,color:#000;
-    classDef python fill:#4B8BBE,stroke:#306998,stroke-width:2px,color:#fff;
+flowchart TD
+    %% Blue = script, yellow = artifact, green = data, teal = hardware
+    classDef data fill:#D5E8D4,stroke:#4E7F3A,stroke-width:2px,color:#000;
+    classDef python fill:#4B8BBE,stroke:#1F4E79,stroke-width:2px,color:#fff;
+    classDef artifact fill:#FFD43B,stroke:#9C7C00,stroke-width:2px,color:#000;
     classDef hardware fill:#00979D,stroke:#005C5F,stroke-width:2px,color:#fff;
-    classDef artifact fill:#FFD43B,stroke:#FFE873,stroke-width:2px,color:#000;
 
-    subgraph DATA["1 - Data Pipeline"]
-        direction TB
-        RAW[data/raw]:::data -->|"process_images.py<br/>reshape_images.py --balance"| PROC[data/processed]:::data
-        PROC -->|split_dataset.py| SPLITS("data/splits<br/>train / val / test"):::data
+    subgraph LEGEND["Legend"]
+        direction LR
+        L1["script"]:::python ~~~ L2("artifact"):::artifact ~~~ L3[("data")]:::data ~~~ L4{{"hardware"}}:::hardware
     end
 
-    subgraph TRAINING["2 - Training and Optimization (src/)"]
+    subgraph DATA["1 · Data preparation"]
+        direction TB
+        RAW[("data/raw")]:::data
+        PROCESS["process_images.py<br/><small>to grayscale</small>"]:::python
+        GRAY[("data/processed/<br/>grayscale")]:::data
+        RESHAPE["reshape_images.py<br/><small>resize, --balance</small>"]:::python
+        RESIZED[("data/processed/<br/>160x120")]:::data
+        SPLIT["split_dataset.py<br/><small>stratified, seed 42</small>"]:::python
+        SPLITS[("data/splits/<br/>train · val · test")]:::data
+        RAW --> PROCESS --> GRAY --> RESHAPE --> RESIZED --> SPLIT --> SPLITS
+    end
+
+    subgraph TRAINING["2 · Training and quantization"]
         direction TB
         TRAIN["train_*.py<br/><small>reads train + val</small>"]:::python
-        TRAIN -->|Saves| KERAS("models/checkpoints/{model}.keras"):::artifact
-        KERAS --> MIL["test_model.py (MIL)<br/><small>reads splits/test</small>"]:::python
-        MIL --> CM_MIL("results/mil/<br/>Matriz_{model}.png<br/>metrics_{model}.json<br/>predictions_{model}.csv"):::artifact
-        KERAS --> PRUNE["prune_model.py<br/><small>optional</small>"]:::python
-        PRUNE --> OPT["quantize_int8_basic.py<br/><small>calibrates on splits/train</small>"]:::python
-        OPT --> TFLITE("models/tflite/{model}_int8.tflite"):::artifact
-        TFLITE --> SIL["test_tflite_model.py (SIL)<br/><small>reads splits/test</small>"]:::python
-        SIL --> CM_SIL("results/sil/<br/>Matriz_{model}.png<br/>metrics_{model}.json<br/>predictions_{model}.csv"):::artifact
+        KERAS("models/checkpoints/<br/>{model}.keras"):::artifact
+        CURVES("results/<br/>training_curves/"):::artifact
+        PRUNE["prune_model.py<br/><small>optional</small>"]:::python
+        QUANT["quantize_int8_basic.py<br/><small>calibrates on train</small>"]:::python
+        TFLITE("models/tflite/<br/>{model}_int8.tflite"):::artifact
+        TRAIN --> KERAS
+        TRAIN --> CURVES
+        KERAS --> QUANT
+        KERAS -.-> PRUNE -.-> QUANT
+        QUANT --> TFLITE
     end
 
-    subgraph DEPLOY["3 - Embedded Deployment (deployment/)"]
+    subgraph DEPLOY["3 · Embedded deployment"]
         direction TB
-        HEADER["tflite_to_c.py<br/><small>--target pil | hil | both</small>"]:::python
-        HEADER --> MODEL_H("pil_firmware/model.h<br/>hil_camera_firmware/model.h"):::artifact
-        MODEL_H --> FLASH["compile_upload_arduino.py<br/><small>--target pil | hil</small>"]:::python
-        FLASH --> BOARD((Portenta H7)):::hardware
+        HEADER["tflite_to_c.py<br/><small>--target pil, hil, both</small>"]:::python
+        MODEL_H("deployment/*/<br/>model.h"):::artifact
+        FLASH["compile_upload_arduino.py<br/><small>--target pil or hil</small>"]:::python
+        BOARD{{"Portenta H7<br/><small>pil_firmware or<br/>hil_camera_firmware</small>"}}:::hardware
+        HEADER --> MODEL_H --> FLASH --> BOARD
     end
 
-    subgraph BENCH["4 - On-Device Benches"]
+    subgraph LADDER["4 · Fidelity ladder, on splits/test"]
         direction TB
-        PIL["pil_benchmark.py (PIL)<br/><small>streams splits/test over serial</small>"]:::python
-        PIL --> CM_PIL("results/pil/<br/>Matriz_{model}.png<br/>metrics_{model}.json<br/>predictions_{model}.csv<br/>latency_metrics_{model}.csv"):::artifact
-        HIL["hil_camera_benchmark.py (HIL)<br/><small>HM01B0 camera · hil_subset of test_manifest</small>"]:::python
-        HIL --> CM_HIL("results/hil/<br/>HIL_Confusion_Matrix_{model}.png<br/>metrics_{model}.json<br/>hil_latencies_{model}.csv<br/>hil_conditions_{model}.json"):::artifact
+        MIL["MIL · test_model.py<br/><small>float model on PC</small>"]:::python
+        MIL_OUT("results/mil/<br/><small>PNG · JSON · predictions CSV</small>"):::artifact
+        SIL["SIL · test_tflite_model.py<br/><small>INT8 model on PC</small>"]:::python
+        SIL_OUT("results/sil/<br/><small>PNG · JSON · predictions CSV</small>"):::artifact
+        PIL["PIL · pil_benchmark.py<br/><small>chip, image over serial</small>"]:::python
+        PIL_OUT("results/pil/<br/><small>PNG · JSON · predictions CSV<br/>latency CSV</small>"):::artifact
+        HIL["HIL · hil_camera_benchmark.py<br/><small>chip + camera, hil_subset</small>"]:::python
+        HIL_OUT("results/hil/<br/><small>PNG · JSON · latency CSV<br/>rig conditions JSON</small>"):::artifact
+        SCREEN{{"Monitor<br/><small>shows the stimulus</small>"}}:::hardware
+        CAM{{"HM01B0 camera<br/><small>Vision Shield</small>"}}:::hardware
+        MIL --> MIL_OUT
+        SIL --> SIL_OUT
+        PIL --> PIL_OUT
+        HIL --> HIL_OUT
+        HIL --> SCREEN --> CAM
     end
 
+    LEGEND ~~~ DATA
     SPLITS --> TRAIN
+    KERAS --> MIL
+    TFLITE --> SIL
     TFLITE --> HEADER
-    BOARD --> PIL
-    BOARD --> HIL
+    BOARD <--> PIL
+    BOARD <--> HIL
+    CAM --> BOARD
 ```
 
 ---
