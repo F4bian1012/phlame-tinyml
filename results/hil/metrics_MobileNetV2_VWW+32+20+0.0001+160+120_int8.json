@@ -1,0 +1,216 @@
+{
+  "nivel": "HIL",
+  "generado_utc": "2026-10-17T20:49:37.859449+00:00",
+  "modelo": {
+    "path": "models/tflite/MobileNetV2_VWW+32+20+0.0001+160+120_int8.tflite",
+    "nombre": "MobileNetV2_VWW+32+20+0.0001+160+120_int8",
+    "sha256": "57a30e52f320cb6bbcab37796c869986a8fdb2fef655dd58fe57813a4e3e4eb1",
+    "bytes": 645640,
+    "fnv1a_tflite": "587f92ad",
+    "fnv1a_chip": "587f92ad",
+    "identidad_verificada": true,
+    "nota": "identidad_verificada=True significa que la huella FNV-1a del g_model[] en la placa coincide con la del .tflite indicado: el chip ejecuto exactamente ese archivo."
+  },
+  "corrida": {
+    "puerto": "COM3",
+    "baud": 115200,
+    "settle_s": 1.0,
+    "gap_s": 0.5,
+    "seed": 42,
+    "frame_dump": true,
+    "condiciones_completas": true,
+    "illuminance_lux": 14.0,
+    "camera_to_screen_distance_cm": 24.0,
+    "ambient_temp_c": 24.0
+  },
+  "dataset": {
+    "stimulus_source": "manifest:data/splits_vww/test_manifest.csv",
+    "manifest_subset": "hil_subset==1",
+    "class_names": [
+      "non_person",
+      "person"
+    ],
+    "n_estimulos": 200,
+    "n_respondidas": 200,
+    "n_sin_respuesta": 0
+  },
+  "metricas_globales": {
+    "accuracy": 0.68,
+    "precision_weighted": 0.681159420289855,
+    "recall_weighted": 0.68,
+    "f1_weighted": 0.6794871794871794,
+    "precision_macro": 0.681159420289855,
+    "recall_macro": 0.6799999999999999,
+    "f1_macro": 0.6794871794871795
+  },
+  "metricas_por_clase": {
+    "non_person": {
+      "precision": 0.6956521739130435,
+      "recall": 0.64,
+      "f1-score": 0.6666666666666666,
+      "support": 100.0
+    },
+    "person": {
+      "precision": 0.6666666666666666,
+      "recall": 0.72,
+      "f1-score": 0.6923076923076923,
+      "support": 100.0
+    },
+    "accuracy": 0.68,
+    "macro avg": {
+      "precision": 0.681159420289855,
+      "recall": 0.6799999999999999,
+      "f1-score": 0.6794871794871795,
+      "support": 200.0
+    },
+    "weighted avg": {
+      "precision": 0.681159420289855,
+      "recall": 0.68,
+      "f1-score": 0.6794871794871794,
+      "support": 200.0
+    }
+  },
+  "matriz_confusion": {
+    "labels": [
+      "non_person",
+      "person"
+    ],
+    "matriz": [
+      [
+        64,
+        36
+      ],
+      [
+        28,
+        72
+      ]
+    ],
+    "orden": "filas = etiqueta real, columnas = etiqueta predicha"
+  },
+  "latencia": {
+    "fuente": "contador de ciclos DWT->CYCCNT del Cortex-M7, reportado por el firmware en las lineas CYC_*/US_*; incluye la fase CAPTURE",
+    "n_imagenes_con_medida": 200,
+    "metodo_p95": "rango mas cercano sobre la muestra ordenada, sin interpolar",
+    "por_campo": {
+      "TS_MS": {
+        "n": 200,
+        "media": 362343.81,
+        "mediana": 362355.5,
+        "desv_std": 174814.18165659564,
+        "min": 60596.0,
+        "max": 662772.0,
+        "p95": 632602.0
+      },
+      "TEMP_C": {
+        "n": 200,
+        "media": 37.215,
+        "mediana": 37.0,
+        "desv_std": 0.6409595507741837,
+        "min": 36.0,
+        "max": 39.0,
+        "p95": 38.0
+      },
+      "CYC_CAPTURE": {
+        "n": 200,
+        "media": 700686.56,
+        "mediana": 672058.0,
+        "desv_std": 139095.02301648387,
+        "min": 487252.0,
+        "max": 998038.0,
+        "p95": 959367.0
+      },
+      "CYC_PRE": {
+        "n": 200,
+        "media": 1357352.155,
+        "mediana": 1357515.5,
+        "desv_std": 2123.6270956033936,
+        "min": 1345172.0,
+        "max": 1362924.0,
+        "p95": 1360474.0
+      },
+      "CYC_INF": {
+        "n": 200,
+        "media": 158336185.96,
+        "mediana": 158335643.0,
+        "desv_std": 36135.24196233898,
+        "min": 158225615.0,
+        "max": 158457635.0,
+        "p95": 158401789.0
+      },
+      "CYC_POST": {
+        "n": 200,
+        "media": 254.02,
+        "mediana": 235.0,
+        "desv_std": 45.94424849585905,
+        "min": 197.0,
+        "max": 327.0,
+        "p95": 327.0
+      },
+      "CYC_TOTAL": {
+        "n": 200,
+        "media": 160394478.695,
+        "mediana": 160373214.0,
+        "desv_std": 147924.31800029104,
+        "min": 160080005.0,
+        "max": 160736274.0,
+        "p95": 160663826.0
+      },
+      "US_CAPTURE": {
+        "n": 200,
+        "media": 1751.7164000000002,
+        "mediana": 1680.145,
+        "desv_std": 347.73753960666727,
+        "min": 1218.13,
+        "max": 2495.095,
+        "p95": 2398.417
+      },
+      "US_PRE": {
+        "n": 200,
+        "media": 3393.3804099999998,
+        "mediana": 3393.7885,
+        "desv_std": 5.3090680036364475,
+        "min": 3362.93,
+        "max": 3407.31,
+        "p95": 3401.185
+      },
+      "US_INF": {
+        "n": 200,
+        "media": 395840.46667000005,
+        "mediana": 395839.09400000004,
+        "desv_std": 90.33659167011942,
+        "min": 395564.063,
+        "max": 396144.094,
+        "p95": 396004.5
+      },
+      "US_POST": {
+        "n": 200,
+        "media": 0.6349750000000001,
+        "mediana": 0.587,
+        "desv_std": 0.1148123851941499,
+        "min": 0.493,
+        "max": 0.817,
+        "p95": 0.817
+      },
+      "US_TOTAL": {
+        "n": 200,
+        "media": 400986.19746,
+        "mediana": 400933.0315,
+        "desv_std": 369.8096869752078,
+        "min": 400200.031,
+        "max": 401840.656,
+        "p95": 401659.563
+      }
+    }
+  },
+  "validacion_cruzada": {
+    "sil_en_pc": "models/tflite/MobileNetV2_VWW+32+20+0.0001+160+120_int8.tflite",
+    "mil_en_pc": "models/checkpoints/MobileNetV2_VWW+32+20+0.0001+160+120.keras",
+    "n_con_sil": 200,
+    "n_con_mil": 200
+  },
+  "artefactos": {
+    "matriz_png": "results/hil/HIL_Confusion_Matrix_MobileNetV2_VWW+32+20+0.0001+160+120_int8.png",
+    "latencias_csv": "results/hil/hil_latencies_MobileNetV2_VWW+32+20+0.0001+160+120_int8.csv",
+    "condiciones_json": "results/hil/hil_conditions_MobileNetV2_VWW+32+20+0.0001+160+120_int8.json"
+  }
+}
