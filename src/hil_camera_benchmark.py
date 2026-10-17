@@ -139,12 +139,30 @@ def parse_firmware_fingerprint(lines):
     return fw
 
 
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _relpath_repo(path: str):
+    """Ruta relativa a la raiz del repositorio, con barras '/', para que los
+    JSON de HIL no expongan rutas absolutas del equipo local (C:\\Users\\...)
+    y sean portables al clonar el repo, igual que en MIL, SIL y PIL."""
+    if not path:
+        return None
+    try:
+        rel = os.path.relpath(os.path.abspath(path), REPO_ROOT)
+        if not rel.startswith(".."):
+            return rel.replace("\\", "/")
+    except ValueError:
+        pass
+    return os.path.normpath(path).replace("\\", "/")
+
+
 def expected_model_fingerprint(tflite_path: str):
     """Huella del .tflite que el operador DICE haber flasheado."""
     if not tflite_path or not os.path.isfile(tflite_path):
         return None
     return {
-        'path': os.path.abspath(tflite_path),
+        'path': _relpath_repo(tflite_path),
         'bytes': os.path.getsize(tflite_path),
         'fnv1a': f"{fnv1a32_file(tflite_path):08x}",
         'sha256': sha256_file(tflite_path),
@@ -915,9 +933,9 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
                 "n_con_mil": sum(1 for r in rows if r.get('mil_label') is not None),
             },
             "artefactos": {
-                "matriz_png": cm_path,
-                "latencias_csv": csv_path,
-                "condiciones_json": cond_path,
+                "matriz_png": _relpath_repo(cm_path),
+                "latencias_csv": _relpath_repo(csv_path),
+                "condiciones_json": _relpath_repo(cond_path),
             },
         }
         metrics_path = os.path.join(output_dir, f"metrics_{model_tag}.json")
@@ -1025,11 +1043,11 @@ def run_benchmark(args):
     if args.folder:
         print(f"[WARN] --folder pasado explicitamente: se usa {args.folder} "
               f"y NO se aplica el filtro hil_subset del manifiesto.")
-        fuente = f"folder:{os.path.abspath(args.folder)}"
+        fuente = f"folder:{_relpath_repo(args.folder)}"
         image_data, class_names = collect_dataset(args.folder, args.count,
                                                   args.seed)
     else:
-        fuente = f"manifest:{os.path.abspath(args.manifest)}"
+        fuente = f"manifest:{_relpath_repo(args.manifest)}"
         image_data, class_names = collect_from_manifest(
             args.manifest, use_all_test=args.all_test, seed=args.seed)
         if args.count is not None and args.count < len(image_data):
@@ -1092,11 +1110,11 @@ def run_benchmark(args):
         'port': args.port,
         'baud': args.baud,
         'stimulus_source': fuente,
-        'manifest': (os.path.abspath(args.manifest)
+        'manifest': (_relpath_repo(args.manifest)
                      if not args.folder else None),
         'manifest_subset': ('all-test' if args.all_test else 'hil_subset==1')
                            if not args.folder else None,
-        'dataset_folder': (os.path.abspath(args.folder)
+        'dataset_folder': (_relpath_repo(args.folder)
                            if args.folder else None),
         'class_names': class_names,
         'n_stimuli': len(image_data),
@@ -1107,11 +1125,11 @@ def run_benchmark(args):
         'camera_to_screen_distance_cm': args.distance_cm,
         'ambient_temp_c': args.ambient_temp,
         'frame_dump': dump_frames,
-        'sil_model': (os.path.abspath(args.sil_model)
+        'sil_model': (_relpath_repo(args.sil_model)
                       if args.sil_model else None),
-        'mil_model': (os.path.abspath(args.mil_model)
+        'mil_model': (_relpath_repo(args.mil_model)
                       if args.mil_model else None),
-        'frames_dir': (os.path.abspath(frames_dir) if frames_dir else None),
+        'frames_dir': (_relpath_repo(frames_dir) if frames_dir else None),
         'notes': args.notes,
     }
 
