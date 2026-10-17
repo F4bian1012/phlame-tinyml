@@ -461,7 +461,7 @@ If you use this framework in your academic research, please cite our upcoming *S
 ```bibtex
 @article{phlame_2026,
   title={PHLAME: A Phase-Level Hardware-in-the-Loop Framework for Reproducible Fidelity-Ladder Evaluation of TinyML Image Classifiers on ARM Cortex-M Microcontrollers},
-  author={Villavisan, J.},
+  author={Villavisan, Jheyson Fabian},
   journal={SoftwareX},
   year={2026},
   publisher={Elsevier}
