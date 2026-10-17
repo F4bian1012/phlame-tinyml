@@ -48,9 +48,10 @@ bool receiving = false;
 // ---- MEDICION DE LATENCIA: contador de ciclos DWT->CYCCNT ----
 // El Cortex-M7 lleva una unidad Data Watchpoint & Trace (DWT) con un contador
 // de ciclos de nucleo de 32 bits (CYCCNT). Cuenta 1 por ciclo de reloj, asi
-// que la resolucion es 1/SystemCoreClock (~2.08 ns a 480 MHz), muchisimo mas
+// que la resolucion es 1/SystemCoreClock (2.5 ns a 400 MHz, valor medido de
+// SystemCoreClock en arduino:mbed_portenta), muchisimo mas
 // fina que millis()/micros(). Se habilita una vez en setup().
-// A 480 MHz el contador de 32 bits desborda cada ~8.95 s; como cada fase dura
+// A 400 MHz el contador de 32 bits desborda cada ~10.74 s; como cada fase dura
 // muy por debajo de eso, la resta unsigned (t_fin - t_ini) es correcta incluso
 // con un desbordamiento.
 static inline void dwt_enable_cycle_counter() {

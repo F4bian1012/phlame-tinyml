@@ -253,6 +253,47 @@ def check_required_conditions(args):
     if not args.notes.strip():
         print("[WARN] --notes vacio: anota al menos monitor, brillo y soporte.")
 
+
+def warn_condition_drift(args, output_dir: str):
+    """Actividad 69: avisa antes de abrir el rig si las condiciones fisicas
+    indicadas en CLI difieren de las corridas previas en output_dir (o en
+    results/hil/ si output_dir es una subcarpeta de replicas), para detectar
+    errores de digitacion como 23 vs 24 cm antes de gastar la sesion."""
+    search_dirs = []
+    for d in (output_dir, os.path.join(REPO_ROOT, "results", "hil")):
+        if d and os.path.isdir(d) and os.path.abspath(d) not in [os.path.abspath(x) for x in search_dirs]:
+            search_dirs.append(d)
+
+    prev_records = []
+    for d in search_dirs:
+        for name in sorted(os.listdir(d)):
+            if name.startswith("hil_conditions_") and name.endswith(".json"):
+                try:
+                    with open(os.path.join(d, name), encoding="utf-8") as fh:
+                        c = json.load(fh)
+                    prev_records.append((name, c))
+                except Exception:
+                    continue
+
+    if not prev_records:
+        return
+
+    checks = [
+        ("--lux", "illuminance_lux", args.lux, "lux"),
+        ("--distance-cm", "camera_to_screen_distance_cm", args.distance_cm, "cm"),
+        ("--ambient-temp", "ambient_temp_c", args.ambient_temp, "°C"),
+    ]
+    for flag, key, cur_val, unit in checks:
+        if cur_val is None:
+            continue
+        prev_vals = sorted({float(c[key]) for _, c in prev_records if c.get(key) is not None})
+        if prev_vals and float(cur_val) not in prev_vals:
+            prev_str = ", ".join(f"{v:g} {unit}" for v in prev_vals)
+            print(f"[WARN] Deriva en {flag}: pasaste {cur_val:g} {unit}, pero las "
+                  f"corridas previas registran [{prev_str}]. Verifica que no sea "
+                  f"un error de digitacion antes de iniciar el barrido.")
+
+
 try:
     import serial
 except ImportError:
@@ -1024,6 +1065,8 @@ def run_benchmark(args):
 
     # --- Actividad 50: condiciones fisicas obligatorias (falla ANTES del rig) ---
     check_required_conditions(args)
+    # --- Actividad 69: avisar si las condiciones difieren de corridas previas ---
+    warn_condition_drift(args, args.output_dir)
 
     # --- Actividad 43/55: etiqueta del modelo y .tflite esperado ---
     tflite_path = args.tflite or args.sil_model
