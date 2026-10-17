@@ -1,6 +1,6 @@
 {
   "nivel": "MIL",
-  "generado_utc": "2026-09-12T01:24:48.051905+00:00",
+  "generado_utc": "2026-10-16T23:58:00.528208+00:00",
   "modelo": {
     "path": "models/checkpoints/MobileNetV2+32+20+0.0001+160+120.keras",
     "nombre": "MobileNetV2+32+20+0.0001+160+120",
@@ -8,7 +8,7 @@
     "bytes": 2273994
   },
   "dataset": {
-    "data_dir": "data/splits/test",
+    "data_dir": "data\\splits\\test",
     "n_muestras": 940,
     "class_names": [
       "Class1",
@@ -71,6 +71,7 @@
     "orden": "filas = etiqueta real, columnas = etiqueta predicha"
   },
   "artefactos": {
-    "matriz_png": "results/mil/Matriz_MobileNetV2+32+20+0.0001+160+120.png"
+    "matriz_png": "results\\mil\\Matriz_MobileNetV2+32+20+0.0001+160+120.png",
+    "predicciones_csv": "results\\mil\\predictions_MobileNetV2+32+20+0.0001+160+120.csv"
   }
 }

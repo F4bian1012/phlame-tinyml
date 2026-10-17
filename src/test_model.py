@@ -3,6 +3,7 @@ from tensorflow import keras
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
+import csv
 import hashlib
 import json
 import os
@@ -19,6 +20,16 @@ except ImportError:
     exit(1)
 
 BATCH_SIZE = 32
+
+
+def _nombre_clase(idx, class_names):
+    """Nombre de la clase a partir del indice predicho o real."""
+    if idx is None or idx < 0:
+        return ""
+    if idx < len(class_names):
+        return class_names[idx]
+    return "Invalida_%d" % idx
+
 
 def _sha256_archivo(path, chunk=1024 * 1024):
     """SHA-256 del archivo del modelo, leido por bloques.
@@ -182,6 +193,29 @@ def main():
     plt.savefig(cm_plot_path)
     print(f"Gráfico de la matriz de confusión guardado en {cm_plot_path}")
 
+    # CSV con la prediccion por imagen, con el mismo esquema que pil_benchmark.py
+    # (Image;RelPath;TrueLabel;TrueClass;PredLabel;PredClass;Correct) para poder
+    # cruzar MIL, SIL, PIL y el subconjunto HIL (hil_subset==1) imagen a imagen.
+    pred_csv_path = os.path.join(out_dir, f"predictions_{model_name_without_ext}.csv")
+    file_paths = list(test_ds.file_paths)
+    with open(pred_csv_path, "w", newline="", encoding="utf-8") as pred_file:
+        pred_writer = csv.writer(pred_file, delimiter=";")
+        pred_writer.writerow(["Image", "RelPath", "TrueLabel", "TrueClass",
+                              "PredLabel", "PredClass", "Correct"])
+        for fp, t_lbl, p_lbl in zip(file_paths, y_true, y_pred):
+            t_int = int(t_lbl)
+            p_int = int(p_lbl)
+            pred_writer.writerow([
+                os.path.basename(fp),
+                os.path.relpath(fp, args.data_dir),
+                t_int,
+                _nombre_clase(t_int, class_names),
+                p_int,
+                _nombre_clase(p_int, class_names),
+                1 if t_int == p_int else 0,
+            ])
+    print(f"Predicciones por imagen guardadas en {pred_csv_path}")
+
     # Ademas del PNG se guarda un JSON con las mismas cifras. La imagen sirve
     # para mirar, pero no para comparar niveles de la escalera ni para que otro
     # script lea los numeros; el JSON si. Mismo criterio de nombre que
@@ -227,6 +261,7 @@ def main():
         },
         "artefactos": {
             "matriz_png": cm_plot_path,
+            "predicciones_csv": pred_csv_path,
         },
     }
 
