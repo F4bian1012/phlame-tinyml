@@ -287,7 +287,7 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 
 ### 5. Camera-in-the-Loop HIL Evaluation
 *   **`hil_camera_benchmark.py`**: The **true Hardware-in-the-Loop (HIL)** bench. The host displays each dataset image on-screen as a controlled visual stimulus; the Portenta's own **HM01B0 camera** captures the physical scene and runs the full sensor→prediction pipeline on-device, so ground truth is known by construction (the label of the displayed stimulus). Stimuli come from `data/splits/test_manifest.csv`: by default the images flagged `hil_subset == 1` (200, balanced across classes), `--all-test` for the whole test split, or `--folder` to bypass the manifest. Before measuring, the bench compares the FNV-1a fingerprint that the firmware prints at boot with that of the expected `.tflite` (`--tflite`, or `--sil-model` if omitted) and aborts on a mismatch; it also aborts if `--lux`, `--distance-cm` or `--ambient-temp` are missing (`--allow-model-mismatch` and `--allow-missing-conditions` exist for debugging and smoke tests, and mark the run accordingly), and warns (`warn_condition_drift()`) if any physical condition differs from previous sessions in `results/hil/`. Records per-phase latency (`CAPTURE`/`PRE`/`INF`/`POST`/`TOTAL`, via DWT cycle counter) and rig conditions alongside predictions. Optionally recovers the exact captured frame (`--dump-frames`) to cross-run it through the **MIL** (`--mil-model`) and **SIL** (`--sil-model`) levels on the PC, decomposing the end-to-end gap into its quantization (MIL vs SIL), execution (SIL vs HIL), and physical-frontend (PIL vs HIL) components.
-    - **Active thermal control (constant-speed fan):** The stimulus rig uses active forced-air cooling over the Portenta H7 + Vision Shield so the MCU operates in thermal steady state from the first stimulus to the last. Across the 200-inference sessions, end-to-end thermal drift is $0.1\text{–}0.3\ ^\circ\text{C}$ (first vs. last image), within-run temperature standard deviation is $0.59\ ^\circ\text{C}$ (matching the $1\ ^\circ\text{C}$ quantization step of the STM32H7 internal sensor), temperature–latency correlation is $|r| \le 0.10$ ($p \ge 0.17$), and temperature–accuracy Mann–Whitney is $p = 0.19$ ($n = 800$ inferences), ruling out thermal throttling or sensor warm-up drift.
+    - **Active thermal control (constant-speed fan):** The stimulus rig uses active forced-air cooling over the Portenta H7 + Vision Shield so the MCU operates in thermal steady state from the first stimulus to the last. Across the 200-inference sessions, end-to-end thermal drift is 0.1–0.3 °C (first vs. last image), within-run temperature standard deviation is 0.59 °C (matching the 1 °C quantization step of the STM32H7 internal sensor), temperature–latency correlation is |r| ≤ 0.10 (p ≥ 0.17), and temperature–accuracy Mann–Whitney is p = 0.19 (n = 800 inferences), ruling out thermal throttling or sensor warm-up drift.
     - Firmware companion: `deployment/hil_camera_firmware/hil_camera_firmware.ino` — a dedicated sketch, independent from the PIL firmware (`pil_firmware.ino`), which remains untouched as a serial-only fallback.
     - Repeated runs of the same model go to their own folder, e.g. `results/hil/rep1/` with `--model-tag MobileNetV2_rep1`, so a session never overwrites another.
 
@@ -296,7 +296,7 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 - **Metrics (HIL)**: `results/hil/metrics_{model_name}_int8.json` - Classification metrics (same schema as MIL/SIL/PIL), on-chip vs. file `FNV-1a` fingerprint verification, cross-validation summary, and per-phase latency statistics (see [Results Format](#results-format)).
 - **Per-Phase Latencies & Cross-Run Predictions (HIL)**: `results/hil/hil_latencies_{model_name}_int8.csv` - One row per inference with `CAPTURE`/`PRE`/`INF`/`POST`/`TOTAL` latency (`CYC_*` and `US_*`), MCU temperature, stimulus ground truth, and paired HIL/SIL/MIL predictions on the same captured frame.
 - **Rig Conditions (HIL)**: `results/hil/hil_conditions_{model_name}_int8.json` - Environmental protocol of the stimulus rig (illuminance in lux, camera-to-screen distance in cm, ambient temperature in °C, notes) and model identity.
-- **Captured Camera Frames (optional, `--dump-frames`)**: `data/hil_frames/frame_{idx}_{class}_{image}.png` - Exact $160\times 120$ grayscale frames captured by the HM01B0 sensor and streamed back over serial for cross-level MIL/SIL evaluation.
+- **Captured Camera Frames (optional, `--dump-frames`)**: `data/hil_frames/frame_{idx}_{class}_{image}.png` - Exact 160×120 grayscale frames captured by the HM01B0 sensor and streamed back over serial for cross-level MIL/SIL evaluation.
 
 ---
 
@@ -502,59 +502,59 @@ python src/hil_camera_benchmark.py --port COM9 --settle 1.0 --lux 10 --distance-
 
 ## Results
 
-### 1. Fidelity Ladder Across Seven Architectures (Primary Benchmark, $160\times 120$)
+### 1. Fidelity Ladder Across Seven Architectures (Primary Benchmark, 160×120)
 
-Evaluated on the balanced binary partition (`data/splits/test`, $n = 940$ held-out images for MIL/SIL/PIL; $n = 200$ `hil_subset == 1` stimuli at $10\text{ lux}$, $24\text{ cm}$, $24\ ^\circ\text{C}$ for HIL). All metrics are **F1-macro** (which equals weighted F1 and accuracy to within $\le 0.0005$ on this $50/50$ split); latencies are measured on-chip via the Cortex-M7 `DWT->CYCCNT` cycle counter at `SystemCoreClock = 400.0 MHz`:
+Evaluated on the balanced binary partition (`data/splits/test`, n = 940 held-out images for MIL/SIL/PIL; n = 200 `hil_subset == 1` stimuli at 10 lux, 24 cm, 24 °C for HIL). All metrics are **F1-macro** (which equals weighted F1 and accuracy to within ≤ 0.002 on this 50/50 split); latencies are measured on-chip via the Cortex-M7 `DWT->CYCCNT` cycle counter at `SystemCoreClock = 400.0 MHz`:
 
-| Architecture | `.tflite` (INT8) | Arena used | **MIL** ($n=940$) | **SIL** ($n=940$) | **PIL** ($n=940$ / $n=200$) | **HIL** ($n=200$) | HIL `INF` (ms) | HIL `TOTAL` (ms) |
+| Architecture | `.tflite` (INT8) | Arena used | **MIL** (n=940) | **SIL** (n=940) | **PIL** (n=940 / n=200) | **HIL** (n=200) | HIL `INF` (ms) | HIL `TOTAL` (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `MobileNet` ($\alpha=0.25$) | 311.5 KB | 177.2 KB | 0.9202 | 0.9159 | 0.9170 / 0.9399 | 0.8736 | 236.49 | 241.66 |
-| `MobileNetV2` ($\alpha=0.35$) | 630.5 KB | 348.1 KB | 0.9478 | 0.9446 | 0.9468 / 0.9450 | 0.8785 | 396.00 | 401.17 |
-| `MobileNetV3Small` ($\alpha=0.75$) | 817.3 KB | 220.5 KB | 0.9479 | 0.9181 | 0.9266 / 0.9400 | 0.9200 | 478.35 | 483.64 |
+| `MobileNet` (α=0.25) | 311.5 KB | 177.2 KB | 0.9202 | 0.9159 | 0.9170 / 0.9399 | 0.8736 | 236.49 | 241.66 |
+| `MobileNetV2` (α=0.35) | 630.5 KB | 348.1 KB | 0.9478 | 0.9446 | 0.9468 / 0.9450 | 0.8785 | 396.00 | 401.17 |
+| `MobileNetV3Small` (α=0.75) | 817.3 KB | 220.5 KB | 0.9479 | 0.9181 | 0.9266 / 0.9400 | 0.9200 | 478.35 | 483.64 |
 | `SqueezeNet` | 808.2 KB | 404.7 KB | 0.9159 | 0.9159 | 0.9180 / 0.9099 | 0.8899 | 1126.24 | 1131.56 |
-| `ResNet8` | 1249.2 KB | 388.8 KB | 0.9318 | 0.9308 | **0.9308 / 0.9600**$^\dagger$ | 0.8632 | 2814.02 | 2819.17 |
-| `MobileNetV3Large` ($\alpha=0.75$) | 2180.8 KB | — | 0.9489 | 0.9553 | *Flash OOM* | *Flash OOM* | — | — |
+| `ResNet8` | 1249.2 KB | 388.8 KB | 0.9318 | 0.9308 | **0.9308 / 0.9600**† | 0.8632 | 2814.02 | 2819.17 |
+| `MobileNetV3Large` (α=0.75) | 2180.8 KB | — | 0.9489 | 0.9553 | *Flash OOM* | *Flash OOM* | — | — |
 | `ResNet18` | 11057.3 KB | — | 0.9393 | 0.9393 | *Flash OOM* | *Flash OOM* | — | — |
 
-> $^\dagger$**Subset representativeness note (`ResNet8` PIL on $n=940$ vs. $n=200$):** Both PIL figures are reported explicitly because the fixed 200-image `hil_subset` happens to be slightly easier for `ResNet8` than the full 940-image test split (`0.9600` on $n=200$ vs. `0.9308` on $n=940$, a $+0.0292$ sampling offset). Computing the physical-frontend gap ($\text{PIL} \to \text{HIL}$) always requires comparing paired predictions on the **exact same $n=200$ images** (`0.9600 → 0.8632`, $\Delta = -0.0968$, exact McNemar $p = 3.8 \times 10^{-6}$), rather than mixing $n=940$ with $n=200$.
+> †**Subset representativeness note (`ResNet8` PIL on n=940 vs. n=200):** Both PIL figures are reported explicitly because the fixed 200-image `hil_subset` happens to be slightly easier for `ResNet8` than the full 940-image test split (`0.9600` on n=200 vs. `0.9308` on n=940, a +0.0292 sampling offset). Computing the physical-frontend gap (PIL → HIL) always requires comparing paired predictions on the **exact same n=200 images** (`0.9600 → 0.8632`, Δ = −0.0968, exact McNemar p < 0.001, Holm-adjusted p < 0.001), rather than mixing n=940 with n=200.
 
 ---
 
-### 2. Paired $2\times 3$ Decomposition on the HIL Subset ($n = 200$, `hil_subset == 1`)
+### 2. Paired 2×3 Decomposition on the HIL Subset (n = 200, `hil_subset == 1`)
 
-Cross-running the exact same 200 test stimuli as **digital files** ($\text{MIL}_{200}, \text{SIL}_{200}, \text{PIL}_{200}$) and as **HM01B0 camera-captured frames** ($\text{MIL}^*_{200}, \text{SIL}^*_{200}, \text{HIL}_{200}$) isolates where degradation enters the pipeline (F1-macro shown):
+Cross-running the exact same 200 test stimuli as **digital files** (MIL₂₀₀, SIL₂₀₀, PIL₂₀₀) and as **HM01B0 camera-captured frames** (MIL\*₂₀₀, SIL\*₂₀₀, HIL₂₀₀) isolates where degradation enters the pipeline (F1-macro shown; exact McNemar p-values with Holm–Bonferroni adjustment across the 5 architectures in parentheses):
 
-| Architecture | $\text{MIL}_{200}$ (FP32, file) | $\text{SIL}_{200}$ (INT8, file) | $\text{PIL}_{200}$ (Chip, file) | $\text{MIL}^*_{200}$ (FP32, frame) | $\text{SIL}^*_{200}$ (INT8, frame) | $\text{HIL}_{200}$ (Chip, frame) | $\text{SIL}^*_{200} = \text{HIL}_{200}$ agreement | Physical gap $\Delta(\text{PIL}_{200}\to\text{HIL}_{200})$ |
+| Architecture | MIL₂₀₀ (FP32, file) | SIL₂₀₀ (INT8, file) | PIL₂₀₀ (Chip, file) | MIL\*₂₀₀ (FP32, frame) | SIL\*₂₀₀ (INT8, frame) | HIL₂₀₀ (Chip, frame) | SIL\*₂₀₀ = HIL₂₀₀ agreement | Physical gap Δ(PIL₂₀₀ → HIL₂₀₀) |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `MobileNet` | 0.9449 | 0.9349 | 0.9399 | 0.8995 | 0.8736 | 0.8736 | **200 / 200 (100.0%)** | $-0.0663$ ($p = 0.002$) |
-| `MobileNetV2` | 0.9450 | 0.9400 | 0.9450 | 0.9093 | 0.8733 | 0.8785 | **195 / 200 (97.5%)** | $-0.0665$ ($p = 0.007$) |
-| `MobileNetV3Small` | 0.9500 | 0.9150 | 0.9400 | 0.9148 | 0.9100 | 0.9200 | **194 / 200 (97.0%)** | $-0.0200$ (n.s.) |
-| `SqueezeNet` | 0.8949 | 0.8949 | 0.9099 | 0.8949 | 0.8899 | 0.8899 | **200 / 200 (100.0%)** | $-0.0200$ (n.s.) |
-| `ResNet8` | 0.9600 | 0.9600 | 0.9600 | 0.8527 | 0.8527 | 0.8632 | **198 / 200 (99.0%)** | $-0.0968$ ($p = 3.8\text{e-}6$) |
+| `MobileNet` | 0.9449 | 0.9349 | 0.9399 | 0.8995 | 0.8736 | 0.8736 | **200 / 200 (100.0%)** | −0.0663 (p = 0.002, Holm 0.009) |
+| `MobileNetV2` | 0.9450 | 0.9400 | 0.9450 | 0.9093 | 0.8733 | 0.8785 | **195 / 200 (97.5%)** | −0.0665 (p = 0.007, Holm 0.022) |
+| `MobileNetV3Small` | 0.9500 | 0.9150 | 0.9400 | 0.9148 | 0.9100 | 0.9200 | **194 / 200 (97.0%)** | −0.0200 (n.s.) |
+| `SqueezeNet` | 0.8949 | 0.8949 | 0.9099 | 0.8949 | 0.8899 | 0.8899 | **200 / 200 (100.0%)** | −0.0200 (n.s.) |
+| `ResNet8` | 0.9600 | 0.9600 | 0.9600 | 0.8527 | 0.8527 | 0.8632 | **198 / 200 (99.0%)** | −0.0968 (p < 0.001, Holm < 0.001) |
 
-- **On-chip execution fidelity ($\text{SIL} \leftrightarrow \text{PIL}$ and $\text{SIL}^* \leftrightarrow \text{HIL}$):** Across all 10 paired comparisons (5 architectures $\times$ 2 input domains), moving from PC INT8 simulation to the physical Cortex-M7 chip never degrades F1-macro ($\Delta \ge 0$ in all 10 cases; $97.0\%\text{–}100.0\%$ image-level agreement on captured frames).
-- **Optical-frontend dominance ($\text{MIL}_{200} \to \text{MIL}^*_{200}$):** The degradation enters through the screen–optics–HM01B0 capture path already in FP32 (`ResNet8` $-0.1073$, `MobileNet` $-0.0454$, `MobileNetV2` $-0.0357$, `MobileNetV3Small` $-0.0352$), while `SqueezeNet` and `MobileNetV3Small` remain resilient ($-0.0200$ total PIL$\to$HIL gap).
-- **Bench repeatability (`results/hil/rep1..rep4/`, `MobileNetV2`):** Across 3 fixed-seed (`seed=42`) sessions under identical physical conditions, the PIL$\to$HIL gap is $-0.0561$, $-0.0563$, and $-0.0510$ ($\text{sd} = 0.0030$, $\text{CV} = 5.5\%$, pairwise image agreement $96.5\%\text{–}97.5\%$). Including the presentation-order control session (`rep4`, `seed=7`, gap $-0.0665$), the conservative 4-run estimate is **$-0.0575 \pm 0.0103$ ($\text{IC}_{95\%}$, $t_3$)**, with 189/200 stimuli ($94.5\%$) receiving an identical prediction across all 4 sessions.
+- **On-chip execution fidelity (SIL ↔ PIL and SIL\* ↔ HIL):** Across all 10 paired comparisons (5 architectures × 2 input domains), moving from PC INT8 simulation to the physical Cortex-M7 chip never degrades F1-macro (Δ ≥ 0 in all 10 cases; 97.0%–100.0% image-level agreement on captured frames).
+- **Optical-frontend dominance (MIL₂₀₀ → MIL\*₂₀₀):** The degradation enters through the screen–optics–HM01B0 capture path already in FP32 (`ResNet8` −0.1073, `MobileNet` −0.0454, `MobileNetV2` −0.0357, `MobileNetV3Small` −0.0352), while `SqueezeNet` and `MobileNetV3Small` remain resilient (−0.0200 total PIL → HIL gap).
+- **Bench repeatability (`results/hil/rep1..rep4/`, `MobileNetV2`):** Across 3 fixed-seed (`seed=42`) sessions under identical physical conditions, the PIL → HIL gap on the fixed 200-image subset is −0.0561, −0.0563, and −0.0510 (repeatability sd = 0.0030, CV = 5.5%, pairwise image agreement 96.5%–97.5%; sd = 0.0065 across all 4 runs when including the `rep4` `seed=7` presentation-order control at −0.0665, with 189/200 stimuli or 94.5% receiving an identical prediction across all 4 sessions). Combining 200-image subset sampling variance with bench repeatability yields an overall `MobileNetV2` frontend gap of **−0.057 [−0.098, −0.017] (95% CI)**.
 
 ---
 
 ### 3. Reuse on a Standard TinyML Benchmark: Visual Wake Words (`MobileNetV2_VWW`)
 
-To demonstrate dataset-agnostic reuse on a standard *MLPerf Tiny* task (`person` vs. `non_person` from MS-COCO 2017, 2,000 balanced images prepared via `src/download_vww_subset.py`, `data/splits_vww/test` $n = 300$, `hil_subset == 1` $n = 200$ at $14\text{ lux}$, $24\text{ cm}$, $24\ ^\circ\text{C}$):
+To demonstrate dataset-agnostic pipeline reuse on a standard *MLPerf Tiny* task (`person` vs. `non_person` from MS-COCO `val2017`, 2,000 balanced images prepared via `src/download_vww_subset.py` after excluding 226 ambiguous images with `< 0.5%` person area or `iscrowd == 1`; `data/splits_vww/test` n = 300, `hil_subset == 1` n = 200 at 14 lux, 24 cm, 24 °C; linear classification head trained for 20 epochs over the frozen ImageNet `MobileNetV2` α = 0.35 backbone on 1,400 grayscale 160×120 images as a pipeline-reuse demonstration rather than a leaderboard-tuned VWW model):
 
 | Scope | Level / Domain | Accuracy | F1-macro | Latency `INF` / `TOTAL` (ms) | Notes |
 |---|---|---:|---:|---:|---|
-| **Full test ($n=300$)** | **MIL** (FP32, PC) | 0.6900 | 0.6892 | — | `2,220.7 KB` `.keras` |
-| **Full test ($n=300$)** | **SIL** (INT8, PC) | 0.6767 | 0.6765 | — | `630.5 KB` `.tflite` ($3.52\times$ smaller) |
-| **Full test ($n=300$)** | **PIL** (INT8, Portenta H7) | 0.6867 | 0.6865 | 399.06 / 402.26 | `285/300` ($95.0\%$) agreement with SIL |
-| **Paired $2\times 3$ ($n=200$)** | $\text{MIL}_{200} \to \text{SIL}_{200} \to \text{PIL}_{200}$ (file) | 0.7300 $\to$ 0.7150 $\to$ 0.7200 | 0.7290 $\to$ 0.7150 $\to$ 0.7196 | 399.06 / 402.26 | $\Delta(\text{SIL}_{200}\to\text{PIL}_{200}) = +0.0046$ |
-| **Paired $2\times 3$ ($n=200$)** | $\text{MIL}^*_{200} \to \text{SIL}^*_{200} \to \text{HIL}_{200}$ (HM01B0) | 0.6750 $\to$ 0.6900 $\to$ 0.6800 | 0.6748 $\to$ 0.6892 $\to$ 0.6795 | 395.84 / 400.99 | **`196/200` ($98.0\%$) $\text{SIL}^* = \text{HIL}$ agreement** |
+| **Full test (n=300)** | **MIL** (FP32, PC) | 0.6900 | 0.6892 | — | `2,220.7 KB` `.keras` |
+| **Full test (n=300)** | **SIL** (INT8, PC) | 0.6767 | 0.6765 | — | `630.5 KB` `.tflite` (3.52× smaller) |
+| **Full test (n=300)** | **PIL** (INT8, Portenta H7) | 0.6867 | 0.6865 | 399.06 / 402.26 | `285/300` (95.0%) agreement with SIL |
+| **Paired 2×3 (n=200)** | MIL₂₀₀ → SIL₂₀₀ → PIL₂₀₀ (file) | 0.7300 → 0.7150 → 0.7200 | 0.7290 → 0.7150 → 0.7196 | 399.06 / 402.26 | Δ(SIL₂₀₀ → PIL₂₀₀) = +0.0046 |
+| **Paired 2×3 (n=200)** | MIL\*₂₀₀ → SIL\*₂₀₀ → HIL₂₀₀ (HM01B0) | 0.6750 → 0.6900 → 0.6800 | 0.6748 → 0.6892 → 0.6795 | 395.84 / 400.99 | **`196/200` (98.0%) SIL\* = HIL agreement** |
 
 ---
 
 ## Data Availability
 
-- **Partition Manifests & Per-Image Results (in Git):** Complete stratified partition manifests (`data/splits/{train,val,test}_manifest.csv`, `data/splits/split_report.json`, and `data/splits_vww/{train,val,test}_manifest.csv`) and all per-image prediction and latency tables (`results/{mil,sil,pil,hil}/`) are version-controlled directly in this repository, allowing full statistical and paired $2\times 3$ reproduction without hardware.
+- **Partition Manifests & Per-Image Results (in Git):** Complete stratified partition manifests (`data/splits/{train,val,test}_manifest.csv`, `data/splits/split_report.json`, and `data/splits_vww/{train,val,test}_manifest.csv`) and all per-image prediction and latency tables (`results/{mil,sil,pil,hil}/`) are version-controlled directly in this repository, allowing full statistical and paired 2×3 reproduction without hardware.
 - **Immediate Smoke-Test Sample (`data/sample/`):** A lightweight 8-image sample (`data/sample/Class1/` and `data/sample/Class2/`, 4 images per class from the held-out test split) is tracked in git so users can immediately test `process_images.py`, `test_model.py`, `test_tflite_model.py`, or `pil_benchmark.py --folder data/sample` right after cloning.
 - **Automated Visual Wake Words Benchmark (`src/download_vww_subset.py`):** The complete 2,000-image balanced *Visual Wake Words* dataset (`1,000 person` + `1,000 non_person` from MS-COCO `val2017`, `seed=42`, `selection_sha256: b3ab289abd4a`) can be rebuilt automatically in ~60 seconds via HTTP `Range` extraction:
   ```bash
@@ -568,8 +568,8 @@ To demonstrate dataset-agnostic reuse on a standard *MLPerf Tiny* task (`person`
 
 - **2 MB internal flash ceiling with `AllOpsResolver`:** Linking all TFLite-Micro kernels (`~673 KB`) leaves `~1,375 KB` of internal flash for `model.h` on the STM32H747XI. Consequently, `MobileNetV3Large` (`2,181 KB`) and `ResNet18` (`11,057 KB`) serve as desktop MIL/SIL baselines and require either pruning, lower input resolution, or `MicroMutableOpResolver` / QSPI external flash XIP for on-chip deployment.
 - **External SDRAM requirement for large activation arenas:** Three of the five deployed architectures (`MobileNetV2` `348.1 KB`, `ResNet8` `388.8 KB`, and `SqueezeNet` `404.7 KB`) exceed the `~288 KB` contiguous internal SRAM available on SDRAM-less Cortex-M7 boards such as the Arduino Nicla Vision, making the Portenta H7's 8 MB external SDRAM mandatory for uniform multi-architecture benchmarking.
-- **Presentation-order variance in the stimulus rig:** While fixed-seed HIL sessions (`seed=42`) exhibit $\text{sd} = 0.0030$ F1-macro across replicas, permuting the stimulus presentation order (`rep4`, `seed=7`) shifts the measured gap by $2.33 / 200$ images ($-0.0665$ vs. $-0.0545$ mean); we therefore report the conservative 4-run interval ($-0.0575 \pm 0.0103$ $\text{IC}_{95\%}$) that incorporates order variability.
-- **Non-interchangeability of PIL and HIL inference cycle counts:** Across all evaluated models, `CYC_INF` in HIL is systematically $0.81\%\text{–}2.77\%$ lower than in PIL despite an identical `400.0 MHz` clock and SDRAM arena layout (likely due to cache/bus state differences after `cam.grabFrame()` vs. UART reception). PIL and HIL latency baselines should therefore be reported separately rather than mixed.
+- **Presentation-order variance in the stimulus rig:** While fixed-seed HIL sessions (`seed=42`) exhibit sd = 0.0030 F1-macro across replicas on the fixed 200-image subset, permuting the stimulus presentation order (`rep4`, `seed=7`) shifts the measured gap by 2.33 / 200 images (−0.0665 vs. −0.0545 mean, 4-run sd = 0.0065); accounting for both 200-image sampling variance and bench repeatability yields the conservative frontend interval of −0.057 [−0.098, −0.017] (95% CI).
+- **Non-interchangeability of PIL and HIL inference cycle counts:** Across all evaluated models, `CYC_INF` in HIL is systematically 0.81%–2.77% lower than in PIL despite an identical `400.0 MHz` clock and SDRAM arena layout (likely due to cache/bus state differences after `cam.grabFrame()` vs. UART reception). PIL and HIL latency baselines should therefore be reported separately rather than mixed.
 - **Argmax class output over serial:** The firmware reports the predicted class index (`argmax`) rather than full per-class logit vectors to keep post-processing deterministic (`< 1 µs`) and compatible with arbitrary class counts.
 
 ---
