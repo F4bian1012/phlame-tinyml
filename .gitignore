@@ -53,3 +53,8 @@ nicla_vision_port/
 TinyML_MLOps_SoftwareX_manuscript.docx
 ZZZ_checklist_softwarex_ES.md
 secciones_readme_ES.md
+
+# Reconocimiento de placas (LPR) en la Portenta: trabajo local, fuera de GitHub.
+# Contiene imagenes y transcripciones de placas reales (dato personal, Ley 1581
+# de 2012) y modelos experimentales. Ver lpr_portenta/README.md
+lpr_portenta/
