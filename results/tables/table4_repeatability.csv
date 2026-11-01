@@ -1,0 +1,6 @@
+run,seed,frame_dump,role,f1,errors,gap,agreement_with_original_pct
+original,42,True,"original (different protocol, excluded from the mean)",0.8785302156088672,24,-0.0664353878933216,100.0
+rep1,42,False,strict replicate,0.8888888888888888,22,-0.056076714613299994,97.0
+rep2,42,False,strict replicate,0.8886526976414617,22,-0.056312905860727125,97.0
+rep3,42,False,strict replicate,0.894043744796791,21,-0.05092185870539778,96.5
+rep4,7,False,presentation-order control,0.8785302156088672,24,-0.0664353878933216,97.0
