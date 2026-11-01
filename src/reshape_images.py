@@ -56,7 +56,6 @@ Uso
 """
 
 import argparse
-import glob
 import json
 import os
 import random
@@ -65,7 +64,8 @@ from datetime import datetime, timezone
 import cv2
 
 PROCESSED_BASE_DIR = "data/processed"
-EXTENSIONS = ['*.jpg', '*.jpeg', '*.png', '*.bmp']
+# Extensiones aceptadas, comparadas en minusculas (tambien .JPG, .Png...)
+EXTENSIONS = ('.jpg', '.jpeg', '.png', '.bmp')
 REPORT_NAME = "reshape_report.json"
 SIN_CLASE = "(raiz, sin clase)"
 
@@ -78,17 +78,19 @@ def collect_by_class(input_dir):
     se descartan: no pertenecen a ninguna clase que se pueda balancear.
     """
     por_clase = {}
-    for ext in EXTENSIONS:
-        patron = os.path.join(input_dir, '**', ext)
-        for ruta in glob.glob(patron, recursive=True):
+    for root, _, names in os.walk(input_dir):
+        for name in names:
+            if os.path.splitext(name)[1].lower() not in EXTENSIONS:
+                continue
+            ruta = os.path.join(root, name)
             rel = os.path.relpath(ruta, input_dir)
             partes = rel.replace(os.sep, '/').split('/')
             clase = partes[0] if len(partes) > 1 else None
             por_clase.setdefault(clase, []).append(ruta)
 
-    # sorted() ANTES de cualquier mezcla: el orden que devuelve glob depende del
-    # sistema de archivos, y sin ordenar la semilla no seria reproducible entre
-    # maquinas. Misma precaucion que en split_dataset.py.
+    # sorted() ANTES de cualquier mezcla: el orden que devuelve os.walk depende
+    # del sistema de archivos, y sin ordenar la semilla no seria reproducible
+    # entre maquinas. Misma precaucion que en split_dataset.py.
     for clase in por_clase:
         por_clase[clase].sort()
     return por_clase
