@@ -40,6 +40,9 @@ numpy>=2.0.0
 scikit-learn>=1.3.0
 # Confusion-matrix heatmaps in the same four scripts.
 seaborn>=0.12.0
+# Exact tests (binomtest, fisher_exact) and the t distribution in
+# build_ladder_tables.py. Floor 1.13: first release built for the numpy 2.x ABI.
+scipy>=1.13.0
 
 # --- Hardware Interface & Communication ---
 # Serial protocol with the board: pil_benchmark.py, hil_camera_benchmark.py

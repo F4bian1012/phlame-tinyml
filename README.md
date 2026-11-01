@@ -22,6 +22,7 @@ An open-source, highly structured MLOps framework — evaluated across a phase-l
   - [3. Model Optimization & Evaluation](#3-model-optimization--evaluation)
   - [4. Embedded Conversion & Deployment](#4-embedded-conversion--deployment)
   - [5. Camera-in-the-Loop HIL Evaluation](#5-camera-in-the-loop-hil-evaluation)
+  - [6. Statistical Analysis](#6-statistical-analysis)
 - [Results Format](#results-format)
 - [Hardware Requirements](#hardware-requirements)
 - [Quickstart & Usage](#quickstart--usage)
@@ -298,6 +299,11 @@ The framework relies on a suite of production-ready scripts in `src/` to automat
 - **Per-Phase Latencies & Cross-Run Predictions (HIL)**: `results/hil/hil_latencies_{model_name}_int8.csv` - One row per inference with `CAPTURE`/`PRE`/`INF`/`POST`/`TOTAL` latency (`CYC_*` and `US_*`), MCU temperature, stimulus ground truth, and paired HIL/SIL/MIL predictions on the same captured frame.
 - **Rig Conditions (HIL)**: `results/hil/hil_conditions_{model_name}_int8.json` - Environmental protocol of the stimulus rig (illuminance in lux, camera-to-screen distance in cm, ambient temperature in °C, notes) and model identity.
 - **Captured Camera Frames (optional, `--dump-frames`)**: `data/hil_frames/frame_{idx}_{class}_{image}.png` - Exact 160×120 grayscale frames captured by the HM01B0 sensor and streamed back over serial for cross-level MIL/SIL evaluation.
+
+### 6. Statistical Analysis
+*   **`build_ladder_tables.py`**: Rebuilds the eight fidelity-ladder tables reported in the paper from the per-image result files (`results/{mil,sil,pil}/predictions_*.csv`, `results/hil/hil_latencies_*.csv`, `results/hil/rep*/`): paired bootstrap 95% CIs (10,000 resamples, seed 20261016), exact McNemar tests with Holm correction, per-class Fisher tests, per-phase latency, HIL repeatability and the PIL attribution check. Deterministic: every run produces identical numbers.
+    - *Usage:* `python src/build_ladder_tables.py`
+    - *Outputs:* `results/tables/ladder_tables.md`, `ladder_tables.tex`, `table*.csv` (unrounded values), `ladder_summary.json` (headline numbers, SHA-256 of every input file, library versions).
 
 ---
 
