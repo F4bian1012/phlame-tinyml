@@ -1,6 +1,5 @@
 import cv2
 import os
-import glob
 import argparse
 
 def process_images(raw_dir, processed_dir):
@@ -10,13 +9,17 @@ def process_images(raw_dir, processed_dir):
     """
     os.makedirs(processed_dir, exist_ok=True)
     
-    extensions = ['*.jpg', '*.jpeg', '*.png', '*.bmp']
+    # Extensiones aceptadas, comparadas en minusculas: .JPG, .Png, etc. tambien
+    # cuentan en Linux/macOS (glob las omitia alli por ser sensible a mayusculas).
+    extensions = ('.jpg', '.jpeg', '.png', '.bmp')
     files = []
-    
+
     print(f"Buscando imágenes en {raw_dir}...")
-    for ext in extensions:
-        files.extend(glob.glob(os.path.join(raw_dir, '**', ext), recursive=True))
-        
+    for root, _, names in os.walk(raw_dir):
+        for name in sorted(names):
+            if os.path.splitext(name)[1].lower() in extensions:
+                files.append(os.path.join(root, name))
+
     if not files:
         print("No se encontraron imágenes.")
         return
