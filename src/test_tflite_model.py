@@ -12,13 +12,13 @@ try:
     import seaborn as sns
     from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, precision_recall_fscore_support
 except ImportError:
-    print("Por favor instala scikit-learn y seaborn para calcular las métricas.")
-    print("Ejecuta: pip install scikit-learn seaborn")
+    print("Please install scikit-learn and seaborn to compute the metrics.")
+    print("Run: pip install scikit-learn seaborn")
     exit(1)
 
 
 def _nombre_clase(idx, class_names):
-    """Nombre de la clase a partir del indice predicho o real."""
+    """Class name from the predicted or ground-truth index."""
     if idx is None or idx < 0:
         return ""
     if idx < len(class_names):
@@ -27,14 +27,14 @@ def _nombre_clase(idx, class_names):
 
 
 def _sha256_archivo(path, chunk=1024 * 1024):
-    """SHA-256 del archivo del modelo, leido por bloques.
+    """SHA-256 of the model file, read in chunks.
 
-    Por bloques porque un .keras puede pesar decenas de MB y no hace falta
-    tenerlo entero en memoria solo para resumirlo.
+    In chunks because a model file can weigh tens of MB and there is no need
+    to hold it entirely in memory just to hash it.
 
-    Devuelve None si la ruta no es un archivo (p.ej. un SavedModel, que es una
-    carpeta): es preferible un JSON sin checksum que perder toda la evaluacion
-    en la ultima linea, despues de haber corrido la inferencia completa.
+    Returns None if the path is not a file (e.g. a SavedModel, which is a
+    folder): a JSON without a checksum is preferable to losing the whole
+    evaluation on the last line, after having run the full inference.
     """
     if not os.path.isfile(path):
         return None
@@ -46,12 +46,12 @@ def _sha256_archivo(path, chunk=1024 * 1024):
 
 
 def _json_safe(o):
-    """Convierte tipos de numpy a tipos nativos de Python.
+    """Converts numpy types to native Python types.
 
-    classification_report(output_dict=True) devuelve el campo "support" como
-    np.int64 y las metricas como np.float64, y json.dump no sabe serializarlos:
-    sin esto el volcado falla con TypeError despues de haber corrido toda la
-    inferencia.
+    classification_report(output_dict=True) returns the "support" field as
+    np.int64 and the metrics as np.float64, and json.dump cannot serialize
+    them: without this the dump fails with TypeError after having run the
+    full inference.
     """
     if isinstance(o, np.integer):
         return int(o)
@@ -59,28 +59,28 @@ def _json_safe(o):
         return float(o)
     if isinstance(o, np.ndarray):
         return o.tolist()
-    raise TypeError("No se puede serializar a JSON: %r (%s)" % (o, type(o).__name__))
+    raise TypeError("Cannot serialize to JSON: %r (%s)" % (o, type(o).__name__))
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Test TFLite Model and Calculate Metrics exactly like test_model.py")
     parser.add_argument('--width', type=int, default=160, help="Image width")
     parser.add_argument('--height', type=int, default=120, help="Image height")
-    parser.add_argument('--model_path', type=str, required=True, help="Ruta al modelo .tflite a evaluar (obligatorio)")
+    parser.add_argument('--model_path', type=str, required=True, help="Path to the .tflite model to evaluate (required)")
     parser.add_argument('--splits_dir', type=str, default="data/splits",
-                        help="Directorio con las particiones de split_dataset.py "
-                             "(la evaluacion usa SOLO <splits_dir>/test)")
-    parser.add_argument('--data_dir', type=str, default=None, help="Ruta explicita a la particion de prueba; por defecto se deduce como <splits_dir>/test")
-    parser.add_argument('--class_names_path', type=str, default="models/class_names.txt", help="Ruta al txt con nombres de clases")
-    parser.add_argument('--output_dir', type=str, default=os.path.join("results", "sil"), help="Directorio de salida para matriz, JSON y CSV (default: results/sil)")
+                        help="Directory holding the splits produced by split_dataset.py "
+                             "(evaluation uses ONLY <splits_dir>/test)")
+    parser.add_argument('--data_dir', type=str, default=None, help="Explicit path to the test split; defaults to <splits_dir>/test")
+    parser.add_argument('--class_names_path', type=str, default="models/class_names.txt", help="Path to the txt file with the class names")
+    parser.add_argument('--output_dir', type=str, default=os.path.join("results", "sil"), help="Output directory for the matrix, JSON and CSV (default: results/sil)")
 
     args = parser.parse_args()
 
-    # SIL evalua EXCLUSIVAMENTE la particion de test, la misma que consumen MIL,
-    # PIL y HIL, para que los saltos entre niveles de la escalera sean
-    # atribuibles al nivel y no a un muestreo distinto de imagenes. Nunca train
-    # (es la que calibro la cuantizacion en quantize_int8_basic.py) ni val (la
-    # consumieron el early stopping y la seleccion del modelo).
+    # SIL evaluates EXCLUSIVELY the test split, the exact same split consumed
+    # by MIL, PIL, and HIL, so that jumps across ladder levels are attributable
+    # to the deployment level rather than to a different image sample. Never
+    # train (which calibrated INT8 quantization in quantize_int8_basic.py) and
+    # never val (already consumed by early stopping and model selection).
     if args.data_dir is None:
         args.data_dir = os.path.join(args.splits_dir, "test")
 
@@ -88,36 +88,37 @@ def parse_args():
 
 def quantize_input(data, input_details):
     """
-    Si el modelo TFLite espera enteros en lugar de float32 (ej. un modelo full-INT8),
-    necesitamos escalar la data manualmente según su cuantización antes de predecir.
+    If the TFLite model expects integer inputs instead of float32 (e.g. a
+    full-INT8 model), scale and offset the input data manually according to
+    its quantization parameters before invoking inference.
     """
     if input_details['dtype'] == np.int8:
         scale, zero_point = input_details['quantization']
-        
-        # TFLite retorna listas o numpy arrays iterables
+
+        # TFLite returns iterable lists or numpy arrays
         s = scale[0] if isinstance(scale, (list, np.ndarray)) and len(scale) > 0 else scale
         z = zero_point[0] if isinstance(zero_point, (list, np.ndarray)) and len(zero_point) > 0 else zero_point
-        
+
         if s > 0:
-            # Revertir el valor al espacio cuantizado
+            # Map floating-point values into the quantized INT8 domain
             q_data = (data / s) + z
             q_data = np.clip(q_data, -128, 127).astype(np.int8)
             return q_data
         return data.astype(np.int8)
-    # Devolver tal cual en float32 si es un modelo TFLite en float16 o fallback a float
+    # Return as float32 for non-INT8 input tensors
     return data.astype(np.float32)
 
 def dequantize_output(data, output_details):
     """
-    Si el output viene cuantizado en INT8, lo debemos restaurar a probabilidad (punto flotante)
-    invirtiendo su zero_point y multiplicando por escala.
+    If the output tensor is quantized in INT8, restore it to floating-point
+    scores by subtracting zero_point and multiplying by scale.
     """
     if output_details['dtype'] == np.int8:
         scale, zero_point = output_details['quantization']
-        
+
         s = scale[0] if isinstance(scale, (list, np.ndarray)) and len(scale) > 0 else scale
         z = zero_point[0] if isinstance(zero_point, (list, np.ndarray)) and len(zero_point) > 0 else zero_point
-        
+
         if s > 0:
             dq_data = (data.astype(np.float32) - z) * s
             return dq_data
@@ -127,16 +128,16 @@ def main():
     args = parse_args()
 
     if not os.path.exists(args.model_path):
-        print(f"Error: Debes proveer un modelo TFLite válido. No se encontró: {args.model_path}")
+        print(f"Error: You must provide a valid TFLite model. Not found: {args.model_path}")
         return
 
     class_names = []
     if os.path.exists(args.class_names_path):
         with open(args.class_names_path, 'r') as f:
             class_names = [line.strip() for line in f.readlines() if line.strip()]
-        print(f"Nombres de clases cargados: {class_names}")
+        print(f"Class names loaded: {class_names}")
 
-    print(f"\nInicializando TFLite Interpreter con {args.model_path}...")
+    print(f"\nInitializing TFLite Interpreter with {args.model_path}...")
     interpreter = tf.lite.Interpreter(model_path=args.model_path)
     interpreter.allocate_tensors()
 
@@ -144,38 +145,38 @@ def main():
     output_details = interpreter.get_output_details()[0]
     _, expected_height, expected_width, expected_channels = input_details['shape']
 
-    # Limpiar espacios en blanco o comillas invisibles en la cadena
+    # Strip surrounding whitespace or stray quotes from the path string
     if args.data_dir:
         args.data_dir = args.data_dir.strip().strip("'").strip('"')
 
-    # Si la ruta lleva las dimensiones en la cadena (rutas antiguas del tipo
-    # data/processed/160x120), corregirla automáticamente
+    # If the path encodes dimensions in its name (legacy paths such as
+    # data/processed/160x120), update them automatically to match the model
     if f"{args.width}x{args.height}" in args.data_dir and (args.width != expected_width or args.height != expected_height):
         args.data_dir = args.data_dir.replace(f"{args.width}x{args.height}", f"{expected_width}x{expected_height}")
-        print(f"ℹ️ Corrigiendo la ruta a {expected_width}x{expected_height} (exigido por el modelo).")
+        print(f"[INFO] Updating path resolution to {expected_width}x{expected_height} (required by the model).")
 
-    # La geometría siempre la manda el tensor de entrada del modelo: la ruta de
-    # la partición ya no codifica la resolución, así que no basta con corregirla.
+    # Input geometry is always dictated by the model's input tensor: the split
+    # path no longer encodes resolution, so updating the path alone is not enough.
     if args.width != expected_width or args.height != expected_height:
-        print(f"ℹ️ Redimensionando a {expected_width}x{expected_height} (exigido por el modelo).")
+        print(f"[INFO] Resizing inputs to {expected_width}x{expected_height} (required by the model).")
         args.width = expected_width
         args.height = expected_height
 
-    # Intentar buscar la ruta relativa estándar si falla la absoluta (común al pegar rutas)
+    # Fall back to <cwd>/<splits_dir>/test if the given path is missing
     if not os.path.exists(args.data_dir):
         fallback_path = os.path.join(os.getcwd(), args.splits_dir, "test")
         if os.path.exists(fallback_path):
             args.data_dir = fallback_path
 
     if not os.path.exists(args.data_dir):
-        print(f"ERROR: no se encontró la partición de prueba en {args.data_dir}")
-        print("Ejecuta primero la partición del dataset:")
+        print(f"ERROR: test split not found at {args.data_dir}")
+        print("Run the dataset split first:")
         print(f"  python src/split_dataset.py"
               f" --input_dir data/processed/{expected_width}x{expected_height}"
               f" --output_dir {args.splits_dir}")
         exit(1)
 
-    print(f"Cargando dataset de prueba desde {args.data_dir}...")
+    print(f"Loading the test dataset from {args.data_dir}...")
     if class_names:
         subdirs = sorted(
             d for d in os.listdir(args.data_dir)
@@ -183,45 +184,44 @@ def main():
         )
         if subdirs and set(subdirs) != set(class_names):
             print(
-                f"[WARN] Las subcarpetas de {args.data_dir} ({subdirs}) no coinciden con "
-                f"{args.class_names_path} ({class_names}); se inferirán los nombres de clase del directorio."
+                f"[WARN] The subfolders of {args.data_dir} ({subdirs}) do not match "
+                f"{args.class_names_path} ({class_names}); the class names will be inferred from the directory."
             )
             class_names = []
-    # Usamos batch_size=1 porque el intérprete TFLite generalemente infiere en ráfagas de a 1,
-    # y shuffle=False para mantener correspondencia entre entrada e imagen/etiqueta.
+    # Use batch_size=1 because the TFLite interpreter typically runs single-frame
+    # inference, and shuffle=False to keep inputs aligned with filenames/labels.
     test_ds = tf.keras.utils.image_dataset_from_directory(
         args.data_dir,
         labels='inferred',
         label_mode='int',
         class_names=class_names if class_names else None,
         color_mode='grayscale',
-        batch_size=1, 
+        batch_size=1,
         image_size=(args.height, args.width),
         shuffle=False
     )
 
     if not class_names:
         class_names = test_ds.class_names
-        print(f"Nombres de clases inferidos del directorio: {class_names}")
+        print(f"Class names inferred from the directory: {class_names}")
 
     num_classes = len(class_names)
-    
+
     y_true = []
     predictions = []
 
-    print("Generando predicciones frame-by-frame con el modelo TFLite (inferencia secuencial)...")
-    
+    print("Generating frame-by-frame predictions with the TFLite model (sequential inference)...")
+
     for x, y in test_ds:
         y_true.append(y.numpy()[0])
-        
-        # x esta escalado original entre [0..255] float32. Lo necesitamos pasar
-        # dependiendo de lo que TFLite pida.
-        input_data = x.numpy() 
-        
-        # Opcional: ajustar dimensionalidad al tensor exacto si varía
+
+        # x is originally in [0..255] float32; convert as required by the TFLite input tensor.
+        input_data = x.numpy()
+
+        # Reshape if necessary to match the exact expected input tensor shape
         if tuple(input_data.shape) != tuple(input_details['shape']):
             input_data = np.reshape(input_data, input_details['shape'])
-        
+
         input_data = quantize_input(input_data, input_details)
         interpreter.set_tensor(input_details['index'], input_data)
         interpreter.invoke()
@@ -233,53 +233,53 @@ def main():
     predictions = np.array(predictions)
 
     if num_classes == 1:
-        # Clasificación binaria pura
+        # Single-output binary classification
         y_pred = (predictions > 0.5).astype(int).reshape(-1)
     elif num_classes == 2 and predictions.shape[1] == 1:
-        # Clasificación binaria estructurada sigmoidal
+        # Sigmoid binary classification
         y_pred = (predictions > 0.5).astype(int).reshape(-1)
     else:
-        # Multiclase Argmax (Softmax normalizado)
+        # Multiclass argmax (softmax output)
         y_pred = np.argmax(predictions, axis=1)
 
     print("\n" + "="*50)
-    print("                 REPORTE DE MÉTRICAS (TFLite)")
+    print("              METRICS REPORT (TFLite)")
     print("="*50)
-    
+
     accuracy = accuracy_score(y_true, y_pred)
     precision, recall, f1, _ = precision_recall_fscore_support(y_true, y_pred, average='weighted', zero_division=0)
-    # 'macro' promedia las clases sin ponderar por soporte. Con el dataset
-    # desbalanceado, el F1 'weighted' queda dominado por la clase mayoritaria y
-    # puede ocultar que la minoritaria va mal; el macro las pesa igual. Las dos
-    # cifras juntas hacen visible esa diferencia en vez de promediarla.
+    # 'macro' averages classes without weighting by support. With an imbalanced
+    # dataset, 'weighted' F1 is dominated by the majority class and can hide
+    # poor minority-class performance; macro weights them equally. Reporting
+    # both makes that gap visible instead of averaging it away.
     _, _, f1_macro, _ = precision_recall_fscore_support(y_true, y_pred, average='macro', zero_division=0)
-    
-    print(f"Accuracy (Exactitud): {accuracy:.4f}")
+
+    print(f"Accuracy:             {accuracy:.4f}")
     print(f"Precision:            {precision:.4f}")
-    print(f"Recall (Exhaustividad):{recall:.4f}")
+    print(f"Recall:               {recall:.4f}")
     print(f"F1-Score (weighted):  {f1:.4f}")
     print(f"F1-Score (macro):     {f1_macro:.4f}")
-    
-    print("\nReporte de Clasificación Detallado:")
-    # Se pide dos veces: el texto para la consola y el dict para el JSON. Son la
-    # misma llamada con output_dict, asi que las cifras no pueden divergir.
+
+    print("\nDetailed Classification Report:")
+    # Requested twice: text for the console and dict for the JSON. Both come
+    # from the exact same call with output_dict, so the figures cannot diverge.
     print(classification_report(y_true, y_pred, target_names=class_names, labels=range(len(class_names)), zero_division=0))
     report_dict = classification_report(y_true, y_pred, target_names=class_names, labels=range(len(class_names)), zero_division=0, output_dict=True)
 
-    print("\nGenerando Matriz de Confusión...")
+    print("\nGenerating Confusion Matrix...")
     cm = confusion_matrix(y_true, y_pred, labels=range(len(class_names)))
-    
+
     plt.figure(figsize=(10, 8))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names)
     plt.title(f'SIL Confusion Matrix - {os.path.splitext(os.path.basename(args.model_path))[0]}')
-    plt.ylabel('Etiqueta Real')
-    plt.xlabel('Etiqueta Predicha')
+    plt.ylabel('True Label')
+    plt.xlabel('Predicted Label')
     plt.tight_layout()
-    
-    # Las matrices del nivel SIL viven con el resto de resultados de la escalera
-    # (results/mil, results/pil, results/hil), no junto al .tflite. El nombre se
-    # deriva del modelo, igual que en test_model.py y pil_benchmark.py, para que
-    # dos corridas con modelos distintos no se pisen la matriz.
+
+    # SIL-level matrices live alongside the rest of the ladder outputs
+    # (results/mil, results/pil, results/hil), not next to the .tflite file.
+    # Filenames derive from the model name, just as in test_model.py and
+    # pil_benchmark.py, so runs with different models do not overwrite each other.
     out_dir = args.output_dir
     os.makedirs(out_dir, exist_ok=True)
 
@@ -287,13 +287,13 @@ def main():
     model_name_without_ext = os.path.splitext(model_basename)[0]
     cm_plot_name = f"Matriz_{model_name_without_ext}.png"
     cm_plot_path = os.path.join(out_dir, cm_plot_name)
-    
-    plt.savefig(cm_plot_path)
-    print(f"\n Gráfico de la matriz de confusión guardado en {cm_plot_path}")
 
-    # CSV con la prediccion por imagen, con el mismo esquema que pil_benchmark.py
-    # (Image;RelPath;TrueLabel;TrueClass;PredLabel;PredClass;Correct) para poder
-    # cruzar MIL, SIL, PIL y el subconjunto HIL (hil_subset==1) imagen a imagen.
+    plt.savefig(cm_plot_path)
+    print(f"\nConfusion matrix plot saved to {cm_plot_path}")
+
+    # Per-image predictions CSV using the exact same schema as pil_benchmark.py
+    # (Image;RelPath;TrueLabel;TrueClass;PredLabel;PredClass;Correct) so that
+    # MIL, SIL, PIL and the HIL subset (hil_subset==1) can be joined image by image.
     pred_csv_path = os.path.join(out_dir, f"predictions_{model_name_without_ext}.csv")
     file_paths = list(test_ds.file_paths)
     with open(pred_csv_path, "w", newline="", encoding="utf-8") as pred_file:
@@ -312,22 +312,19 @@ def main():
                 _nombre_clase(p_int, class_names),
                 1 if t_int == p_int else 0,
             ])
-    print(f"Predicciones por imagen guardadas en {pred_csv_path}")
+    print(f"Per-image predictions saved to {pred_csv_path}")
 
-    # Ademas del PNG se guarda un JSON con las mismas cifras. La imagen sirve
-    # para mirar, pero no para comparar niveles de la escalera ni para que otro
-    # script lea los numeros; el JSON si. Mismo criterio de nombre que
-    # Matriz_*.png: derivado del modelo, para que dos corridas no se pisen.
+    # Alongside the PNG, a JSON with the exact same figures is written. The PNG
+    # is for visual inspection, whereas the JSON enables automated comparisons
+    # across ladder levels. Same model-derived naming convention as Matriz_*.png.
     metrics_path = os.path.join(out_dir, f"metrics_{model_name_without_ext}.json")
 
-    # El checksum ata estas metricas al artefacto exacto que las produjo. Si
-    # mas adelante una corrida no reproduce estas cifras, el hash dice de
-    # inmediato si cambio el modelo o si cambio otra cosa (los datos, el
-    # preprocesado, la particion). Sin el, un .keras regenerado con el mismo
-    # nombre es indistinguible del original.
+    # The checksum binds these metrics to the exact model artifact that produced
+    # them. If a later run diverges, the hash immediately tells whether the
+    # model binary changed or something else did (data, preprocessing, split).
     modelo_sha256 = _sha256_archivo(args.model_path)
     modelo_bytes = os.path.getsize(args.model_path) if os.path.isfile(args.model_path) else None
-    print(f"SHA-256 del modelo:   {modelo_sha256}")
+    print(f"Model SHA-256:        {modelo_sha256}")
 
     resultados = {
         "nivel": "SIL",
@@ -366,7 +363,7 @@ def main():
 
     with open(metrics_path, "w", encoding="utf-8") as fh:
         json.dump(resultados, fh, indent=2, ensure_ascii=False, default=_json_safe)
-    print(f"Métricas en JSON guardadas en {metrics_path}")
+    print(f"JSON metrics saved to {metrics_path}")
 
 
 if __name__ == "__main__":

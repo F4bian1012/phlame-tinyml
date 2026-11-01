@@ -60,7 +60,7 @@ def load_custom_data(splits_dir, img_width, img_height, batch_size):
         )
     except ValueError as e:
         print(f"Data Loading Error: {e}")
-        print(f"Ensure each split has a subfolder per class, e.g., '{train_dir}/placa/image.jpg'.")
+        print(f"Ensure each split has a subfolder per class, e.g., '{train_dir}/class_a/image.jpg'.")
         return None, None, None
 
     class_names = train_ds.class_names
@@ -116,7 +116,7 @@ def create_mobilenet_model(num_classes, img_shape, learning_rate, base_model_nam
         preprocess_fn = tf.keras.applications.mobilenet.preprocess_input
         alpha = 0.25
     else:
-        raise ValueError(f"Modelo base no soportado: {base_model_name}")
+        raise ValueError(f"Unsupported base model: {base_model_name}")
 
     base_input_shape = list(img_shape)
     if base_input_shape[-1] == 1:

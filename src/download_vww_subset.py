@@ -1,32 +1,32 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-download_vww_subset.py - Descarga un subconjunto balanceado de Visual Wake Words
-(VWW, Chowdhery et al., 2019 / MLPerf Tiny) directamente desde MS-COCO 2017 y lo
-deja listo en data/raw_vww/{non_person,person}/ para ejecutar la escalera
-MIL -> SIL -> PIL -> HIL de PHLAME (Actividad 48).
+download_vww_subset.py - Downloads a balanced subset of Visual Wake Words
+(VWW, Chowdhery et al., 2019 / MLPerf Tiny) directly from MS-COCO 2017 and
+prepares it under data/raw_vww/{non_person,person}/ to run the PHLAME
+MIL -> SIL -> PIL -> HIL fidelity ladder.
 
-Regla oficial de etiquetado VWW (arXiv:1906.05721)
---------------------------------------------------
-  - 'person'     : la imagen contiene al menos una anotacion de la categoria
-                   'person' (category_id == 1, iscrowd == 0) cuya caja o area
-                   segmentada ocupa >= 0.5% (0.005) del area total de la imagen.
-  - 'non_person' : la imagen no contiene ninguna anotacion de 'person' (por
-                   defecto se excluyen las imagenes ambiguas con personas
-                   diminutas < 0.5% del area para evitar ruido de etiqueta;
-                   pasa --include-small-person-as-negative para incluirlas
-                   como 'non_person' al estilo estricto de VWW).
+Official VWW labeling rule (arXiv:1906.05721)
+---------------------------------------------
+  - 'person'     : the image contains at least one 'person' annotation
+                   (category_id == 1, iscrowd == 0) whose bounding box or
+                   segmentation area covers >= 0.5% (0.005) of the total
+                   image area.
+  - 'non_person' : the image contains no 'person' annotations (by default,
+                   ambiguous images with tiny persons < 0.5% of the area are
+                   excluded to avoid label noise; pass
+                   --include-small-person-as-negative to include them as
+                   'non_person' following strict VWW conventions).
 
-Eficiencia de descarga
-----------------------
-En lugar de bajar los ~20 GB de train2017.zip o los 241 MB completos de
-annotations_trainval2017.zip, este script:
-  1. Usa peticiones HTTP Range sobre el directorio central del ZIP remoto de
-     COCO para descargar UNICAMENTE annotations/instances_val2017.json (~6 MB
-     comprimidos).
-  2. Selecciona de forma determinista (--seed 42) N imagenes por clase
-     (--per_class, por defecto 1000 -> 2000 imagenes en total) y descarga solo
-     esos JPEGs en paralelo (--workers 16) a data/raw_vww/{non_person,person}/.
+Download efficiency
+-------------------
+Instead of downloading ~20 GB of train2017.zip or the full 241 MB of
+annotations_trainval2017.zip, this script:
+  1. Uses HTTP Range requests against the remote COCO ZIP central directory to
+     download ONLY annotations/instances_val2017.json (~6 MB compressed).
+  2. Deterministically selects (--seed 42) N images per class (--per_class,
+     default 1000 -> 2000 images total) and downloads only those JPEGs in
+     parallel (--workers 16) to data/raw_vww/{non_person,person}/.
 """
 
 import argparse
@@ -60,13 +60,13 @@ def _http_get_range(url: str, start: int, end: int, timeout: int = 60) -> bytes:
 
 
 def fetch_coco_instances_json(cache_path: str, target_member: str) -> dict:
-    """Obtiene instances_{split}.json desde el ZIP remoto usando HTTP Range."""
+    """Fetches instances_{split}.json from the remote ZIP via HTTP Range."""
     if os.path.isfile(cache_path) and os.path.getsize(cache_path) > 1024:
-        print(f"[CACHE] Leyendo anotaciones desde {cache_path} ...")
+        print(f"[CACHE] Reading annotations from {cache_path} ...")
         with open(cache_path, "r", encoding="utf-8") as fh:
             return json.load(fh)
 
-    print(f"[NET] Consultando tamano de {ANNOTATIONS_ZIP_URL} ...")
+    print(f"[NET] Querying size of {ANNOTATIONS_ZIP_URL} ...")
     req = urllib.request.Request(
         ANNOTATIONS_ZIP_URL,
         method="HEAD",
@@ -79,7 +79,7 @@ def fetch_coco_instances_json(cache_path: str, target_member: str) -> dict:
     tail = _http_get_range(ANNOTATIONS_ZIP_URL, total_size - tail_len, total_size - 1)
     eocd_pos = tail.rfind(b"PK\x05\x06")
     if eocd_pos < 0:
-        raise RuntimeError("No se encontro el registro EOCD en el ZIP remoto de COCO.")
+        raise RuntimeError("EOCD record not found in the remote COCO ZIP.")
 
     cd_size, cd_offset = struct.unpack("<II", tail[eocd_pos + 12 : eocd_pos + 20])
     cd = _http_get_range(ANNOTATIONS_ZIP_URL, cd_offset, cd_offset + cd_size - 1)
@@ -109,8 +109,8 @@ def fetch_coco_instances_json(cache_path: str, target_member: str) -> dict:
         name = cd[pos + 46 : pos + 46 + name_len].decode("utf-8", errors="replace")
         if name == target_member:
             print(
-                f"[NET] Descargando {target_member} via HTTP Range "
-                f"({comp_size / (1024 * 1024):.2f} MB comprimidos -> "
+                f"[NET] Downloading {target_member} via HTTP Range "
+                f"({comp_size / (1024 * 1024):.2f} MB compressed -> "
                 f"{uncomp_size / (1024 * 1024):.2f} MB)..."
             )
             lfh = _http_get_range(
@@ -126,7 +126,7 @@ def fetch_coco_instances_json(cache_path: str, target_member: str) -> dict:
             elif comp_method == 0:
                 raw_bytes = comp_data
             else:
-                raise RuntimeError(f"Metodo de compresion ZIP no soportado: {comp_method}")
+                raise RuntimeError(f"Unsupported ZIP compression method: {comp_method}")
 
             os.makedirs(os.path.dirname(cache_path), exist_ok=True)
             with open(cache_path, "wb") as fh:
@@ -135,11 +135,11 @@ def fetch_coco_instances_json(cache_path: str, target_member: str) -> dict:
 
         pos += 46 + name_len + extra_len + comm_len
 
-    raise RuntimeError(f"No se encontro {target_member} dentro del ZIP de COCO.")
+    raise RuntimeError(f"{target_member} not found inside the COCO ZIP.")
 
 
 def classify_vww_images(coco_doc: dict, min_area_fraction: float, include_small_as_neg: bool):
-    """Clasifica las imagenes de COCO en person / non_person segun la regla VWW."""
+    """Classifies COCO images into person / non_person according to the VWW rule."""
     images_by_id = {}
     for img in coco_doc["images"]:
         img_id = int(img["id"])
@@ -168,7 +168,7 @@ def classify_vww_images(coco_doc: dict, min_area_fraction: float, include_small_
         if int(ann.get("iscrowd", 0)) != 0:
             info["has_crowd_person"] = True
             continue
-        # Regla VWW: area de la caja delimitadora (o segmentacion) respecto a la imagen
+        # VWW rule: bounding-box (or segmentation) area relative to full image area
         bbox = ann.get("bbox", [0, 0, 0, 0])
         bbox_area = float(bbox[2]) * float(bbox[3]) if len(bbox) == 4 else 0.0
         seg_area = float(ann.get("area", 0.0))
@@ -225,56 +225,56 @@ def _download_one(task):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Descarga un subconjunto balanceado de Visual Wake Words (VWW) desde MS-COCO 2017",
+        description="Download a balanced Visual Wake Words (VWW) subset from MS-COCO 2017",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
         "--output_dir",
         type=str,
         default="data/raw_vww",
-        help="Directorio de salida donde se crearan las subcarpetas person/ y non_person/",
+        help="Output directory where person/ and non_person/ subfolders will be created",
     )
     parser.add_argument(
         "--coco_split",
         choices=["val2017", "train2017"],
         default="val2017",
-        help="Particion de COCO 2017 a usar como fuente (val2017 tiene 5000 imagenes y basta para hasta ~2100 por clase)",
+        help="COCO 2017 split to use as source (val2017 has 5000 images, enough for up to ~2300 per class)",
     )
     parser.add_argument(
         "--per_class",
         type=int,
         default=1000,
-        help="Numero de imagenes a descargar por cada clase (person y non_person)",
+        help="Number of images to download per class (person and non_person)",
     )
     parser.add_argument(
         "--min_area_fraction",
         type=float,
         default=0.005,
-        help="Umbral minimo de area relativa de 'person' segun VWW (0.005 = 0.5%% del area de la imagen)",
+        help="Minimum relative 'person' area threshold per VWW (0.005 = 0.5%% of image area)",
     )
     parser.add_argument(
         "--include-small-person-as-negative",
         dest="include_small_as_neg",
         action="store_true",
-        help="Incluye imagenes con personas <0.5%% del area dentro de non_person (por defecto se descartan por limpieza)",
+        help="Include non-crowd images with persons below --min_area_fraction (default 0.5%%) inside non_person (excluded by default for label cleanliness)",
     )
     parser.add_argument(
         "--seed",
         type=int,
         default=42,
-        help="Semilla para muestreo reproducible de imagenes",
+        help="Random seed for reproducible image sampling",
     )
     parser.add_argument(
         "--workers",
         type=int,
         default=16,
-        help="Hilos paralelos de descarga HTTP",
+        help="Number of parallel HTTP download threads",
     )
     parser.add_argument(
         "--dry-run",
         dest="dry_run",
         action="store_true",
-        help="Descarga/lee solo las anotaciones, muestra el conteo por clase y termina sin bajar imagenes",
+        help="Download/read annotations only, print per-class counts, and exit without downloading images",
     )
     args = parser.parse_args()
 
@@ -289,19 +289,24 @@ def main():
 
     print()
     print("============================================================")
-    print(f"Resumen Visual Wake Words sobre COCO {args.coco_split}")
+    print(f"Visual Wake Words Summary on COCO {args.coco_split}")
     print("============================================================")
-    print(f"  person (>= {args.min_area_fraction*100:.2f}% area) : {len(positives):5d} disponibles")
-    print(f"  non_person (0 personas)         : {len(negatives):5d} disponibles")
-    print(f"  ambiguas (< {args.min_area_fraction*100:.2f}% o crowd) : {len(ambiguous):5d} excluidas")
+    neg_desc = (f"0 or < {args.min_area_fraction*100:.2f}% area"
+                if args.include_small_as_neg else "0 persons")
+    amb_desc = ("crowd person"
+                if args.include_small_as_neg
+                else f"< {args.min_area_fraction*100:.2f}% or crowd")
+    print(f"  person (>= {args.min_area_fraction*100:.2f}% area) : {len(positives):5d} available")
+    print(f"  non_person ({neg_desc}) : {len(negatives):5d} available")
+    print(f"  ambiguous ({amb_desc}) : {len(ambiguous):5d} excluded")
     print("------------------------------------------------------------")
 
     max_posible = min(len(positives), len(negatives))
     if args.per_class > max_posible:
         print(
-            f"[WARN] Pediste --per_class {args.per_class}, pero en {args.coco_split} "
-            f"el maximo balanceado es {max_posible}. Ajustando a {max_posible} "
-            f"(usa --coco_split train2017 si necesitas mas)."
+            f"[WARN] Requested --per_class {args.per_class}, but in {args.coco_split} "
+            f"the maximum balanced count is {max_posible}. Adjusting to {max_posible} "
+            f"(use --coco_split train2017 if you need more)."
         )
         objetivo = max_posible
     else:
@@ -311,11 +316,11 @@ def main():
     sel_pos = sorted(rng.sample(positives, objetivo), key=lambda x: x["file_name"])
     sel_neg = sorted(rng.sample(negatives, objetivo), key=lambda x: x["file_name"])
 
-    print(f"  Seleccionadas por clase (seed={args.seed}): {objetivo} person + {objetivo} non_person = {2 * objetivo} total")
+    print(f"  Selected per class (seed={args.seed}): {objetivo} person + {objetivo} non_person = {2 * objetivo} total")
     print("============================================================")
 
     if args.dry_run:
-        print("\n[--dry-run] No se descargaron imagenes.")
+        print("\n[--dry-run] No images were downloaded.")
         return 0
 
     person_dir = os.path.join(args.output_dir, "person")
@@ -333,7 +338,7 @@ def main():
         dst = os.path.join(non_person_dir, item["file_name"])
         tasks.append((url, dst, 30))
 
-    print(f"\nDescargando {len(tasks)} imagenes en {args.output_dir} con {args.workers} hilos...")
+    print(f"\nDownloading {len(tasks)} images to {args.output_dir} with {args.workers} threads...")
     t0 = time.time()
     counts = {"downloaded": 0, "cached": 0, "failed": 0}
     failures = []
@@ -348,8 +353,8 @@ def main():
             if idx % 100 == 0 or idx == len(tasks):
                 elapsed = time.time() - t0
                 print(
-                    f"  [{idx:4d}/{len(tasks):4d}] nuevas={counts['downloaded']} "
-                    f"en_cache={counts['cached']} fallidas={counts['failed']} "
+                    f"  [{idx:4d}/{len(tasks):4d}] new={counts['downloaded']} "
+                    f"cached={counts['cached']} failed={counts['failed']} "
                     f"({elapsed:.1f}s)"
                 )
 
@@ -382,13 +387,17 @@ def main():
     with open(report_path, "w", encoding="utf-8") as fh:
         json.dump(report, fh, indent=2, ensure_ascii=False)
 
-    print(f"\n[OK] Subconjunto VWW listo en: {args.output_dir}")
-    print(f"     - {person_dir} ({objetivo} imagenes)")
-    print(f"     - {non_person_dir} ({objetivo} imagenes)")
-    print(f"     - Reporte: {report_path} (sha256 seleccion: {manifest_hash[:12]})")
     if failures:
-        print(f"[WARN] {len(failures)} descargas fallaron. Vuelve a correr el script para reintentar solo las faltantes.")
+        print(f"\n[WARN] VWW subset incomplete in: {args.output_dir} "
+              f"({counts['downloaded'] + counts['cached']}/{len(tasks)} images ready)")
+        print(f"     - Report: {report_path} (selection sha256: {manifest_hash[:12]})")
+        print(f"[WARN] {len(failures)} downloads failed. Re-run the script to retry only the missing files.")
         return 1
+
+    print(f"\n[OK] VWW subset ready in: {args.output_dir}")
+    print(f"     - {person_dir} ({objetivo} images)")
+    print(f"     - {non_person_dir} ({objetivo} images)")
+    print(f"     - Report: {report_path} (selection sha256: {manifest_hash[:12]})")
     return 0
 
 

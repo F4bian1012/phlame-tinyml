@@ -1,67 +1,68 @@
 r"""
 hil_camera_benchmark.py
 =======================
-Banco HIL REAL (camera-in-the-loop) para PHLAME — Fase 1C, camino 2.
+Real Camera-in-the-Loop (HIL) benchmark for PHLAME — Phase 1C, Path 2.
 
-A diferencia de `pil_benchmark.py` (banco PIL: la imagen viaja por serial),
-este script cierra el lazo con el sensor fisico: la camara HM01B0 del
-Portenta Vision Shield captura la escena real. El host orquesta el rig de
-estimulo controlado (opcion (a) del checklist: monitor mostrando las
-imagenes del dataset en secuencia temporizada), de modo que el ground truth
-de cada inferencia es conocido por construccion:
+Unlike `pil_benchmark.py` (PIL benchmark: preprocessed images sent over serial),
+this script closes the loop through the physical optical sensor: the HM01B0
+camera on the Portenta Vision Shield captures the real scene. The host PC
+orchestrates the controlled-stimulus rig (monitor displaying dataset images in
+a timed sequence), so the ground-truth label of every inference is known by
+construction:
 
     host                                    Portenta H7 + Vision Shield
     ----                                    ---------------------------
-    1. muestra estimulo (clase conocida)
-       en pantalla completa
-    2. espera --settle s (estabilizacion
-       de pantalla + auto-exposicion)
-    3. envia trigger 'T'          ------>   4. captura frame HM01B0 (CAPTURE)
-                                            5. resize+cuantiza (PRE)
-                                            6. Invoke()          (INF)
-                                            7. argmax            (POST)
-    8. lee clase + telemetria     <------      TS_MS / clase / CYC_* / US_*
-    9. empareja prediccion <-> etiqueta
-       del estimulo presentado
+    1. displays stimulus (known class)
+       in fullscreen
+    2. waits --settle s (display refresh
+       + camera auto-exposure settling)
+    3. sends trigger 'T'          ------>   4. captures HM01B0 frame (CAPTURE)
+                                            5. resizes + quantizes   (PRE)
+                                            6. Invoke()              (INF)
+                                            7. argmax                (POST)
+    8. reads class + telemetry    <------      TS_MS / class / CYC_* / US_*
+    9. pairs prediction <-> label
+       of the displayed stimulus
 
-Salidas (en --output-dir, default results/hil/):
-  - HIL_Confusion_Matrix_<tag>.png : matriz de confusion del lazo sensor->prediccion
-  - hil_latencies_<tag>.csv        : una fila por inferencia con latencias por fase
-  - metrics_<tag>.json             : metricas (mismo esquema que MIL/SIL/PIL)
-                               (CAPTURE/PRE/INF/POST/TOTAL), TEMP_C y ground truth
-  - hil_conditions_<tag>.json      : condiciones del rig + huella del modelo
-                               — el protocolo ambiental que pide un revisor
+Outputs (in --output-dir, default results/hil/):
+  - HIL_Confusion_Matrix_<tag>.png : sensor->prediction confusion matrix
+  - hil_latencies_<tag>.csv        : one row per inference with per-phase
+                                     latencies (CAPTURE/PRE/INF/POST/TOTAL),
+                                     TEMP_C, and ground truth
+  - metrics_<tag>.json             : metrics JSON (same schema as MIL/SIL/PIL)
+  - hil_conditions_<tag>.json      : physical rig conditions + model fingerprint
+                                     — the environmental protocol required for
+                                     reproducible reporting
 
-Firmware companion: deployment/hil_camera_firmware/hil_camera_firmware.ino
-(sketch DEDICADO al banco HIL; el firmware PIL pil_firmware.ino y su banco
-pil_benchmark.py quedan intactos y separados).
+Companion firmware: deployment/hil_camera_firmware/hil_camera_firmware.ino
+(dedicated HIL sketch; the PIL sketch pil_firmware.ino and its host benchmark
+pil_benchmark.py remain separate and untouched).
 
-Protocolo serie:
-  READY_HIL  <- handshake de arranque (la camara ya esta inicializada)
-  'T'   -> dispara una captura + inferencia
-  'F1'/'F0' -> activa/desactiva el frame-dump (validacion cruzada SIL)
+Serial protocol:
+  READY_HIL   <- boot handshake (camera initialized and ready)
+  'T'         -> triggers one capture + inference cycle
+  'F1' / 'F0' -> enables / disables raw frame-dump (SIL/MIL cross-validation)
 
-Validacion cruzada (opcional, --sil-model / --mil-model): el firmware
-devuelve cada frame capturado (comando F1) y el host ejecuta sobre ESE
-MISMO frame los niveles inferiores de la escalera de fidelidad:
-  MIL  (--mil-model, .keras float en PC)   <- test_model.py equivalente
-  SIL  (--sil-model, .tflite INT8 en PC)   <- test_tflite_model.py equiv.
-  HIL  (TFLM INT8 en el Cortex-M7)         <- este banco
-Con los tres niveles sobre bytes identicos del sensor, la brecha se
-descompone en componentes atribuibles:
-  MIL vs SIL  = perdida por CUANTIZACION INT8 (mismo hardware, mismo frame)
-  SIL vs HIL  = divergencia de EJECUCION chip/PC (TFLM vs TFLite, kernels)
-  PIL vs HIL  = degradacion del FRONTEND fisico (pantalla/optica/sensor)
+Cross-validation (optional, --sil-model / --mil-model): the firmware sends back
+each captured camera frame (command F1) and the host evaluates the lower levels
+of the fidelity ladder on THAT EXACT SAME captured frame:
+  MIL  (--mil-model, .keras float on PC)   <- test_model.py equivalent
+  SIL  (--sil-model, .tflite INT8 on PC)   <- test_tflite_model.py equivalent
+  HIL  (TFLM INT8 on the Cortex-M7)        <- this benchmark
+Evaluating all three levels on identical sensor bytes decomposes the end-to-end
+gap into attributable components:
+  MIL vs SIL  = INT8 QUANTIZATION loss (same hardware, same captured frame)
+  SIL vs HIL  = MCU vs PC EXECUTION divergence (TFLM vs TFLite kernels)
+  PIL vs HIL  = physical FRONTEND degradation (display / optics / sensor)
 
-Uso tipico (escalera completa sobre el frame real):
+Typical usage (full fidelity ladder on live camera frames, manifest hil_subset):
   python src/hil_camera_benchmark.py --port COM9 \
-      --folder data/processed/160x120 --count 100 \
-      --settle 1.5 --lux 320 --distance-cm 25 \
-      --sil-model models/tflite/model_int8.tflite \
-      --mil-model models/checkpoints/best_model.keras
+      --settle 1.0 --lux 10 --distance-cm 24 --ambient-temp 24 \
+      --sil-model models/tflite/{model_name}_int8.tflite \
+      --mil-model models/checkpoints/{model_name}.keras
 
-Requisitos: pyserial, opencv-python, numpy (+ scikit-learn, seaborn,
-matplotlib para la matriz de confusion).
+Requirements: pyserial, opencv-python, numpy (+ scikit-learn, seaborn,
+matplotlib for the confusion matrix and JSON metrics).
 """
 
 import argparse
@@ -78,20 +79,21 @@ import hashlib
 
 
 # ---------------------------------------------------------------------------
-# Identidad del modelo (actividad 43)
+# Model identity verification
 #
-# El firmware imprime al arrancar, ANTES de READY_HIL:
-#     MODEL_BYTES:<g_model_len>      tamanio del array g_model[] en flash
-#     MODEL_FNV1A:<hex32>            FNV-1a de 32 bits sobre esos bytes
+# At boot, BEFORE emitting READY_HIL, the firmware prints:
+#     MODEL_BYTES:<g_model_len>      size of the g_model[] array in flash
+#     MODEL_FNV1A:<hex32>            32-bit FNV-1a hash over those bytes
 #     ARENA_USED:<bytes>             interpreter->arena_used_bytes()
 #
-# g_model[] es el .tflite byte a byte (tflite_to_c.py), asi que la misma
-# FNV-1a calculada en el PC sobre el .tflite debe coincidir EXACTAMENTE con
-# la del chip. Si no coincide, la placa NO lleva el modelo que el operador
-# cree, y el banco aborta antes de gastar la sesion de rig.
+# g_model[] contains the exact .tflite bytes (tflite_to_c.py), so the 32-bit
+# FNV-1a computed on the host over the .tflite file must match the on-chip
+# hash EXACTLY. If they differ, the board is NOT running the model the operator
+# expects, and the benchmark aborts before wasting a physical rig session.
 #
-# FNV-1a y no SHA-256 porque el firmware no tiene mbedtls a mano y FNV son
-# cuatro lineas de C; 32 bits bastan para distinguir 7 modelos.
+# FNV-1a is used instead of SHA-256 because the firmware has no mbedtls
+# dependency and FNV-1a takes four lines of C; 32 bits easily distinguish all
+# candidate models.
 # ---------------------------------------------------------------------------
 FNV1A32_OFFSET = 0x811C9DC5
 FNV1A32_PRIME = 0x01000193
@@ -126,8 +128,8 @@ def sha256_file(path: str, chunk: int = 1 << 20):
 
 
 def parse_firmware_fingerprint(lines):
-    """Extrae MODEL_BYTES / MODEL_FNV1A / ARENA_USED de las lineas de arranque.
-    Devuelve dict con None en lo que el firmware no haya impreso (firmware viejo)."""
+    """Extracts MODEL_BYTES / MODEL_FNV1A / ARENA_USED from firmware boot lines.
+    Returns a dict with None for any field omitted by legacy firmware."""
     fw = {'model_bytes': None, 'model_fnv1a': None, 'arena_used_bytes': None}
     for l in lines:
         if l.startswith("MODEL_BYTES:"):
@@ -143,9 +145,9 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def _relpath_repo(path: str):
-    """Ruta relativa a la raiz del repositorio, con barras '/', para que los
-    JSON de HIL no expongan rutas absolutas del equipo local (C:\\Users\\...)
-    y sean portables al clonar el repo, igual que en MIL, SIL y PIL."""
+    """Path relative to the repository root using '/' separators, so HIL JSON
+    artifacts never leak local machine paths (C:\\Users\\...) and stay portable
+    across clones, matching MIL, SIL, and PIL."""
     if not path:
         return None
     try:
@@ -158,7 +160,7 @@ def _relpath_repo(path: str):
 
 
 def expected_model_fingerprint(tflite_path: str):
-    """Huella del .tflite que el operador DICE haber flasheado."""
+    """Fingerprint of the .tflite file the operator claims to have flashed."""
     if not tflite_path or not os.path.isfile(tflite_path):
         return None
     return {
@@ -170,7 +172,7 @@ def expected_model_fingerprint(tflite_path: str):
 
 
 def previous_runs_fingerprints(output_dir: str):
-    """Lee los hil_conditions_*.json ya existentes: (model_tag, fnv1a)."""
+    """Reads existing hil_conditions_*.json files: returns (model_tag, fnv1a, filename)."""
     out = []
     if not os.path.isdir(output_dir):
         return out
@@ -188,77 +190,76 @@ def previous_runs_fingerprints(output_dir: str):
 
 def verify_model_identity(fw, expected, model_tag, output_dir, allow_mismatch=False):
     """
-    Tres comprobaciones, en este orden:
-      1. el firmware imprimio huella (si no: firmware viejo, se avisa);
-      2. la huella del chip == la del .tflite indicado (si no: ABORTA);
-      3. ninguna corrida PREVIA en output_dir tiene la misma huella bajo
-         OTRA etiqueta (si la hay: ABORTA — es exactamente el fallo
-         'ResNet8 etiquetado como ResNet18').
-    Devuelve True si la identidad quedo verificada positivamente.
+    Runs three checks in order:
+      1. whether the firmware reported a model fingerprint (warns if legacy);
+      2. whether the on-chip fingerprint matches the given .tflite (ABORTS on mismatch);
+      3. whether any PREVIOUS run in output_dir recorded the exact same on-chip
+         fingerprint under a DIFFERENT model tag (ABORTS on collision — prevents
+         mislabeling an already-flashed binary under a new architecture name).
+    Returns True if model identity was positively verified.
     """
     ok = False
     if fw['model_fnv1a'] is None:
-        print("[WARN] El firmware NO imprimio MODEL_FNV1A: es un firmware sin "
-              "huella. La etiqueta de esta corrida NO esta verificada contra "
-              "la placa. Reflashea hil_camera_firmware.ino actualizado.")
+        print("[WARN] Firmware did NOT report MODEL_FNV1A: legacy firmware without "
+              "fingerprinting. This run's label is NOT verified against the "
+              "board. Reflash the updated hil_camera_firmware.ino sketch.")
     elif expected is None:
-        print("[WARN] Sin --tflite: no puedo comparar la huella del chip "
-              f"({fw['model_fnv1a']}, {fw['model_bytes']} B) contra nada. "
-              "Pasa --tflite <ruta> para verificar la identidad.")
+        print("[WARN] No --tflite provided: cannot compare on-chip fingerprint "
+              f"({fw['model_fnv1a']}, {fw['model_bytes']} B) against a reference file. "
+              "Pass --tflite <path> to verify model identity.")
     else:
         same = (fw['model_fnv1a'] == expected['fnv1a']
                 and fw['model_bytes'] == expected['bytes'])
-        print(f"[INFO] Huella chip   : fnv1a={fw['model_fnv1a']} bytes={fw['model_bytes']}")
-        print(f"[INFO] Huella .tflite: fnv1a={expected['fnv1a']} bytes={expected['bytes']}  "
+        print(f"[INFO] Chip fingerprint   : fnv1a={fw['model_fnv1a']} bytes={fw['model_bytes']}")
+        print(f"[INFO] .tflite fingerprint: fnv1a={expected['fnv1a']} bytes={expected['bytes']}  "
               f"({os.path.basename(expected['path'])})")
         if same:
-            print("[OK]   IDENTIDAD VERIFICADA: la placa ejecuta exactamente el "
-                  ".tflite indicado.")
+            print("[OK]   IDENTITY VERIFIED: the board is running the exact "
+                  "specified .tflite binary.")
             ok = True
         else:
-            print("[ERROR] LA PLACA NO LLEVA ESE MODELO. La huella del chip no "
-                  "coincide con el .tflite indicado. Regenera model.h con "
-                  "tflite_to_c.py, recompila, reflashea y reintenta.")
+            print("[ERROR] MODEL MISMATCH ON BOARD. The on-chip fingerprint does "
+                  "not match the specified .tflite file. Regenerate model.h with "
+                  "tflite_to_c.py, recompile, reflash, and try again.")
             if not allow_mismatch:
                 sys.exit(2)
-            print("[WARN] --allow-model-mismatch: continuo bajo tu responsabilidad.")
+            print("[WARN] --allow-model-mismatch set: proceeding at your own risk.")
 
-    # 3) colision con corridas previas bajo otra etiqueta
+    # 3) Check for fingerprint collision with previous runs under a different tag
     if fw['model_fnv1a'] is not None:
         for prev_tag, prev_fnv, fname in previous_runs_fingerprints(output_dir):
             if prev_fnv == fw['model_fnv1a'] and prev_tag and prev_tag != model_tag:
-                print(f"[ERROR] La huella {fw['model_fnv1a']} ya existe en {fname} "
-                      f"bajo la etiqueta '{prev_tag}'. Estas a punto de medir EL "
-                      f"MISMO binario con la etiqueta '{model_tag}'. Reflashea.")
+                print(f"[ERROR] Fingerprint {fw['model_fnv1a']} already exists in {fname} "
+                      f"under tag '{prev_tag}'. You are about to benchmark THE "
+                      f"EXACT SAME binary under tag '{model_tag}'. Reflash the board.")
                 if not allow_mismatch:
                     sys.exit(2)
     return ok
 
 
 def check_required_conditions(args):
-    """Actividad 50: sin condiciones fisicas la corrida no es reportable."""
+    """Physical rig conditions are mandatory for a reportable HIL run."""
     missing = [n for n, v in (("--lux", args.lux),
                               ("--distance-cm", args.distance_cm),
                               ("--ambient-temp", args.ambient_temp)) if v is None]
     if missing and not args.allow_missing_conditions:
-        print("[ERROR] Faltan condiciones del rig: " + ", ".join(missing) + ".")
-        print("        Dos corridas del mismo modelo difirieron 0,074 de F1-macro "
-              "sin registro de la causa: sin estas variables el nivel HIL no es "
-              "reportable. Pasalas, o usa --allow-missing-conditions para una "
-              "prueba de humo.")
+        print("[ERROR] Missing physical rig conditions: " + ", ".join(missing) + ".")
+        print("        Two runs of the same model differed by 0.074 F1-macro "
+              "when environmental variables went unrecorded: without them, an "
+              "HIL run is not reportable. Provide them, or pass "
+              "--allow-missing-conditions for a quick smoke test.")
         sys.exit(2)
     if missing:
-        print("[WARN] Condiciones incompletas (" + ", ".join(missing) +
-              "): corrida marcada como NO reportable en hil_conditions.")
+        print("[WARN] Incomplete conditions (" + ", ".join(missing) +
+              "): run will be flagged as non-reportable in hil_conditions.")
     if not args.notes.strip():
-        print("[WARN] --notes vacio: anota al menos monitor, brillo y soporte.")
+        print("[WARN] --notes is empty: record at least monitor model, brightness, and mount.")
 
 
 def warn_condition_drift(args, output_dir: str):
-    """Actividad 69: avisa antes de abrir el rig si las condiciones fisicas
-    indicadas en CLI difieren de las corridas previas en output_dir (o en
-    results/hil/ si output_dir es una subcarpeta de replicas), para detectar
-    errores de digitacion como 23 vs 24 cm antes de gastar la sesion."""
+    """Warns before opening the stimulus rig if the CLI physical conditions
+    differ from previous runs in output_dir (or in results/hil/ when output_dir
+    is a replicate subfolder), catching typos such as 23 vs 24 cm early."""
     search_dirs = []
     for d in (output_dir, os.path.join(REPO_ROOT, "results", "hil")):
         if d and os.path.isdir(d) and os.path.abspath(d) not in [os.path.abspath(x) for x in search_dirs]:
@@ -289,44 +290,47 @@ def warn_condition_drift(args, output_dir: str):
         prev_vals = sorted({float(c[key]) for _, c in prev_records if c.get(key) is not None})
         if prev_vals and float(cur_val) not in prev_vals:
             prev_str = ", ".join(f"{v:g} {unit}" for v in prev_vals)
-            print(f"[WARN] Deriva en {flag}: pasaste {cur_val:g} {unit}, pero las "
-                  f"corridas previas registran [{prev_str}]. Verifica que no sea "
-                  f"un error de digitacion antes de iniciar el barrido.")
+            print(f"[WARN] Condition drift on {flag}: you passed {cur_val:g} {unit}, "
+                  f"whereas previous runs recorded [{prev_str}]. Double-check "
+                  f"that this is not a typo before starting the sweep.")
 
 
 try:
     import serial
 except ImportError:
-    print("ERROR: pyserial no está instalado. Ejecuta: pip install pyserial")
+    print("ERROR: pyserial is not installed. Run: pip install pyserial")
     sys.exit(1)
 
 try:
     import numpy as np
     import cv2
 except ImportError:
-    print("ERROR: OpenCV y/o numpy no están instalados.")
-    print("Ejecuta: pip install opencv-python numpy")
+    print("ERROR: OpenCV and/or numpy are not installed.")
+    print("Run: pip install opencv-python numpy")
     sys.exit(1)
 
 
-# ---- Comandos del protocolo (ver hil_camera_firmware.ino) ----
+# ---- Serial protocol commands (see hil_camera_firmware.ino) ----
 CMD_TRIGGER   = b'T'
 CMD_DUMP_ON   = b'F1'
 CMD_DUMP_OFF  = b'F0'
 
-# Escape del protocolo #...@ (identico a pil_benchmark.py / firmware)
+# #...@ packet framing and byte escaping (identical to pil_benchmark.py / firmware)
 MARKER_START = 0x23  # '#'
 MARKER_END   = 0x40  # '@'
 ESCAPE_BYTE  = 0x1B  # ESC
 
-# Prefijos de telemetria que emite el firmware
+# Telemetry prefixes emitted by the firmware
 TELEMETRY_RE = re.compile(r'^([A-Z][A-Z0-9_]*):(-?[\d.]+)$')
-# Campos que exportamos al CSV (en este orden)
+# Telemetry fields exported to the CSV (in this exact column order)
 TELEMETRY_FIELDS = [
     'TS_MS', 'TEMP_C',
     'CYC_CAPTURE', 'CYC_PRE', 'CYC_INF', 'CYC_POST', 'CYC_TOTAL',
     'US_CAPTURE', 'US_PRE', 'US_INF', 'US_POST', 'US_TOTAL',
 ]
+# The firmware prints its end-of-inference banner in Spanish
+# ("--- Listo. Esperando siguiente trigger... ---"), so END_MARKERS must keep
+# the exact Spanish substrings emitted by hil_camera_firmware.ino.
 END_MARKERS = ("siguiente trigger", "siguiente imagen", "Listo")
 
 WINDOW_NAME = "PHLAME HIL Stimulus"
@@ -334,11 +338,11 @@ WINDOW_NAME = "PHLAME HIL Stimulus"
 
 def normalize_port(port: str) -> str:
     """
-    Normaliza el nombre del puerto segun la plataforma (identico a
-    pil_benchmark.py):
-      - Windows nativo : COM9+ -> \\\\.\\COMx
+    Normalizes the serial port name according to the host platform (identical
+    to pil_benchmark.py):
+      - Native Windows : COM9+ -> \\\\.\\COMx
       - WSL (Linux)    : COMx  -> /dev/ttySx
-      - Linux nativo   : se usa tal cual (/dev/ttyUSB0, etc.)
+      - Native Linux   : used as is (/dev/ttyUSB0, etc.)
     """
     m = re.match(r'^COM(\d+)$', port.strip().upper())
     if m:
@@ -352,79 +356,80 @@ def normalize_port(port: str) -> str:
                 pass
         if is_wsl:
             port = f'/dev/ttyS{n}'
-            print(f"[INFO] Puerto normalizado para WSL: {port}")
+            print(f"[INFO] Port normalized for WSL: {port}")
         elif sys.platform == 'win32' and n >= 9:
             port = f'\\\\.\\COM{n}'
-            print(f"[INFO] Puerto normalizado para Windows: {port}")
+            print(f"[INFO] Port normalized for Windows: {port}")
     return port
 
 
 def collect_from_manifest(manifest_path: str, use_all_test=False, seed=42):
     """
-    Enumera (ruta_imagen, etiqueta_int) desde el manifiesto de la particion de
-    test generado por src/split_dataset.py.
+    Enumerates (image_path, int_label) pairs from the test split manifest
+    generated by src/split_dataset.py.
 
-    Por defecto usa SOLO las filas con hil_subset == 1 (el subconjunto marcado
-    para el rig fisico). Con use_all_test=True recorre las 940 imagenes.
+    By default, ONLY rows with hil_subset == 1 (the stratified subset flagged
+    for the physical rig) are selected. With use_all_test=True, every row in
+    the test manifest is used.
 
-    Por que el manifiesto y no la carpeta:
-      - El manifiesto es el UNICO lugar donde vive la marca hil_subset. Sin ese
-        filtro la sesion de laboratorio pasa de ~200 a 940 estimulos.
-      - El orden de las clases se toma del propio manifiesto (label -> class_name
-        ordenado por label entero), de modo que el indice coincide con el argmax
-        que devuelve el firmware. Enumerar subcarpetas puede dar otro orden.
-      - Deja constancia auditable de QUE imagenes se evaluaron: el CSV esta
-        versionado en git.
+    Why read from the manifest instead of scanning a folder:
+      - The manifest is the ONLY place where the hil_subset flag lives. Without
+        that filter, a lab session grows from ~200 stimuli to the entire test set.
+      - Class ordering comes directly from the manifest (integer label ->
+        class_name sorted by label), guaranteeing alignment with the firmware's
+        argmax index regardless of filesystem traversal order.
+      - Provides an auditable, git-versioned record of which exact stimuli were
+        evaluated.
 
-    Retorna (image_data, class_names).
+    Returns (image_data, class_names).
     """
     if not os.path.isfile(manifest_path):
-        print(f"[ERROR] No existe el manifiesto: {manifest_path}")
-        print("        Genera la particion primero:")
+        print(f"[ERROR] Manifest not found: {manifest_path}")
+        print("        Generate the dataset split first:")
         print("          python src/split_dataset.py")
-        print("        O apunta al manifiesto con --manifest RUTA.")
+        print("        Or point to an existing manifest with --manifest PATH.")
         sys.exit(1)
 
     with open(manifest_path, newline='', encoding='utf-8') as fh:
         rows = list(csv.DictReader(fh))
     if not rows:
-        print(f"[ERROR] El manifiesto esta vacio: {manifest_path}")
+        print(f"[ERROR] Manifest is empty: {manifest_path}")
         sys.exit(1)
 
     requeridas = {'class_name', 'label', 'src_path', 'dst_path'}
     faltan = requeridas - set(rows[0].keys())
     if faltan:
-        print(f"[ERROR] El manifiesto no tiene las columnas {sorted(faltan)}.")
-        print(f"        Columnas encontradas: {sorted(rows[0].keys())}")
+        print(f"[ERROR] Manifest is missing required columns {sorted(faltan)}.")
+        print(f"        Columns found: {sorted(rows[0].keys())}")
         sys.exit(1)
 
-    # Orden de clases desde el manifiesto: label entero -> nombre
+    # Canonical class order from manifest: integer label -> class_name
     label_a_nombre = {}
     for r in rows:
         label_a_nombre[int(r['label'])] = r['class_name']
     class_names = [label_a_nombre[k] for k in sorted(label_a_nombre)]
-    print(f"[INFO] Clases desde el manifiesto (orden = indice del firmware): "
+    print(f"[INFO] Classes loaded from manifest (order = firmware argmax index): "
           f"{class_names}")
 
-    # Filtro del subconjunto marcado para el rig
+    # Filter rows flagged for the physical HIL rig
     if use_all_test:
         sel = rows
-        print(f"[INFO] --all-test: se usan las {len(sel)} imagenes de test.")
+        print(f"[INFO] --all-test: using all {len(sel)} test images.")
     else:
         if 'hil_subset' not in rows[0]:
-            print("[ERROR] El manifiesto no tiene columna 'hil_subset'.")
-            print("        Regenera la particion o usa --all-test.")
+            print("[ERROR] Manifest has no 'hil_subset' column.")
+            print("        Regenerate the split or pass --all-test.")
             sys.exit(1)
         sel = [r for r in rows
                if str(r['hil_subset']).strip() in ('1', 'True', 'true')]
         if not sel:
-            print("[ERROR] Ninguna fila tiene hil_subset == 1.")
-            print("        Regenera la particion o usa --all-test.")
+            print("[ERROR] No manifest rows have hil_subset == 1.")
+            print("        Regenerate the split or pass --all-test.")
             sys.exit(1)
-        print(f"[INFO] Subconjunto HIL: {len(sel)} de {len(rows)} imagenes "
+        print(f"[INFO] HIL subset: {len(sel)} of {len(rows)} test images "
               f"(hil_subset == 1).")
 
-    # Resolucion de rutas: dst_path (particion materializada) y si no, src_path
+    # Resolve file paths: prefer dst_path (materialized split), fall back to src_path
     image_data = []
     ausentes = []
     for r in sel:
@@ -439,42 +444,42 @@ def collect_from_manifest(manifest_path: str, use_all_test=False, seed=42):
         image_data.append((ruta, int(r['label'])))
 
     if ausentes:
-        print(f"[ERROR] {len(ausentes)} imagenes del manifiesto no existen en "
-              f"disco. Primeras 5:")
+        print(f"[ERROR] {len(ausentes)} manifest images do not exist on disk. "
+              f"First 5 missing paths:")
         for p in ausentes[:5]:
             print(f"          {p}")
-        print("        Materializa la particion con:")
+        print("        Materialize the dataset split with:")
         print("          python src/split_dataset.py")
         sys.exit(1)
 
     reparto = Counter(class_names[lbl] for _, lbl in image_data)
-    print(f"[INFO] Reparto por clase: {dict(reparto)}")
+    print(f"[INFO] Per-class stimulus breakdown: {dict(reparto)}")
 
-    # Barajar SIEMPRE con semilla fija. El manifiesto viene agrupado por clase:
-    # presentar en ese orden mostraria una clase con el chip frio y la otra
-    # caliente, confundiendo la deriva termica con el efecto de clase y dejando
-    # la matriz de confusion sin interpretacion posible.
+    # ALWAYS shuffle with a fixed seed. Manifest rows are grouped by class:
+    # presenting them in block order would evaluate one class while the MCU is
+    # cold and the other after thermal warm-up, confounding thermal/lighting
+    # drift with class effects.
     random.seed(seed)
     random.shuffle(image_data)
-    print(f"[INFO] Orden de presentacion barajado (semilla {seed}).")
+    print(f"[INFO] Stimulus presentation order shuffled (seed {seed}).")
     return image_data, class_names
 
 
 def collect_dataset(folder: str, n_samples=None, seed=None):
     """
-    Enumera (ruta_imagen, etiqueta_int) desde subcarpetas por clase,
-    igual que pil_benchmark.py. Retorna (image_data, class_names).
+    Enumerates (image_path, int_label) pairs from per-class subfolders,
+    matching pil_benchmark.py. Returns (image_data, class_names).
     """
     extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.tif')
     subdirs = sorted(d for d in os.listdir(folder)
                      if os.path.isdir(os.path.join(folder, d)))
     if not subdirs:
-        print(f"[ERROR] Se requieren subcarpetas por clase en {folder} "
-              f"(sin ground truth no hay matriz de confusion HIL valida).")
+        print(f"[ERROR] Per-class subfolders are required in {folder} "
+              f"(cannot build a valid HIL confusion matrix without ground truth).")
         sys.exit(1)
 
     class_names = subdirs
-    print(f"[INFO] Clases reales detectadas: {class_names}")
+    print(f"[INFO] Ground-truth classes detected: {class_names}")
 
     image_data = []
     for label_idx, class_name in enumerate(class_names):
@@ -485,7 +490,7 @@ def collect_dataset(folder: str, n_samples=None, seed=None):
 
     image_data = sorted(set(image_data))
     if not image_data:
-        print(f"[ERROR] No se encontraron imágenes válidas en: {folder}")
+        print(f"[ERROR] No valid images found in: {folder}")
         sys.exit(1)
 
     available = len(image_data)
@@ -493,25 +498,25 @@ def collect_dataset(folder: str, n_samples=None, seed=None):
         random.seed(seed)
     if n_samples is not None and n_samples < available:
         image_data = random.sample(image_data, n_samples)
-        print(f"[INFO] Seleccionadas {n_samples} imágenes aleatoriamente "
-              f"de {available} disponibles")
+        print(f"[INFO] Selected {n_samples} images at random "
+              f"out of {available} available")
     else:
-        print(f"[INFO] {available} imágenes encontradas (usando todas)")
+        print(f"[INFO] {available} images found (using all)")
 
-    # Barajar el orden de presentacion: evita bloques por clase, que
-    # confundirian deriva temporal (temperatura, luz) con efecto de clase.
+    # Shuffle presentation order to avoid class blocks that would confound
+    # temporal drift (temperature, ambient light) with class effects.
     random.shuffle(image_data)
     return image_data, class_names
 
 
 # --------------------------------------------------------------------------
-# Comunicacion serie
+# Serial communication
 # --------------------------------------------------------------------------
 
 def read_lines_until(ser, predicate, timeout_s=30.0, echo=True):
     """
-    Lee lineas del serial hasta que predicate(line) sea True o expire el
-    timeout. Retorna (lista_de_lineas, linea_que_cumplio | None).
+    Reads lines from the serial port until predicate(line) returns True or
+    timeout_s expires. Returns (all_lines_read, matching_line | None).
     """
     lines = []
     deadline = time.time() + timeout_s
@@ -532,33 +537,33 @@ def read_lines_until(ser, predicate, timeout_s=30.0, echo=True):
 
 def wait_ready(ser, timeout_s=30.0):
     """
-    Espera el handshake de arranque del firmware HIL dedicado
+    Waits for the boot handshake from the dedicated HIL firmware
     (hil_camera_firmware.ino): CAM_INIT:OK ... READY_HIL.
-    Aborta si la camara fallo o si no responde (¿firmware PIL flasheado?).
+    Aborts if camera initialization fails or times out (e.g. PIL firmware flashed).
     """
     lines, hit = read_lines_until(
         ser, lambda l: l == "READY_HIL" or l == "CAM_INIT:FAIL",
         timeout_s=timeout_s)
     if hit == "READY_HIL":
-        print("[OK]   Firmware HIL listo (camara HM01B0 inicializada).")
+        print("[OK]   HIL firmware ready (HM01B0 camera initialized).")
         return parse_firmware_fingerprint(lines)
     if hit == "CAM_INIT:FAIL":
-        print("[ERROR] La camara HM01B0 no inicializo (CAM_INIT:FAIL). "
-              "¿Vision Shield conectado?")
+        print("[ERROR] HM01B0 camera failed to initialize (CAM_INIT:FAIL). "
+              "Is the Portenta Vision Shield properly attached?")
     else:
-        print("[ERROR] No llego READY_HIL. ¿Flasheaste "
+        print("[ERROR] Timed out waiting for READY_HIL. Did you flash "
               "deployment/hil_camera_firmware/hil_camera_firmware.ino? "
-              "(el firmware PIL no responde a este banco). Si el firmware ya "
-              "estaba corriendo, pulsa RESET en la placa y reintenta.")
+              "(the PIL firmware does not respond to this benchmark). If the "
+              "HIL firmware was already running, press RESET on the board and retry.")
     ser.close()
     sys.exit(1)
 
 
 def parse_inference(lines):
     """
-    Extrae (clase_predicha, telemetria_dict) de las lineas de una inferencia.
-    La clase es el unico entero 'a pelo' en su propia linea (compat con
-    pil_benchmark.py); la telemetria son lineas 'PREFIJO:valor'.
+    Extracts (predicted_class, telemetry_dict) from one inference response.
+    The predicted class is the standalone integer on its own line (compatible
+    with pil_benchmark.py); telemetry lines follow the 'PREFIX:value' format.
     """
     predicted = None
     telemetry = {}
@@ -578,8 +583,8 @@ def parse_inference(lines):
 
 def trigger_inference(ser, timeout_s=30.0):
     """
-    Dispara una captura HIL ('T') y parsea la respuesta completa.
-    Retorna (clase_predicha | None, telemetria_dict).
+    Sends an HIL capture trigger ('T') and parses the complete response.
+    Returns (predicted_class | None, telemetry_dict).
     """
     ser.reset_input_buffer()
     ser.write(CMD_TRIGGER)
@@ -594,25 +599,24 @@ def trigger_inference(ser, timeout_s=30.0):
 
 def read_frame(ser, timeout_s=20.0):
     """
-    Lee el frame-dump que el firmware envia tras la inferencia HIL
-    (FRAME_BEGIN:<n> + paquete #...@ escapado + FRAME_END).
-    Retorna np.ndarray (120, 160) uint8, o None si fallo/timeout.
-    Se llama DESPUES del end-marker de trigger_inference; el frame llega
-    fuera de la region cronometrada, asi que no afecta las latencias.
+    Reads the raw captured frame dump sent by the firmware after an HIL
+    inference (FRAME_BEGIN:<n> + escaped #...@ packet + FRAME_END).
+    Returns np.ndarray of shape (120, 160) uint8, or None on error/timeout.
+    Called AFTER the end-of-inference marker of trigger_inference, outside the
+    timed region on the MCU, so frame dumping never perturbs latency metrics.
     """
-    # 1) Esperar la linea FRAME_BEGIN:<n>
+    # 1) Wait for FRAME_BEGIN:<n>
     lines, hit = read_lines_until(
         ser, lambda l: l.startswith("FRAME_BEGIN:"),
         timeout_s=timeout_s, echo=False)
     if hit is None:
-        print("  [WARN] No llego FRAME_BEGIN (¿frame-dump activado?).")
+        print("  [WARN] FRAME_BEGIN not received (is frame-dump enabled?).")
         return None
     n_expected = int(hit.split(':', 1)[1])
 
-    # 2) Leer bytes crudos: '#' ... payload escapado ... '@'
-    #    Maquina de estados byte a byte; el flag escape_pending sobrevive
-    #    a los limites de chunk (un ESC puede llegar al final de un read()
-    #    y su byte escapado en el siguiente).
+    # 2) Read raw bytes: '#' ... escaped payload ... '@'
+    #    Byte-by-byte state machine; escape_pending survives across read()
+    #    chunk boundaries when ESC lands at the end of a USB packet.
     payload = bytearray()
     in_packet = False
     escape_pending = False
@@ -621,7 +625,7 @@ def read_frame(ser, timeout_s=20.0):
         chunk = ser.read(max(1, ser.in_waiting or 1))
         if not chunk:
             continue
-        for b in chunk:
+        for idx_b, b in enumerate(chunk):
             if not in_packet:
                 if b == MARKER_START:
                     in_packet = True
@@ -632,37 +636,39 @@ def read_frame(ser, timeout_s=20.0):
             elif b == ESCAPE_BYTE:
                 escape_pending = True
             elif b == MARKER_END:
-                # 3) Consumir la linea FRAME_END que sigue
-                read_lines_until(ser, lambda l: l == "FRAME_END",
-                                 timeout_s=3, echo=False)
+                # 3) Consume the trailing FRAME_END line unless it was already
+                #    coalesced into the remainder of this USB read() chunk.
+                if b"FRAME_END" not in chunk[idx_b + 1:]:
+                    read_lines_until(ser, lambda l: l == "FRAME_END",
+                                     timeout_s=3, echo=False)
                 if len(payload) != n_expected:
-                    print(f"  [WARN] Frame incompleto: {len(payload)}/"
+                    print(f"  [WARN] Incomplete frame: {len(payload)}/"
                           f"{n_expected} bytes.")
                     return None
                 arr = np.frombuffer(bytes(payload), dtype=np.uint8)
-                return arr.reshape(120, 160)  # HM01B0: 160x120 gris
+                return arr.reshape(120, 160)  # HM01B0 grayscale frame: 160x120
             else:
                 payload.append(b)
-    print("  [WARN] Timeout leyendo el frame.")
+    print("  [WARN] Timed out while reading captured frame.")
     return None
 
 
 # --------------------------------------------------------------------------
-# Validacion cruzada: SIL en PC sobre el frame REAL capturado por la HM01B0
+# Cross-validation: PC-side SIL & MIL on the REAL HM01B0 captured frame
 # --------------------------------------------------------------------------
 
 class SilModel:
     """
-    Ejecuta el MISMO modelo .tflite INT8 en el PC sobre el frame devuelto por
-    el firmware (frame-dump). Replica exactamente el preprocesado del
-    firmware (cameraFrameToImageBuffer + loadImageToInputTensor):
-      - resize NEAREST desde 160x120 a la geometria del modelo
-      - gris replicado a 3 canales si el modelo es RGB
-      - pixel crudo [0,255] cuantizado con scale/zero_point del tensor
-    Asi, cualquier desacuerdo HIL(chip) vs SIL(PC) sobre el mismo frame es
-    atribuible a la EJECUCION (TFLM vs TFLite, kernels, redondeo), y el
-    desacuerdo SIL(frame capturado) vs SIL/PIL(imagen limpia) es atribuible
-    al FRONTEND fisico (pantalla, optica, sensor, iluminacion).
+    Runs the EXACT SAME INT8 .tflite model on the host PC over the captured
+    frame returned by the firmware (frame-dump). Replicates the firmware's
+    preprocessing pipeline (cameraFrameToImageBuffer + loadImageToInputTensor):
+      - NEAREST resize from 160x120 to the model's input geometry
+      - single-channel grayscale replicated to 3 channels if the model is RGB
+      - raw pixel [0, 255] quantized using the input tensor's scale/zero_point
+    Consequently, any disagreement between HIL (MCU) and SIL (PC) on the same
+    frame is strictly attributable to EXECUTION (TFLM vs TFLite kernels and
+    rounding), whereas any drop from clean-image SIL/PIL to captured-frame SIL
+    is attributable to the physical FRONTEND (display, optics, sensor, lighting).
     """
 
     def __init__(self, model_path):
@@ -674,27 +680,27 @@ class SilModel:
                 import tflite_runtime.interpreter as tflite_rt
                 self._interp = tflite_rt.Interpreter(model_path=model_path)
             except ImportError:
-                print("ERROR: se requiere tensorflow o tflite-runtime para "
-                      "--sil-model. Ejecuta: pip install tensorflow")
+                print("ERROR: tensorflow or tflite-runtime is required for "
+                      "--sil-model. Run: pip install tensorflow")
                 sys.exit(1)
         self._interp.allocate_tensors()
         self._in = self._interp.get_input_details()[0]
         self._out = self._interp.get_output_details()[0]
         shape = self._in['shape']  # [1, H, W, C]
         self.h, self.w, self.c = int(shape[1]), int(shape[2]), int(shape[3])
-        print(f"[INFO] SIL-en-PC listo: {model_path} "
-              f"(entrada {self.h}x{self.w}x{self.c})")
+        print(f"[INFO] PC-side SIL ready: {model_path} "
+              f"(input {self.h}x{self.w}x{self.c})")
 
     def predict(self, frame_gray):
-        """frame_gray: np.ndarray (120,160) uint8 -> clase predicha (int)."""
-        # Resize NEAREST (identico al nearest-neighbor del firmware)
+        """frame_gray: np.ndarray (120, 160) uint8 -> predicted class (int)."""
+        # NEAREST resize (identical to the firmware's nearest-neighbor resize)
         img = cv2.resize(frame_gray, (self.w, self.h),
                          interpolation=cv2.INTER_NEAREST)
         if self.c == 3:
             img = np.stack([img] * 3, axis=-1)
         else:
             img = img[..., np.newaxis]
-        x = img[np.newaxis].astype(np.float32)  # pixel crudo [0,255]
+        x = img[np.newaxis].astype(np.float32)  # raw pixel [0, 255]
 
         if self._in['dtype'] == np.int8:
             scale, zp = self._in['quantization']
@@ -708,42 +714,42 @@ class SilModel:
 
 class MilModel:
     """
-    Nivel MIL de la escalera: el modelo .keras FLOAT ejecutado en el PC
-    sobre el frame real capturado por la HM01B0 (equivalente en fidelidad a
-    test_model.py, pero con datos del sensor en vez del dataset limpio).
-    Mismo contrato de preprocesado que el firmware y SilModel: resize
-    NEAREST, gris replicado si el modelo es RGB, pixel crudo [0,255]
-    (el modelo se entreno SIN capa Rescaling; ver hil_camera_firmware.ino).
+    MIL level of the ladder: runs the floating-point .keras model on the host
+    PC over the real frame captured by the HM01B0 sensor (matching test_model.py
+    in numerical representation, but fed with live sensor bytes instead of clean
+    dataset files). Shares the exact preprocessing contract of the firmware and
+    SilModel: NEAREST resize, grayscale channel replication if RGB, raw [0, 255]
+    pixels (rescaling layers live inside the Keras graph where applicable).
     """
 
     def __init__(self, model_path):
         try:
             import tensorflow as tf
         except ImportError:
-            print("ERROR: se requiere tensorflow para --mil-model. "
-                  "Ejecuta: pip install tensorflow")
+            print("ERROR: tensorflow is required for --mil-model. "
+                  "Run: pip install tensorflow")
             sys.exit(1)
         self._model = tf.keras.models.load_model(model_path, compile=False)
         shape = self._model.input_shape  # (None, H, W, C)
         self.h, self.w, self.c = int(shape[1]), int(shape[2]), int(shape[3])
-        print(f"[INFO] MIL-en-PC listo: {model_path} "
-              f"(entrada {self.h}x{self.w}x{self.c}, float32)")
+        print(f"[INFO] PC-side MIL ready: {model_path} "
+              f"(input {self.h}x{self.w}x{self.c}, float32)")
 
     def predict(self, frame_gray):
-        """frame_gray: np.ndarray (120,160) uint8 -> clase predicha (int)."""
+        """frame_gray: np.ndarray (120, 160) uint8 -> predicted class (int)."""
         img = cv2.resize(frame_gray, (self.w, self.h),
                          interpolation=cv2.INTER_NEAREST)
         if self.c == 3:
             img = np.stack([img] * 3, axis=-1)
         else:
             img = img[..., np.newaxis]
-        x = img[np.newaxis].astype(np.float32)  # pixel crudo [0,255]
+        x = img[np.newaxis].astype(np.float32)  # raw pixel [0, 255]
         y = self._model.predict(x, verbose=0)
         return int(np.argmax(y))
 
 
 # --------------------------------------------------------------------------
-# Rig de estimulo: monitor controlado por el host
+# Stimulus rig: host-controlled monitor display
 # --------------------------------------------------------------------------
 
 def open_stimulus_window(fullscreen=True):
@@ -755,10 +761,10 @@ def open_stimulus_window(fullscreen=True):
 
 def show_stimulus(image_path, settle_s):
     """
-    Muestra el estimulo centrado sobre fondo negro y espera settle_s
-    (estabilizacion de la pantalla + auto-exposicion de la HM01B0).
-    El escalado usa interpolacion NEAREST para no introducir contenido
-    nuevo: la fidelidad la aporta la camara, no el monitor.
+    Displays the stimulus centered on a black canvas and waits settle_s
+    (monitor refresh + HM01B0 auto-exposure settling time).
+    Uses NEAREST interpolation so the display never synthesizes smoothed pixels:
+    optical filtering comes solely from the physical camera path.
     """
     img = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
     if img is None:
@@ -784,18 +790,18 @@ def show_stimulus(image_path, settle_s):
     canvas[y0:y0 + new_h, x0:x0 + new_w] = resized
 
     cv2.imshow(WINDOW_NAME, canvas)
-    # waitKey procesa el event-loop de la GUI; imprescindible para que la
-    # imagen llegue realmente a la pantalla antes del trigger.
+    # waitKey pumps the GUI event loop, which is required for the frame to
+    # actually render on screen before sending the capture trigger.
     cv2.waitKey(max(1, int(settle_s * 1000)))
     return True
 
 
 # --------------------------------------------------------------------------
-# Reporte
+# Reporting and output artifacts
 # --------------------------------------------------------------------------
 
 def _json_safe(o):
-    """numpy -> tipos nativos (classification_report devuelve np.int64/np.float64)."""
+    """Converts numpy scalars/arrays to native Python types for json.dump."""
     try:
         import numpy as _np
         if isinstance(o, _np.integer):
@@ -806,11 +812,11 @@ def _json_safe(o):
             return o.tolist()
     except ImportError:
         pass
-    raise TypeError(f"no serializable: {type(o).__name__}")
+    raise TypeError(f"Cannot serialize to JSON: {type(o).__name__}")
 
 
 def _latency_summary(rows):
-    """Resumen por campo de telemetria, mismo formato que pil_benchmark.py."""
+    """Per-field telemetry summary matching the pil_benchmark.py JSON schema."""
     out = {}
     for field in TELEMETRY_FIELDS:
         key = field.lower()
@@ -827,15 +833,16 @@ def _latency_summary(rows):
 
 def write_outputs(rows, class_names, conditions, output_dir, model_tag):
     """
-    Actividad 55: TODAS las salidas llevan el model_tag en el nombre. Antes eran
-    fijas (HIL_Confusion_Matrix.png, hil_latencies.csv, hil_conditions.json) y
-    cada corrida borraba la anterior: la primera corrida de MobileNet se perdio asi.
-    Actividad 63: ademas se escribe metrics_<tag>.json con el MISMO esquema que
-    MIL/SIL/PIL (f1_macro, matriz cruda con orientacion declarada, sha256).
+    Writes all HIL benchmark artifacts tagged with model_tag so consecutive
+    runs across different architectures never overwrite each other:
+      - hil_latencies_<tag>.csv
+      - hil_conditions_<tag>.json
+      - HIL_Confusion_Matrix_<tag>.png
+      - metrics_<tag>.json (unified MIL/SIL/PIL/HIL schema)
     """
     os.makedirs(output_dir, exist_ok=True)
 
-    # --- CSV de latencias sensor->prediccion ---
+    # --- Per-inference sensor->prediction latency CSV ---
     csv_path = os.path.join(output_dir, f"hil_latencies_{model_tag}.csv")
     fieldnames = (['idx', 'utc_iso', 'image', 'true_label', 'true_class',
                    'pred_label', 'pred_class', 'sil_label', 'sil_class',
@@ -845,19 +852,19 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
-    print(f"[OK]   Latencias por fase guardadas en: {csv_path}")
+    print(f"[OK]   Per-phase latencies saved to: {csv_path}")
 
-    # --- Condiciones del rig (protocolo ambiental) ---
+    # --- Physical rig conditions (environmental protocol) ---
     cond_path = os.path.join(output_dir, f"hil_conditions_{model_tag}.json")
     with open(cond_path, 'w', encoding='utf-8') as f:
         json.dump(conditions, f, indent=2, ensure_ascii=False)
-    print(f"[OK]   Condiciones del rig guardadas en: {cond_path}")
+    print(f"[OK]   Rig conditions saved to: {cond_path}")
 
-    # --- Metricas + matriz de confusion ---
+    # --- Classification metrics + confusion matrix ---
     y_true = [r['true_label'] for r in rows if r['pred_label'] is not None]
     y_pred = [r['pred_label'] for r in rows if r['pred_label'] is not None]
     if not y_true:
-        print("[WARN] Sin predicciones validas: no se genera matriz de confusion.")
+        print("[WARN] No valid predictions received: skipping confusion matrix.")
         return
 
     try:
@@ -870,21 +877,21 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
                                      precision_recall_fscore_support)
 
         print("\n" + "=" * 50)
-        print("        REPORTE DE MÉTRICAS — HIL (camara en el lazo)")
+        print("      METRICS REPORT — HIL (Camera-in-the-Loop)")
         print("=" * 50)
         accuracy = accuracy_score(y_true, y_pred)
         precision, recall, f1, _ = precision_recall_fscore_support(
             y_true, y_pred, average='weighted', zero_division=0)
-        print(f"Accuracy (Exactitud):  {accuracy:.4f}")
+        print(f"Accuracy:              {accuracy:.4f}")
         print(f"Precision:             {precision:.4f}")
-        print(f"Recall (Exhaustividad):{recall:.4f}")
-        print(f"F1-Score:              {f1:.4f}")
+        print(f"Recall:                {recall:.4f}")
+        print(f"F1-Score (weighted):   {f1:.4f}")
 
         labels_present = sorted(set(y_true + y_pred))
-        target_names = [class_names[l] if l < len(class_names)
+        target_names = [class_names[l] if 0 <= l < len(class_names)
                         else f"Invalida_{l}" for l in labels_present]
 
-        print("\nReporte de Clasificación Detallado:")
+        print("\nDetailed Classification Report:")
         print(classification_report(y_true, y_pred, labels=labels_present,
                                     target_names=target_names, zero_division=0))
 
@@ -899,9 +906,9 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
         cm_path = os.path.join(output_dir, f"HIL_Confusion_Matrix_{model_tag}.png")
         plt.savefig(cm_path)
         plt.close()
-        print(f"[OK]   Matriz de confusión HIL guardada en: {cm_path}")
+        print(f"[OK]   HIL confusion matrix saved to: {cm_path}")
 
-        # --- metrics_<tag>.json: mismo esquema que MIL / SIL / PIL ---
+        # --- metrics_<tag>.json: same schema as MIL / SIL / PIL ---
         p_m, r_m, f_m, _ = precision_recall_fscore_support(
             y_true, y_pred, average='macro', zero_division=0)
         report_dict = classification_report(
@@ -982,13 +989,13 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
         metrics_path = os.path.join(output_dir, f"metrics_{model_tag}.json")
         with open(metrics_path, "w", encoding="utf-8") as fh:
             json.dump(resultados, fh, indent=2, ensure_ascii=False, default=_json_safe)
-        print(f"[OK]   Métricas (JSON, mismo esquema que MIL/SIL/PIL) en: {metrics_path}")
-        print(f"       F1-macro = {f_m:.4f}   errores = {int(cm.sum() - np.trace(cm))}")
+        print(f"[OK]   JSON metrics (same schema as MIL/SIL/PIL) saved to: {metrics_path}")
+        print(f"       F1-macro = {f_m:.4f}   errors = {int(cm.sum() - np.trace(cm))}")
     except ImportError:
-        print("\n[WARN] Faltan librerías para la matriz de confusión.")
-        print("Instálalas con: pip install scikit-learn seaborn matplotlib")
+        print("\n[WARN] Missing libraries required for the confusion matrix and JSON metrics.")
+        print("Install them with: pip install scikit-learn seaborn matplotlib")
 
-    # --- Resumen de latencias por fase ---
+    # --- Per-phase latency summary table ---
     def stats(key):
         vals = [r[key] for r in rows if r.get(key) is not None]
         if not vals:
@@ -997,8 +1004,8 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
         return arr.mean(), arr.std(), arr.min(), arr.max()
 
     print("\n" + "=" * 60)
-    print("  LATENCIA POR FASE (sensor→predicción)   [ms]")
-    print(f"  {'Fase':<10} {'media':>9} {'std':>9} {'min':>9} {'max':>9}")
+    print("  LATENCY BY PHASE (sensor -> prediction)   [ms]")
+    print(f"  {'Phase':<10} {'mean':>9} {'std':>9} {'min':>9} {'max':>9}")
     print("  " + "-" * 50)
     for key, name in [('us_capture', 'CAPTURE'), ('us_pre', 'PRE'),
                       ('us_inf', 'INF'), ('us_post', 'POST'),
@@ -1009,9 +1016,9 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
                   f"{s[2]:>9.3f} {s[3]:>9.3f}")
     print("=" * 60)
 
-    # --- Validacion cruzada: escalera MIL/SIL/HIL sobre el MISMO frame ---
-    # Solo cuentan los frames donde estan disponibles TODOS los niveles
-    # activados, para que las accuracies sean comparables entre si.
+    # --- Cross-validation: MIL/SIL/HIL fidelity ladder on the SAME frame ---
+    # Only frames where ALL enabled levels produced a prediction are included,
+    # keeping accuracies strictly paired across levels.
     levels = [('pred_label', 'HIL (TFLM INT8, Cortex-M7)')]
     if any(r.get('sil_label') is not None for r in rows):
         levels.insert(0, ('sil_label', 'SIL (TFLite INT8, PC)'))
@@ -1025,21 +1032,21 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
         if paired:
             n = len(paired)
             print("\n" + "=" * 64)
-            print("  ESCALERA DE FIDELIDAD — mismo frame capturado por la HM01B0")
-            print(f"  Frames emparejados: {n}")
-            print(f"\n  {'Nivel':<30} {'Accuracy':>10}")
+            print("  FIDELITY LADDER — same frame captured by the HM01B0 sensor")
+            print(f"  Paired frames: {n}")
+            print(f"\n  {'Level':<30} {'Accuracy':>10}")
             print("  " + "-" * 42)
             for key, label in levels:
                 acc = sum(1 for r in paired
                           if r[key] == r['true_label']) / n
                 print(f"  {label:<30} {acc:>10.4f}")
 
-            print(f"\n  {'Acuerdo por pares':<38} {'%':>7}   atribuible a")
+            print(f"\n  {'Pairwise agreement':<38} {'%':>7}   attributable to")
             print("  " + "-" * 60)
             pair_meaning = {
-                ('mil_label', 'sil_label'): 'cuantizacion INT8',
-                ('sil_label', 'pred_label'): 'ejecucion chip vs PC',
-                ('mil_label', 'pred_label'): 'cuantizacion + ejecucion',
+                ('mil_label', 'sil_label'): 'INT8 quantization',
+                ('sil_label', 'pred_label'): 'MCU vs PC execution',
+                ('mil_label', 'pred_label'): 'quantization + execution',
             }
             for i in range(len(keys)):
                 for j in range(i + 1, len(keys)):
@@ -1050,42 +1057,47 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
                     meaning = pair_meaning.get((a, b), '')
                     print(f"  {la} vs {lb:<32} {agree / n * 100:>6.1f}   "
                           f"{meaning}")
-            print("\n  → La caída de TODOS los niveles vs sus accuracies PIL/")
-            print("    dataset limpio = degradación del FRONTEND físico")
-            print("    (pantalla/óptica/sensor/iluminación): la brecha PIL→HIL.")
+            print("\n  -> Any drop across ALL levels vs their clean-dataset / PIL")
+            print("     accuracies reflects physical FRONTEND degradation")
+            print("     (display / optics / sensor / lighting): the PIL -> HIL gap.")
             print("=" * 64)
 
 
 # --------------------------------------------------------------------------
-# Main
+# Main benchmark loop
 # --------------------------------------------------------------------------
 
 def run_benchmark(args):
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(errors="replace")
+        except Exception:
+            pass
     port = normalize_port(args.port)
 
-    # --- Actividad 50: condiciones fisicas obligatorias (falla ANTES del rig) ---
+    # --- Require physical rig conditions before opening serial or GUI ---
     check_required_conditions(args)
-    # --- Actividad 69: avisar si las condiciones difieren de corridas previas ---
+    # --- Warn early if CLI conditions drift from previous runs ---
     warn_condition_drift(args, args.output_dir)
 
-    # --- Actividad 43/55: etiqueta del modelo y .tflite esperado ---
+    # --- Resolve model tag and expected .tflite reference ---
     tflite_path = args.tflite or args.sil_model
     if args.model_tag:
         model_tag = args.model_tag
     elif tflite_path:
         model_tag = os.path.splitext(os.path.basename(tflite_path))[0]
     else:
-        print("[ERROR] Necesito saber que modelo va en la placa para nombrar las "
-              "salidas: pasa --tflite <ruta al .tflite flasheado> (recomendado, "
-              "ademas verifica la huella) o al menos --model-tag <nombre>.")
+        print("[ERROR] Cannot determine which model is on the board to name output "
+              "artifacts: pass --tflite <path to flashed .tflite> (recommended; "
+              "also verifies the on-chip FNV-1a hash) or at least --model-tag <name>.")
         sys.exit(2)
     expected = expected_model_fingerprint(tflite_path)
     if tflite_path and expected is None:
-        print(f"[ERROR] No existe el .tflite indicado: {tflite_path}")
+        print(f"[ERROR] Specified .tflite file does not exist: {tflite_path}")
         sys.exit(2)
     if args.folder:
-        print(f"[WARN] --folder pasado explicitamente: se usa {args.folder} "
-              f"y NO se aplica el filtro hil_subset del manifiesto.")
+        print(f"[WARN] Explicit --folder provided: reading from {args.folder} "
+              f"and bypassing the manifest hil_subset filter.")
         fuente = f"folder:{_relpath_repo(args.folder)}"
         image_data, class_names = collect_dataset(args.folder, args.count,
                                                   args.seed)
@@ -1096,25 +1108,25 @@ def run_benchmark(args):
         if args.count is not None and args.count < len(image_data):
             random.seed(args.seed)
             image_data = random.sample(image_data, args.count)
-            print(f"[INFO] --count {args.count}: recortado a {args.count} "
-                  f"estimulos.")
+            print(f"[INFO] --count {args.count}: subsampled to {args.count} "
+                  f"stimuli.")
 
-    print(f"[INFO] Conectando a {port} @ {args.baud} baud ...")
+    print(f"[INFO] Connecting to {port} @ {args.baud} baud ...")
     try:
         ser = serial.Serial(port, args.baud, timeout=10)
     except serial.SerialException as e:
-        print(f"ERROR al abrir el puerto: {e}")
+        print(f"ERROR opening serial port: {e}")
         sys.exit(1)
 
-    print(f"[INFO] Puerto abierto. Esperando {args.delay}s (setup del firmware)...")
+    print(f"[INFO] Port open. Waiting {args.delay}s (firmware setup)...")
     time.sleep(args.delay)
 
-    # Handshake con el firmware HIL dedicado (hil_camera_firmware.ino)
+    # Handshake with the dedicated HIL firmware (hil_camera_firmware.ino)
     fw = wait_ready(ser)
     identity_ok = verify_model_identity(fw, expected, model_tag, args.output_dir,
                                         allow_mismatch=args.allow_model_mismatch)
 
-    # Validacion cruzada: frame-dump + MIL/SIL en PC
+    # Cross-validation: raw frame-dump + PC-side MIL/SIL
     sil_model = None
     mil_model = None
     dump_frames = (args.dump_frames or args.sil_model is not None
@@ -1129,17 +1141,17 @@ def run_benchmark(args):
         ser.flush()
         read_lines_until(ser, lambda l: l == "FRAME_DUMP:ON", timeout_s=5,
                          echo=False)
-        # Frames bajo data/ (git-ignored segun checklist; solo trazabilidad)
+        # Store captured frames under data/ (git-ignored; for local traceability)
         frames_dir = args.frames_dir
         os.makedirs(frames_dir, exist_ok=True)
-        print(f"[INFO] Frame-dump activado; frames en: {frames_dir}")
+        print(f"[INFO] Frame-dump enabled; saving captured frames to: {frames_dir}")
 
-    # Rig de estimulo: ventana en el monitor controlada por el host
+    # Stimulus rig: host-controlled monitor window
     open_stimulus_window(fullscreen=not args.windowed)
-    print("[INFO] Ventana de estímulo abierta. Alinea la cámara con la "
-          "pantalla (distancia y encuadre fijos) y verifica el enfoque.")
+    print("[INFO] Stimulus window open. Align the camera with the screen "
+          "(fixed distance and framing) and verify optical focus.")
     if not args.no_confirm:
-        input("       Pulsa ENTER para iniciar el barrido de estímulos... ")
+        input("       Press ENTER to start the stimulus sweep... ")
 
     conditions = {
         'rig': 'monitor-controlled-stimulus (checklist Fase 1C, opcion a)',
@@ -1184,17 +1196,17 @@ def run_benchmark(args):
     try:
         for idx, (image_path, true_label) in enumerate(image_data, start=1):
             name = os.path.basename(image_path)
-            print(f"\n[INFO] ({idx}/{total}) Estímulo: {name} "
-                  f"(clase real: {class_names[true_label]})")
+            print(f"\n[INFO] ({idx}/{total}) Stimulus: {name} "
+                  f"(ground-truth class: {class_names[true_label]})")
 
             if not show_stimulus(image_path, args.settle):
-                print(f"  [WARN] No se pudo cargar {image_path}; se omite.")
+                print(f"  [WARN] Could not load {image_path}; skipping.")
                 errors += 1
                 continue
 
             predicted, telemetry = trigger_inference(ser)
 
-            # Frame-dump + MIL/SIL en PC sobre el frame REAL capturado
+            # Frame-dump + PC-side MIL/SIL evaluation on the REAL captured frame
             sil_label = None
             mil_label = None
             frame_file = None
@@ -1217,17 +1229,17 @@ def run_benchmark(args):
                 'pred_label': predicted,
                 'pred_class': (class_names[predicted]
                                if predicted is not None
-                               and predicted < len(class_names)
+                               and 0 <= predicted < len(class_names)
                                else None),
                 'sil_label': sil_label,
                 'sil_class': (class_names[sil_label]
                               if sil_label is not None
-                              and sil_label < len(class_names)
+                              and 0 <= sil_label < len(class_names)
                               else None),
                 'mil_label': mil_label,
                 'mil_class': (class_names[mil_label]
                               if mil_label is not None
-                              and mil_label < len(class_names)
+                              and 0 <= mil_label < len(class_names)
                               else None),
                 'frame_file': frame_file,
             }
@@ -1239,7 +1251,7 @@ def run_benchmark(args):
                 counts[predicted] += 1
                 marker = "✓" if predicted == true_label else "✗"
                 us_total = telemetry.get('US_TOTAL')
-                lat = (f" | sensor→pred: {us_total / 1000.0:.2f} ms"
+                lat = (f" | sensor->pred: {us_total / 1000.0:.2f} ms"
                        if us_total else "")
                 xval = ""
                 if sil_label is not None:
@@ -1248,19 +1260,18 @@ def run_benchmark(args):
                 if mil_label is not None:
                     agree = "=" if mil_label == predicted else "≠"
                     xval += f" | MIL(PC): {row['mil_class']} {agree} HIL"
-                print(f"  {marker} Predicho: {row['pred_class']}{lat}{xval}")
+                print(f"  {marker} Predicted: {row['pred_class']}{lat}{xval}")
             else:
                 errors += 1
-                print("  [WARN] Sin respuesta del firmware para este estímulo.")
+                print("  [WARN] No response from firmware for this stimulus.")
 
             if idx < total and args.gap > 0:
                 time.sleep(args.gap)
     except KeyboardInterrupt:
-        print("\n[WARN] Interrumpido por el usuario; se guardan los datos "
-              "recolectados hasta ahora.")
+        print("\n[WARN] Interrupted by user; saving all data collected so far.")
     finally:
         conditions['utc_end'] = datetime.now(timezone.utc).isoformat()
-        # Apagar frame-dump y cerrar limpio
+        # Disable frame-dump and close cleanly
         try:
             if dump_frames:
                 ser.write(CMD_DUMP_OFF)
@@ -1274,9 +1285,9 @@ def run_benchmark(args):
 
     respondidas = len(rows) - sum(1 for r in rows if r['pred_label'] is None)
     print("\n" + "=" * 45)
-    print("  RESUMEN — BANCO HIL (cámara en el lazo)")
-    print(f"  Estímulos: {total}  |  Respondidos: {respondidas}  "
-          f"|  Fallos: {errors}")
+    print("  SUMMARY — HIL BENCHMARK (Camera-in-the-Loop)")
+    print(f"  Stimuli: {total}  |  Answered: {respondidas}  "
+          f"|  Failures: {errors}")
     print("=" * 45)
 
     write_outputs(rows, class_names, conditions, args.output_dir, model_tag)
@@ -1284,88 +1295,88 @@ def run_benchmark(args):
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Banco HIL real: la HM01B0 captura estímulos presentados "
-                    "en el monitor; empareja predicción↔ground truth y mide "
-                    "latencia sensor→predicción por fases.")
+        description="Real Camera-in-the-Loop HIL benchmark: the HM01B0 captures "
+                    "stimuli displayed on a monitor, pairs predictions against "
+                    "ground truth, and measures per-phase sensor->prediction latency.")
     parser.add_argument('--port', default="COM9",
-                        help="Puerto serial (ej. COM9 o /dev/ttyUSB0)")
+                        help="Serial port (e.g. COM9 or /dev/ttyUSB0)")
     parser.add_argument('--baud', type=int, default=115200,
-                        help="Baudrate (default: 115200)")
+                        help="Baud rate (default: 115200)")
     parser.add_argument('--manifest',
                         default=os.path.join('data', 'splits',
                                              'test_manifest.csv'),
-                        help="Manifiesto de la particion de test "
+                        help="Test split manifest CSV "
                              "(default: data/splits/test_manifest.csv). "
-                             "Fuente por defecto de los estimulos.")
+                             "Default stimulus source.")
     parser.add_argument('--all-test', action='store_true',
-                        help="Usar las 940 imagenes de test en vez de las "
-                             "marcadas con hil_subset == 1 (~200). Multiplica "
-                             "por ~4.7 la duracion de la sesion.")
+                        help="Use every image in the test manifest instead of "
+                             "only rows flagged with hil_subset == 1 (~200). "
+                             "Increases lab session duration proportionally.")
     parser.add_argument('--folder', default=None,
-                        help="OVERRIDE explicito: dataset con subcarpetas por "
-                             "clase. Si se pasa, se ignora el manifiesto y NO "
-                             "se aplica el filtro hil_subset.")
+                        help="Explicit OVERRIDE: dataset folder with per-class "
+                             "subfolders. Ignores the manifest and bypasses "
+                             "the hil_subset filter.")
     parser.add_argument('--count', type=int, default=None, metavar='N',
-                        help="Nº de estímulos aleatorios (default: todos)")
+                        help="Number of random stimuli to evaluate (default: all)")
     parser.add_argument('--seed', type=int, default=42,
-                        help="Semilla para muestreo/orden reproducibles "
+                        help="Random seed for reproducible sampling and ordering "
                              "(default: 42)")
     parser.add_argument('--settle', type=float, default=1.5,
-                        help="Segundos de estabilización tras mostrar cada "
-                             "estímulo, antes del trigger (default: 1.5)")
+                        help="Settling time in seconds after displaying each "
+                             "stimulus before triggering capture (default: 1.5)")
     parser.add_argument('--gap', type=float, default=0.5,
-                        help="Segundos entre estímulos (default: 0.5)")
+                        help="Seconds to wait between consecutive stimuli (default: 0.5)")
     parser.add_argument('--delay', type=float, default=2.0,
-                        help="Espera inicial tras abrir el puerto (default: 2.0)")
+                        help="Initial wait in seconds after opening the serial port (default: 2.0)")
     parser.add_argument('--output-dir', default=os.path.join('results', 'hil'),
-                        help="Directorio de salida (default: results/hil)")
+                        help="Output directory (default: results/hil)")
     parser.add_argument('--windowed', action='store_true',
-                        help="Ventana normal en vez de pantalla completa")
+                        help="Open a normal resizable window instead of fullscreen")
     parser.add_argument('--no-confirm', action='store_true',
-                        help="No esperar ENTER antes de iniciar el barrido")
-    # Condiciones ambientales del rig (checklist Fase 1C)
+                        help="Start the stimulus sweep immediately without waiting for ENTER")
+    # Environmental rig conditions
     parser.add_argument('--lux', type=float, default=None,
-                        help="Iluminancia medida en el plano de la pantalla [lux]")
+                        help="Illuminance measured at the screen plane [lux]")
     parser.add_argument('--distance-cm', type=float, default=None,
-                        help="Distancia cámara↔pantalla [cm]")
+                        help="Camera-to-screen distance [cm]")
     parser.add_argument('--ambient-temp', type=float, default=None,
-                        help="Temperatura ambiente [°C]")
-    # Identidad del modelo (actividad 43) y nombres de salida (actividad 55)
+                        help="Ambient room temperature [°C]")
+    # Model identity verification and output tagging
     parser.add_argument('--tflite', default=None, metavar='TFLITE',
-                        help="Ruta al .tflite INT8 que generó el model.h "
-                             "flasheado. Se compara su huella FNV-1a con la "
-                             "que imprime el firmware al arrancar y el banco "
-                             "ABORTA si no coinciden. Si no se pasa, se usa "
-                             "--sil-model como referencia.")
-    parser.add_argument('--model-tag', default=None, metavar='NOMBRE',
-                        help="Etiqueta para los nombres de salida (default: "
-                             "nombre del .tflite sin extensión).")
+                        help="Path to the INT8 .tflite file used to generate "
+                             "the flashed model.h. Its FNV-1a hash is verified "
+                             "against the hash printed by the firmware at boot, "
+                             "aborting on mismatch. Falls back to --sil-model "
+                             "when omitted.")
+    parser.add_argument('--model-tag', default=None, metavar='NAME',
+                        help="Tag used to name output files (default: .tflite "
+                             "basename without extension).")
     parser.add_argument('--allow-model-mismatch', action='store_true',
-                        help="NO abortar si la huella del chip no coincide "
-                             "(solo depuración; la corrida queda marcada).")
+                        help="Do NOT abort on on-chip FNV-1a mismatch or "
+                             "previous-run tag collision (debugging only; "
+                             "recorded in output JSON).")
     parser.add_argument('--allow-missing-conditions', action='store_true',
-                        help="NO abortar si faltan --lux/--distance-cm/"
-                             "--ambient-temp (solo pruebas de humo).")
+                        help="Do NOT abort when --lux/--distance-cm/"
+                             "--ambient-temp are omitted (smoke tests only).")
     parser.add_argument('--notes', default="",
-                        help="Notas libres del montaje (encuadre, soporte, "
-                             "modelo de monitor, brillo...)")
-    # Validacion cruzada HIL(chip) vs SIL(PC) sobre el mismo frame
+                        help="Free-form setup notes (framing, mount, monitor "
+                             "model, brightness setting, etc.)")
+    # Cross-validation: HIL (MCU) vs SIL/MIL (PC) on the exact same frame
     parser.add_argument('--dump-frames', action='store_true',
-                        help="Recuperar y guardar cada frame capturado por "
-                             "la HM01B0 (trazabilidad)")
+                        help="Retrieve and save every raw frame captured by "
+                             "the HM01B0 camera (traceability)")
     parser.add_argument('--sil-model', default=None, metavar='TFLITE',
-                        help="Ruta al MISMO .tflite INT8 del firmware: se "
-                             "ejecuta en el PC sobre cada frame capturado "
-                             "(implica --dump-frames). Aisla la divergencia "
-                             "de ejecucion chip vs PC.")
+                        help="Path to the SAME INT8 .tflite flashed on the MCU: "
+                             "runs on the PC over each captured frame (implies "
+                             "--dump-frames). Isolates MCU vs PC execution divergence.")
     parser.add_argument('--mil-model', default=None, metavar='KERAS',
-                        help="Ruta al .keras float original: se ejecuta en "
-                             "el PC sobre cada frame capturado (implica "
-                             "--dump-frames). Junto a --sil-model aisla la "
-                             "perdida por cuantizacion INT8.")
+                        help="Path to the original float .keras model: runs on "
+                             "the PC over each captured frame (implies "
+                             "--dump-frames). Combined with --sil-model, "
+                             "isolates INT8 quantization loss.")
     parser.add_argument('--frames-dir', default=os.path.join('data',
                                                              'hil_frames'),
-                        help="Directorio de frames capturados, git-ignored "
+                        help="Directory for saved captured frames, git-ignored "
                              "(default: data/hil_frames)")
     return parser.parse_args()
 
