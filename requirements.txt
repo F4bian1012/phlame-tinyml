@@ -4,10 +4,11 @@
 # Minimum compatible versions (>=). Exact versions of the verified environment
 # are pinned in requirements-lock.txt (pip install -r requirements-lock.txt).
 # ==============================================================================
-# Verified working combination (Windows 11, revised 2026-11-01):
-#   Python 3.13.14 | tensorflow 2.21.0 (keras 3.13.2, tensorboard 2.20.0 pulled
-#   in as its dependencies) | numpy 2.4.2 | opencv-python 4.13.0.92
-#   pillow 11.3.0 | matplotlib 3.10.8 | pyserial 3.5
+# Verified working combination (project venv, Windows 11, revised 2026-11-01):
+#   Python 3.13.14 | tensorflow 2.21.0 (keras 3.15.1, tensorboard 2.21.0 pulled
+#   in as its dependencies) | numpy 2.5.3 | opencv-python 5.0.0.93
+#   pillow 12.3.0 | scikit-learn 1.9.1 | seaborn 0.13.2 | matplotlib 3.11.2
+#   pyserial 3.5
 # Every script in src/ and nicla_vision_port/ was scanned for imports on
 # 2026-11-01; each entry below names the scripts that need it.
 # ==============================================================================
