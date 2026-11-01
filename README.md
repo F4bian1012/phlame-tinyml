@@ -393,8 +393,12 @@ larger model: regenerate it for the model you actually mean to deploy with
 `Invalid DFU suffix signature` warning that `dfu-util` prints alongside it is
 unrelated and harmless.
 
-**Toolchain.** Arduino CLI + `arduino:mbed_portenta` core + `Chirale_TensorFlowLite`
-library (see `requirements.txt`).
+**Toolchain.** Arduino CLI 1.5.0 + `arduino:mbed_portenta` core 4.5.0 +
+`Chirale_TensorFlowLite` library 2.0.0 (the versions behind the published
+results; the Camera/HM01B0 and SDRAM libraries ship inside the core). Install
+them with `arduino-cli core install arduino:mbed_portenta@4.5.0` and
+`arduino-cli lib install "Chirale_TensorFlowLite@2.0.0"`; see the non-Python
+section of `requirements.txt`.
 
 **Hardware Portability & External SDRAM Constraint.** Both host benches (`pil_benchmark.py` and `hil_camera_benchmark.py`) and the wire protocols (`#...@` byte-escaped framing for PIL; `READY_HIL` / `MODEL_FNV1A:<hex>` / `'T'` / `'F1'` for HIL) are **100% board-agnostic** — they communicate over standard USB CDC serial and do not assume a specific MCU or camera peripheral. In the firmware sketches (`pil_firmware.ino` and `hil_camera_firmware.ino`), the Cortex-M7 DWT cycle counter (`DWT->CYCCNT` / `SystemCoreClock`), the `FNV-1a` model hash, and the TFLite-Micro `Invoke()` loop are portable across any ARM Cortex-M4/M7 target; only two hardware-abstraction blocks (~15 lines total) are board-specific:
 1. **Arena & buffer allocation (`SDRAM.begin()` / `SDRAM.malloc()`):** Porting to a board without external SDRAM (such as the **Arduino Nicla Vision**, which shares the same STM32H747XI MCU but has no external SDRAM chip) replaces `SDRAM.malloc()` with a static `alignas(16) uint8_t tensor_arena[...]` in internal SRAM. Compilation tests against `arduino:mbed_nicla:nicla_vision` (`700 KB` PIL / `713 KB` HIL flash) leave at most **~288 KB** of contiguous internal SRAM for the tensor arena — sufficient for `MobileNet` (`177.2 KB` arena) and `MobileNetV3Small` (`220.5 KB` arena), but insufficient for `MobileNetV2` (`348.1 KB`), `ResNet8` (`388.8 KB`), or `SqueezeNet` (`404.7 KB`). The Portenta H7's **8 MB external SDRAM** is therefore required to evaluate all five deployable architectures under an identical 4 MB arena configuration.
@@ -425,6 +429,21 @@ pip install -r requirements.txt
 
 > On Windows, if PowerShell blocks the activation script, run once:
 > `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+
+**Why two requirements files.** `requirements.txt` declares *minimum* compatible
+versions (`>=`): it installs on any supported Python and OS, even with newer
+releases, and is what the commands above use. `requirements-lock.txt` pins the
+*exact* versions of the environment behind the published results (Python
+3.13.14, TensorFlow 2.21.0, see its header): use `pip install -r requirements-lock.txt`
+when you need to reproduce the reported numbers rather than just run the
+framework. One file cannot do both: exact pins stop installing as soon as a
+release disappears or is missing for another Python version, and minimums alone
+cannot rebuild the exact environment. `scikit-learn` and `seaborn` are not optional:
+the evaluation scripts need them to write `metrics_*.json` and the confusion
+matrices. GPU training is only possible under WSL2 (`tensorflow[and-cuda]`, see the
+note in `requirements.txt`); the serial benches stay on Windows, where the COM port is.
+The firmware toolchain (Arduino CLI, `arduino:mbed_portenta` core,
+`Chirale_TensorFlowLite`) is described under [Hardware Requirements](#hardware-requirements).
 
 ### 2. Data Preparation
 Place your raw image dataset inside `data/raw/` (organized by class subfolders), 
