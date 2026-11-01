@@ -51,6 +51,9 @@ pyserial>=3.5
 # --- Visualization ---
 # Training curves and confusion matrices (train_*.py, test_*.py, benches)
 matplotlib>=3.7.0
+# keras.callbacks.TensorBoard in train_mobilenet.py, train_resnet.py and
+# train_squeezenet.py (also installed as a TensorFlow dependency)
+tensorboard>=2.15.0
 
 # ==============================================================================
 # Optional
@@ -63,10 +66,6 @@ matplotlib>=3.7.0
 # ==============================================================================
 # Declared previously, no longer listed (scan of 2026-11-01)
 # ==============================================================================
-# tensorboard>=2.15.0
-#   No script imports it or uses keras.callbacks.TensorBoard (the earlier
-#   comment claiming train_mobilenet.py / train_resnet.py use it was wrong).
-#   It is still installed automatically as a TensorFlow dependency.
 # pandas>=2.0.0
 #   No script in the repository imports it.
 # tensorflow-model-optimization>=0.7.5

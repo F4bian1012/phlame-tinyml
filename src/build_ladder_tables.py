@@ -166,7 +166,9 @@ class Inputs:
         if not os.path.isfile(full):
             sys.exit(f"[ERROR] Missing input file: {rel}")
         with open(full, "rb") as f:
-            self.read[rel.replace(os.sep, "/")] = hashlib.sha256(f.read()).hexdigest()
+            # Hash with LF line endings: git on Windows (core.autocrlf) checks text files
+            # out with CRLF, and the digests must not depend on the platform.
+            self.read[rel.replace(os.sep, "/")] = hashlib.sha256(f.read().replace(b"\r\n", b"\n")).hexdigest()
         return full
 
     def json(self, rel):
@@ -395,7 +397,7 @@ def main():
         H = io.json(f"results/hil/metrics_{tag(a)}_int8.json")["latencia"]["por_campo"]
         fw = io.json(f"results/hil/hil_conditions_{tag(a)}_int8.json")["firmware_model"]
         ms = lambda d, k: d[k]["media"] / 1000.0
-        t3[a] = {"tflite_kB": tfl[a][0] / 1000.0, "arena_kB": fw["arena_used_bytes"] / 1000.0,
+        t3[a] = {"tflite_KiB": tfl[a][0] / 1024.0, "arena_KiB": fw["arena_used_bytes"] / 1024.0,
                  "PIL_pre_ms": ms(P, "US_PRE"), "PIL_inf_ms": ms(P, "US_INF"), "PIL_post_ms": ms(P, "US_POST"),
                  "PIL_total_ms": ms(P, "US_TOTAL"),
                  "PIL_cv_pct": 100 * P["US_TOTAL"]["desv_std"] / P["US_TOTAL"]["media"],
@@ -528,7 +530,7 @@ def main():
     rows, crows = [], []
     for a in archs:
         r = t1[a]; q = r["quant"]
-        row = [a, f"{r['tflite_bytes'] / 1000:,.0f}", num(r["MIL_f1"]), num(r["SIL_f1"]),
+        row = [a, f"{r['tflite_bytes'] / 1024:,.1f}", num(r["MIL_f1"]), num(r["SIL_f1"]),
                f"{num(q['d_f1'])} {ci(q['ci_lo'], q['ci_hi'])}", pval(q["p_holm"])]
         if a in dep:
             e, h = r["exec"], r["frontend"]
@@ -547,7 +549,7 @@ def main():
                       g("frontend", "p"), g("frontend", "p_holm"), g("frontend", "agreement_pct")])
     big = ", ".join(f"{a} {tfl[a][0]:,} B" for a in archs if a not in dep)
     emit(1, "Fidelity ladder MIL \u2192 SIL \u2192 PIL \u2192 HIL (macro-F1)",
-         ["Architecture", ".tflite (kB)", "MIL", "SIL", "\u0394 MIL\u2192SIL [95% CI]", "p Holm", "PIL",
+         ["Architecture", ".tflite (KiB)", "MIL", "SIL", "\u0394 MIL\u2192SIL [95% CI]", "p Holm", "PIL",
           "SIL\u2013PIL agreement", "PIL (200)", "HIL (200)", "\u0394 PIL\u2192HIL [95% CI]", "p Holm"],
          rows,
          f"MIL, SIL and PIL on the full test set (n = {n_full}); PIL (200) and HIL on the rig subset (n = {n_rig}), "
@@ -585,13 +587,13 @@ def main():
          "decomposition", ch, crows)
 
     # Table 3
-    rows = [[a, f"{t3[a]['tflite_kB']:.0f}", f"{t3[a]['arena_kB']:.0f}", f"{t3[a]['PIL_pre_ms']:.2f}",
+    rows = [[a, f"{t3[a]['tflite_KiB']:,.1f}", f"{t3[a]['arena_KiB']:,.1f}", f"{t3[a]['PIL_pre_ms']:.2f}",
              f"{t3[a]['PIL_inf_ms']:.1f}", f"{t3[a]['PIL_post_ms']:.3f}", f"{t3[a]['PIL_total_ms']:.1f}",
              f"{t3[a]['PIL_cv_pct']:.3f}", f"{t3[a]['HIL_capture_ms']:.2f}", f"{t3[a]['HIL_total_ms']:.1f}",
              num(t3[a]["d_cycles_inf_HIL_vs_PIL_pct"], 2)] for a in t3_order]
     keys3 = list(t3[t3_order[0]])
     emit(3, "Per-phase latency and memory on the Cortex-M7",
-         ["Architecture", ".tflite (kB)", "Arena (kB)", "PRE (ms)", "INF (ms)", "POST (ms)", "PIL total (ms)",
+         ["Architecture", ".tflite (KiB)", "Arena (KiB)", "PRE (ms)", "INF (ms)", "POST (ms)", "PIL total (ms)",
           "PIL CV (%)", "CAPTURE (ms)", "HIL total (ms)", "\u0394 INF cycles HIL\u2212PIL (%)"],
          rows,
          "Means over the PIL and HIL runs (DWT cycle counter). PRE, INF and POST are PIL phases; CAPTURE exists only "
