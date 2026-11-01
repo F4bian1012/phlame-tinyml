@@ -9,136 +9,137 @@ try:
         sys.stdout.reconfigure(encoding='utf-8')
 except AttributeError:
     pass
-# FQBN configurado para Portenta M7
+# FQBN configured for the Portenta M7
 FQBN_BASE = "arduino:mbed_portenta:envie_m7"
 FQBN_FULL = f"{FQBN_BASE}:split=100_0"
 
-# Sketches de firmware del framework. La placa ejecuta UNO a la vez, asi que
-# --target elige cual se sube (no existe la opcion "ambos").
+# Framework firmware sketches. The board runs ONE at a time, so --target
+# picks which one gets uploaded (there is no "both" option).
 FIRMWARE_DIRS = {
     'pil': os.path.join('deployment', 'pil_firmware'),
     'hil': os.path.join('deployment', 'hil_camera_firmware'),
 }
 
-# Raiz del repo, resuelta desde este archivo para no depender del cwd.
+# Repo root, resolved from this file so as not to depend on the cwd.
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def ejecutar(comando):
-    """Ejecuta un comando en la terminal y retorna éxito y su salida."""
-    res = subprocess.run(comando, shell=True, capture_output=True, text=True)
+    """Runs a command in the terminal and returns success and its output."""
+    res = subprocess.run(comando, shell=True, capture_output=True, text=True,
+                         encoding="utf-8", errors="replace")
     if res.returncode == 0:
         return True, res.stdout
     else:
-        print(f" Error al ejecutar:\n{comando}\nDetalle:\n{res.stderr}")
+        print(f" Error while running:\n{comando}\nDetails:\n{res.stderr}")
         return False, res.stderr
 
 def check_core_installed():
-    """Verifica si el core de portenta está instalado, y si no, lo instala."""
-    print("-> Verificando cores instalados...")
+    """Checks whether the Portenta core is installed and, if not, installs it."""
+    print("-> Checking installed cores...")
     success, output = ejecutar("arduino-cli core list --format json")
     if not success:
-        print(" No se pudo verificar la lista de cores. ¿Está arduino-cli instalado y en el PATH?")
+        print(" Could not check the list of cores. Is arduino-cli installed and on the PATH?")
         sys.exit(1)
-        
+
     try:
         data = json.loads(output)
-        cores = data.get("platforms", []) if isinstance(data, dict) else data
+        cores = (data.get("platforms") or []) if isinstance(data, dict) else (data or [])
         for core in cores:
             if isinstance(core, dict) and core.get("id") == "arduino:mbed_portenta":
-                print("Core arduino:mbed_portenta ya está instalado.")
+                print("Core arduino:mbed_portenta is already installed.")
                 return
     except json.JSONDecodeError:
-        print(" Error al procesar la salida JSON de arduino-cli.")
+        print(" Error while parsing the JSON output of arduino-cli.")
         sys.exit(1)
-        
-    print("-> Core no encontrado. Instalando arduino:mbed_portenta (esto puede tardar unos minutos)...")
+
+    print("-> Core not found. Installing arduino:mbed_portenta (this may take a few minutes)...")
     success, _ = ejecutar("arduino-cli core install arduino:mbed_portenta")
     if not success:
-        print(" Fallo al instalar el core. Por favor instálalo manualmente.")
+        print(" Failed to install the core. Please install it manually.")
         sys.exit(1)
-    print(" Core instalado exitosamente.")
+    print(" Core installed successfully.")
 
 def find_portenta_port():
-    """Busca una placa Portenta conectada usando arduino-cli y retorna su puerto COM."""
-    print("-> Buscando placa Portenta conectada...")
+    """Looks for a connected Portenta board using arduino-cli and returns its COM port."""
+    print("-> Looking for a connected Portenta board...")
     success, output = ejecutar("arduino-cli board list --format json")
     if not success:
-        print(" No se pudo obtener la lista de placas conectadas.")
+        print(" Could not get the list of connected boards.")
         sys.exit(1)
-        
+
     try:
         data = json.loads(output)
-        boards = data.get("detected_ports", []) if isinstance(data, dict) else data
+        boards = (data.get("detected_ports") or []) if isinstance(data, dict) else (data or [])
         for board in boards:
             if not isinstance(board, dict): continue
-            matching = board.get("matching_boards", [])
+            matching = board.get("matching_boards") or []
             for match in matching:
                 fqbn = match.get("fqbn", "")
                 name = match.get("name", "").lower()
-                
+
                 if "portenta" in name or FQBN_BASE in fqbn:
                     port = board.get("port", {}).get("address")
                     if port:
-                        print(f" Encontrada placa: {match.get('name')} en el puerto {port}")
+                        print(f" Board found: {match.get('name')} on port {port}")
                         return port
     except json.JSONDecodeError:
         pass
-        
-    print(" No se detectó ninguna placa Portenta automáticamente conectada al equipo.")
+
+    print(" No Portenta board was detected automatically on this computer.")
     return None
 
 def resolver_proyecto(parser, target, path_proyecto):
-    """--path_proyecto explícito manda; si no, --target resuelve el sketch del framework."""
+    """An explicit --path_proyecto wins; otherwise --target resolves the framework sketch."""
     if path_proyecto:
         if target:
-            print(" [AVISO] Se indicó --path_proyecto; se ignora --target.")
+            print(" [WARN] --path_proyecto was given; --target is ignored.")
         return os.path.abspath(path_proyecto)
 
     if not target:
-        parser.error("indica el firmware a subir con --target {pil,hil}, o una ruta con --path_proyecto.")
+        parser.error("specify the firmware to upload with --target {pil,hil}, or a path with --path_proyecto.")
 
     return os.path.join(REPO_ROOT, FIRMWARE_DIRS[target])
 
 def main():
-    parser = argparse.ArgumentParser(description="Compilar y subir uno de los firmwares del framework a la Arduino Portenta M7.")
+    parser = argparse.ArgumentParser(description="Compile and upload one of the framework firmwares to the Arduino Portenta M7.")
     parser.add_argument("--target",
                         choices=["pil", "hil"],
                         default=None,
-                        help="Firmware a compilar y subir: 'pil' (deployment/pil_firmware, imagen inyectada por serie) o 'hil' (deployment/hil_camera_firmware, cámara en el lazo). La placa ejecuta uno a la vez, por eso no existe la opción 'ambos'.")
-    parser.add_argument("--path_proyecto", 
+                        help="Firmware to compile and upload: 'pil' (deployment/pil_firmware, image injected over serial) or 'hil' (deployment/hil_camera_firmware, camera in the loop). The board runs one at a time, which is why there is no 'both' option.")
+    parser.add_argument("--path_proyecto",
                         default=None,
-                        help="Ruta a un proyecto de Arduino arbitrario, como alternativa a --target.")
-    
+                        help="Path to an arbitrary Arduino project, as an alternative to --target.")
+
     args = parser.parse_args()
     path_proyecto = resolver_proyecto(parser, args.target, args.path_proyecto)
 
     if not os.path.exists(path_proyecto):
-        print(f" La ruta especificada para el proyecto no existe: {path_proyecto}")
+        print(f" The specified project path does not exist: {path_proyecto}")
         sys.exit(1)
 
     check_core_installed()
 
     puerto = find_portenta_port()
     if not puerto:
-        print("-> Por favor, conecta la placa e inténtalo de nuevo.")
+        print("-> Please connect the board and try again.")
         sys.exit(1)
 
-    print(f"\n=== 1. Compilando proyecto en: {path_proyecto} ===")
+    print(f"\n=== 1. Compiling project at: {path_proyecto} ===")
     cmd_compile = f"arduino-cli compile --fqbn {FQBN_FULL} --warnings none \"{path_proyecto}\""
     print(f"> {cmd_compile}")
     success, _ = ejecutar(cmd_compile)
     if not success:
         sys.exit(1)
-    print(" Compilación exitosa.")
+    print(" Compilation successful.")
 
-    print("\n=== 2. Subiendo a la placa ===")
-    print("NOTA: Asegúrate de que la placa esté en modo Bootloader (parpadeando en verde) si tienes problemas de subida.")
+    print("\n=== 2. Uploading to the board ===")
+    print("NOTE: Make sure the board is in Bootloader mode (blinking green) if you have upload problems.")
     cmd_upload = f"arduino-cli upload -p {puerto} --fqbn {FQBN_FULL} \"{path_proyecto}\""
     print(f"> {cmd_upload}")
     success, _ = ejecutar(cmd_upload)
     if not success:
         sys.exit(1)
-    print("✅ Proyecto subido exitosamente.")
+    print("[OK] Project uploaded successfully.")
 
 if __name__ == "__main__":
     main()

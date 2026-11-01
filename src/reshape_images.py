@@ -1,57 +1,56 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-reshape_images.py - Redimensiona el dataset y, opcionalmente, lo balancea.
+reshape_images.py - Resizes the dataset and optionally balances it.
 
-Paso intermedio de la preparacion de datos de PHLAME:
+Intermediate step in PHLAME data preparation:
 
-    process_images.py  ->  data/processed/grayscale      (conversion a gris)
-    reshape_images.py  ->  data/processed/{W}x{H}        (ESTE script)
-    split_dataset.py   ->  data/splits/{train,val,test}  (particion estratificada)
+    process_images.py  ->  data/processed/grayscale      (grayscale conversion)
+    reshape_images.py  ->  data/processed/{W}x{H}        (THIS script)
+    split_dataset.py   ->  data/splits/{train,val,test}  (stratified split)
 
-Por que el balanceo se hace AQUI
---------------------------------
-split_dataset.py hace una particion *estratificada*: conserva a proposito la
-proporcion natural de clases y documenta el desbalance en split_report.json en
-lugar de corregirlo. Si se quiere un dataset balanceado, la decision tiene que
-tomarse antes de particionar.
+Why balancing is performed HERE
+-------------------------------
+split_dataset.py performs a *stratified* split: it intentionally preserves the
+natural class ratio and documents class imbalance in split_report.json instead
+of correcting it. If a balanced dataset is desired, that decision must be made
+before splitting.
 
-De los dos pasos previos, este es el adecuado:
+Of the two preceding steps, this is the appropriate place:
 
-  - process_images.py produce el superconjunto completo en escala de grises.
-    Conservarlo intacto permite re-balancear con otra semilla o con otro tope
-    sin repetir la conversion de todo el dataset, que es el paso caro.
-  - reshape_images.py es el ultimo paso antes de la particion y, ademas, solo
-    redimensiona las imagenes que se conservan: no gasta trabajo en las que se
-    van a descartar.
+  - process_images.py produces the complete grayscale superset. Keeping it
+    intact allows re-balancing with another seed or another per-class cap
+    without repeating the full dataset conversion, which is the expensive step.
+  - reshape_images.py is the last step before splitting and only resizes the
+    images that are kept: no work is wasted on discarded files.
 
-Estrategia de balanceo
-----------------------
-Se implementa SOLO submuestreo de las clases mayoritarias, nunca sobremuestreo
-por duplicacion. Duplicar archivos ANTES de split_dataset.py meteria copias
-identicas de la misma imagen en train y en test: fuga de datos. La accuracy de
-test subiria sin que el modelo haya mejorado, y los cuatro niveles de la
-escalera (MIL/SIL/PIL/HIL) heredarian la medida inflada.
+Balancing strategy
+------------------
+ONLY majority-class undersampling is implemented, never oversampling by file
+duplication. Duplicating files BEFORE split_dataset.py would place identical
+copies of the same image in both train and test: data leakage. Test accuracy
+would rise without the model actually improving, and all four levels of the
+fidelity ladder (MIL/SIL/PIL/HIL) would inherit the inflated metric.
 
-Si se necesita compensar el desbalance sin perder imagenes, el camino correcto
-es class_weight en el entrenamiento, no duplicar archivos en disco.
+If class imbalance must be compensated without discarding images, the proper
+approach is class_weight during training, not duplicating files on disk.
 
-La seleccion es reproducible: la lista se ordena (sorted) antes de mezclar,
-igual que en split_dataset.py, de modo que la misma semilla produce el mismo
-subconjunto en cualquier maquina.
+Selection is reproducible: the file list is sorted before sampling, just as in
+split_dataset.py, so the same seed produces the exact same subset on any
+machine.
 
-Uso
----
-    # Solo redimensionar (comportamiento historico: no descarta nada)
+Usage
+-----
+    # Resize only (historical behavior: nothing is discarded)
     python src/reshape_images.py --width 160 --height 120
 
-    # Redimensionar y balancear por submuestreo
+    # Resize and balance via undersampling
     python src/reshape_images.py --width 160 --height 120 --balance undersample
 
-    # Balancear y ademas limitar el tamano por clase
+    # Balance and also cap the maximum number of images per class
     python src/reshape_images.py --width 160 --height 120 --balance undersample --max_per_class 2000
 
-    # Ver el reparto por clase sin escribir nada
+    # Inspect the per-class breakdown without writing anything
     python src/reshape_images.py --width 160 --height 120 --balance undersample --dry-run
 """
 
@@ -64,18 +63,20 @@ from datetime import datetime, timezone
 import cv2
 
 PROCESSED_BASE_DIR = "data/processed"
-# Extensiones aceptadas, comparadas en minusculas (tambien .JPG, .Png...)
+# Accepted extensions, compared in lowercase (including .JPG, .Png, etc.)
 EXTENSIONS = ('.jpg', '.jpeg', '.png', '.bmp')
 REPORT_NAME = "reshape_report.json"
+# Key recorded in reshape_report.json for loose files in the root folder
+# (mapped to English in the console table printed by imprimir_reparto)
 SIN_CLASE = "(raiz, sin clase)"
 
 
 def collect_by_class(input_dir):
-    """Agrupa las imagenes por clase.
+    """Groups images by class.
 
-    La clase es el primer componente de la ruta relativa a input_dir. Los
-    archivos sueltos en la raiz (sin subcarpeta) se agrupan bajo None y nunca
-    se descartan: no pertenecen a ninguna clase que se pueda balancear.
+    The class is the first path component relative to input_dir. Loose files in
+    the root directory (without a class subfolder) are grouped under None and
+    are never discarded: they do not belong to any balanceable class.
     """
     por_clase = {}
     for root, _, names in os.walk(input_dir):
@@ -88,16 +89,16 @@ def collect_by_class(input_dir):
             clase = partes[0] if len(partes) > 1 else None
             por_clase.setdefault(clase, []).append(ruta)
 
-    # sorted() ANTES de cualquier mezcla: el orden que devuelve os.walk depende
-    # del sistema de archivos, y sin ordenar la semilla no seria reproducible
-    # entre maquinas. Misma precaucion que en split_dataset.py.
+    # Sort BEFORE any sampling: the traversal order of os.walk depends on the
+    # filesystem, and without sorting, the seed would not be reproducible across
+    # machines. Same precaution as in split_dataset.py.
     for clase in por_clase:
         por_clase[clase].sort()
     return por_clase
 
 
 def select_files(por_clase, balance, max_per_class, seed):
-    """Aplica el balanceo. Devuelve (seleccionadas, detalle_por_clase, objetivo)."""
+    """Applies class balancing. Returns (selected_files, per_class_detail, target)."""
     clases = sorted([c for c in por_clase if c is not None])
     sin_clase = por_clase.get(None, [])
 
@@ -111,14 +112,14 @@ def select_files(por_clase, balance, max_per_class, seed):
     seleccion = []
     detalle = {}
 
-    # Orden fijo de clases para que el consumo del generador sea determinista.
+    # Fixed class order so that RNG consumption is deterministic.
     for clase in clases:
         disponibles = por_clase[clase]
         if objetivo is None or len(disponibles) <= objetivo:
             elegidas = list(disponibles)
         else:
-            # sorted() al final solo para que el recorrido de escritura sea
-            # estable; la eleccion ya la fijo la semilla.
+            # Sort at the end only to keep the write traversal order stable;
+            # the subset choice was already determined by the seed.
             elegidas = sorted(rng.sample(disponibles, objetivo))
         detalle[clase] = {
             "disponibles": len(disponibles),
@@ -141,12 +142,13 @@ def select_files(por_clase, balance, max_per_class, seed):
 def imprimir_reparto(detalle, total_encontradas, total_seleccionadas):
     print()
     print("  %-24s %11s %14s %12s"
-          % ("Clase", "disponibles", "seleccionadas", "descartadas"))
+          % ("Class", "available", "selected", "discarded"))
     print("  " + "-" * 64)
     for clase in sorted(detalle):
         d = detalle[clase]
+        display_name = "(root, unclassified)" if clase == SIN_CLASE else clase
         print("  %-24s %11d %14d %12d"
-              % (clase, d["disponibles"], d["seleccionadas"], d["descartadas"]))
+              % (display_name, d["disponibles"], d["seleccionadas"], d["descartadas"]))
     print("  " + "-" * 64)
     print("  %-24s %11d %14d %12d"
           % ("TOTAL", total_encontradas, total_seleccionadas,
@@ -172,19 +174,19 @@ def reshape_images(width, height, input_dir, balance, max_per_class, seed, dry_r
     print("Found %d images." % total_encontradas)
     imprimir_reparto(detalle, total_encontradas, len(seleccion))
 
-    # Aviso cuando el dataset esta desbalanceado y no se pidio corregirlo: sin
-    # esto el desbalance se propaga en silencio hasta las metricas finales.
+    # Warn when the dataset is imbalanced and balancing was not requested:
+    # without this warning, class imbalance propagates silently to final metrics.
     conteos = [d["seleccionadas"] for c, d in detalle.items() if c != SIN_CLASE]
     if balance == 'none' and len(conteos) > 1 and min(conteos) != max(conteos):
-        print("AVISO: el dataset esta desbalanceado (%d vs %d) y --balance es 'none',"
+        print("WARNING: the dataset is imbalanced (%d vs %d) and --balance is 'none',"
               % (max(conteos), min(conteos)))
-        print("       asi que se copia tal cual. split_dataset.py particiona de forma")
-        print("       ESTRATIFICADA: conserva esa proporcion en train/val/test, no la")
-        print("       corrige. Para balancear:  --balance undersample")
+        print("         so class imbalance is preserved as is. split_dataset.py performs a")
+        print("         STRATIFIED split: it preserves that ratio in train/val/test")
+        print("         rather than correcting it. To balance:  --balance undersample")
         print()
 
     if dry_run:
-        print("--dry-run: no se escribio nada en %s" % output_dir)
+        print("--dry-run: nothing was written to %s" % output_dir)
         return 0
 
     os.makedirs(output_dir, exist_ok=True)
@@ -247,38 +249,38 @@ def reshape_images(width, height, input_dir, balance, max_per_class, seed, dry_r
     print("Balance: %s (seed %d)" % (balance, seed))
     print("Processed: %d/%d" % (processed_count, len(seleccion)))
     if fallidas:
-        print("Fallidas: %d" % fallidas)
-    print("Reporte: %s" % ruta_reporte)
+        print("Failed: %d" % fallidas)
+    print("Report: %s" % ruta_reporte)
     print("========================================")
     return 0
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Redimensiona (y opcionalmente balancea) el dataset para TinyML",
+        description="Resize (and optionally balance) the dataset for TinyML",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--width", type=int, default=28, help="Target width")
     parser.add_argument("--height", type=int, default=28, help="Target height")
     parser.add_argument("--input_dir", type=str, default="data/processed/grayscale",
                         help="Input directory")
     parser.add_argument("--output_dir", type=str, default=None,
-                        help="Output directory (default: data/processed/{width}x{height})")
+                        help="Output directory; overrides data/processed/{width}x{height}")
     parser.add_argument("--balance", choices=["none", "undersample"], default="none",
-                        help="'undersample' recorta cada clase al tamano de la mas "
-                             "pequena. No hay sobremuestreo a proposito: duplicar "
-                             "archivos antes de split_dataset.py provoca fuga de "
-                             "datos entre train y test")
+                        help="'undersample' trims every class down to the size of the "
+                             "smallest class. Oversampling is intentionally omitted: "
+                             "duplicating files before split_dataset.py causes data "
+                             "leakage between train and test")
     parser.add_argument("--max_per_class", type=int, default=None,
-                        help="Tope duro de imagenes por clase; se combina con --balance")
+                        help="Hard cap on images per class; combines with --balance")
     parser.add_argument("--seed", type=int, default=42,
-                        help="Semilla del submuestreo (misma convencion que split_dataset.py)")
+                        help="Undersampling random seed (same convention as split_dataset.py)")
     parser.add_argument("--dry-run", dest="dry_run", action="store_true",
-                        help="Muestra el reparto por clase y no escribe nada")
+                        help="Show the per-class breakdown without writing anything")
 
     args = parser.parse_args()
 
     if args.max_per_class is not None and args.max_per_class < 1:
-        parser.error("--max_per_class debe ser >= 1")
+        parser.error("--max_per_class must be >= 1")
 
     raise SystemExit(reshape_images(args.width, args.height, args.input_dir,
                                     args.balance, args.max_per_class,

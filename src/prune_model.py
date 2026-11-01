@@ -4,7 +4,7 @@ import argparse
 import os
 
 def calculate_sparsity(model):
-    """Calculates the overall sparsity of the model (percentage of zero weights)."""
+    """Calculates the fraction [0.0, 1.0] of zero kernel weights across top-level Conv2D and Dense layers."""
     total_params = 0
     zero_params = 0
     for layer in model.layers:
@@ -22,8 +22,8 @@ def calculate_sparsity(model):
 def apply_global_unstructured_pruning(model, sparsity):
     """
     Applies global unstructured magnitude-based pruning.
-    Finds the global threshold across all trainable weights (Conv2D and Dense)
-    and sets weights below this threshold to zero.
+    Finds the global magnitude threshold across kernel weights of top-level
+    Conv2D and Dense layers (leaving biases intact) and zeroes weights below it.
     """
     print(f"Applying Global Unstructured Pruning (target sparsity: {sparsity*100:.1f}%)")
     
@@ -64,7 +64,8 @@ def apply_global_unstructured_pruning(model, sparsity):
 def apply_layer_unstructured_pruning(model, sparsity):
     """
     Applies layer-wise unstructured magnitude-based pruning.
-    For each trainable layer, sets the lowest X% of weights to zero.
+    For each top-level Conv2D and Dense layer, zeroes the lowest-magnitude
+    fraction `sparsity` of kernel weights (leaving biases intact).
     """
     print(f"Applying Layer-wise Unstructured Pruning (target sparsity per layer: {sparsity*100:.1f}%)")
     
@@ -94,7 +95,7 @@ def main():
     parser.add_argument("--model_path", type=str, required=True, 
                         help="Path to the original model (e.g., models/checkpoints/model.keras)")
     parser.add_argument("--sparsity", type=float, required=True, 
-                        help="Percentage of weights to prune (e.g., 0.2 for 20%)")
+                        help="Target fraction of kernel weights to prune in [0.0, 1.0) (e.g., 0.2 for 20%%)")
     parser.add_argument("--technique", type=str, choices=["global", "layer"], required=True,
                         help="Type of manual unstructured pruning technique to apply")
     
@@ -104,8 +105,8 @@ def main():
         print(f"Error: Model path {args.model_path} does not exist.")
         return
         
-    if args.sparsity < 0.0 or args.sparsity >= 1.0:
-        print("Error: Sparsity must be between 0.0 and 0.99.")
+    if not (0.0 <= args.sparsity < 1.0):
+        print("Error: Sparsity must be in the range [0.0, 1.0) (e.g., 0.2 for 20%).")
         return
 
     print(f"Loading model from {args.model_path}...")

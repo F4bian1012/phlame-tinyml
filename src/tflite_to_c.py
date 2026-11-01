@@ -51,7 +51,7 @@ def hex_to_c_array(hex_data, var_name):
     return c_str
 
 def resolve_outputs(target, output_path):
-    """Explicit output_path wins; otherwise write model.h into the target sketch folders."""
+    """Return [output_path] if given; otherwise return model.h paths for target sketches."""
     if output_path:
         return [output_path]
 
@@ -88,7 +88,7 @@ def main():
         with open(output_path, 'w') as f:
             f.write(c_content)
 
-    print(f"[SUCCESS] Model converted beautifully!")
+    print("[SUCCESS] Model converted beautifully!")
     print(f" - Original file: {args.tflite_path}")
     for output_path in output_paths:
         print(f" - Output file: {output_path}")

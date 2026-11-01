@@ -1,30 +1,30 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-split_dataset.py - Particion reproducible del dataset para PHLAME.
+split_dataset.py - Reproducible dataset splitting for PHLAME.
 
-Ultimo paso de la preparacion de datos, ANTES de cualquier entrenamiento.
-Toma el directorio ya procesado y redimensionado (salida de reshape_images.py)
-y produce tres particiones disjuntas en disco mas los manifiestos CSV que
-garantizan que los cuatro niveles de la escalera de fidelidad
-(MIL -> SIL -> PIL -> HIL) evaluen EXACTAMENTE las mismas imagenes.
+Final step of data preparation, BEFORE any model training. It takes the
+already-processed and resized directory (output of reshape_images.py) and
+produces three disjoint splits on disk plus the CSV manifests guaranteeing
+that all four levels of the fidelity ladder (MIL -> SIL -> PIL -> HIL)
+evaluate EXACTLY the same held-out images.
 
-Por que existe este script
---------------------------
-Sin una particion explicita, train_*.py usa `validation_split` sobre el
-directorio completo y los evaluadores (test_model.py, test_tflite_model.py)
-leen ESE MISMO directorio completo -> la accuracy reportada incluye datos de
-entrenamiento (fuga de datos). Ademas, cada banco seleccionaba sus imagenes de
-forma distinta (carpeta manual en PIL, muestreo aleatorio en HIL), por lo que
-los saltos de la escalera no eran atribuibles. Este script resuelve ambos.
+Why this script exists
+----------------------
+Without an explicit on-disk split, train_*.py uses `validation_split` over the
+full directory while the evaluators (test_model.py, test_tflite_model.py) read
+THAT SAME full directory -> reported accuracy includes training images (data
+leakage). Moreover, each benchmark selected images differently (manual folder
+in PIL, random sampling in HIL), so gaps across ladder levels were not
+attributable. This script solves both issues.
 
-Entrada
--------
+Input
+-----
     <input_dir>/
         Class1/*.jpg
         Class2/*.jpg
 
-Salida
+Output
 ------
     <output_dir>/
         train/Class1/... , train/Class2/...
@@ -32,36 +32,35 @@ Salida
         test/Class1/...  , test/Class2/...
         train_manifest.csv
         val_manifest.csv
-        test_manifest.csv        <- incluye la columna hil_subset (1/0)
-        split_report.json        <- conteos, balance de clases, verificaciones
+        test_manifest.csv        <- includes the hil_subset (1/0) column
+        split_report.json        <- counts, class balance, integrity checks
 
-Uso tipico
-----------
+Typical usage
+-------------
     python src/split_dataset.py \
         --input_dir data/processed/160x120 \
         --output_dir data/splits \
         --train 0.70 --val 0.15 --test 0.15 \
         --seed 42 --hil-subset 200
 
-Como lo consumen los cuatro niveles
------------------------------------
-    train_*.py            --> data/splits/train      (val: data/splits/val)
-    test_model.py         --> data/splits/test       (MIL, float, PC)
-    test_tflite_model.py  --> data/splits/test       (SIL, INT8, PC)
-    pil_benchmark.py      --> imagenes de test_manifest.csv
-    hil_camera_benchmark  --> filas con hil_subset == 1
+How the four levels consume the splits
+--------------------------------------
+    train_*.py              --> data/splits/train      (val: data/splits/val)
+    test_model.py           --> data/splits/test       (MIL, float, PC)
+    test_tflite_model.py    --> data/splits/test       (SIL, INT8, PC)
+    pil_benchmark.py        --> data/splits/test       (PIL, INT8, MCU over serial)
+    hil_camera_benchmark.py --> test_manifest.csv      (HIL, rows with hil_subset == 1)
 
-Notas de reproducibilidad
--------------------------
-- La lista de archivos se ordena (sorted) ANTES de mezclar, porque el orden de
-  os.listdir depende del sistema de archivos. Con la misma semilla, la particion
-  es identica en cualquier maquina.
-- El orden de las etiquetas se toma de models/class_names.txt, el mismo que
-  define el argmax que devuelve el firmware. No se infiere del sistema de
-  archivos salvo que el archivo no exista.
-- La particion es estratificada: se aplica por clase, de modo que cada
-  particion conserva la proporcion natural de clases del dataset original
-  (el desbalance no se corrige aqui; se documenta en split_report.json).
+Reproducibility notes
+---------------------
+- The file list is sorted BEFORE shuffling because os.listdir order depends on
+  the filesystem. With the same seed, the split is identical on any machine.
+- Label order is read from models/class_names.txt, matching the argmax index
+  returned by the firmware. It is inferred from the filesystem only if that
+  file does not exist.
+- Splitting is stratified: it is applied per class so each split preserves the
+  natural class ratio of the input dataset (imbalance is not corrected here;
+  it is documented in split_report.json).
 """
 
 import argparse
@@ -78,25 +77,26 @@ SPLITS = ("train", "val", "test")
 
 
 # --------------------------------------------------------------------------- #
-# Descubrimiento de clases e imagenes
+# Class and image discovery
 # --------------------------------------------------------------------------- #
 def load_class_names(class_names_path, input_dir):
-    """Orden de etiquetas: class_names.txt si existe, si no las subcarpetas."""
+    """Label order: class_names.txt if it exists, otherwise sorted subfolders."""
     if class_names_path and os.path.exists(class_names_path):
         with open(class_names_path, encoding="utf-8") as fh:
             names = [ln.strip() for ln in fh if ln.strip()]
         if names:
-            return names, "models/class_names.txt"
+            return names, class_names_path.replace(os.sep, "/")
 
     names = sorted(
         d for d in os.listdir(input_dir)
         if os.path.isdir(os.path.join(input_dir, d))
     )
-    return names, "subcarpetas de %s (class_names.txt no encontrado)" % input_dir
+    missing = os.path.basename(class_names_path) if class_names_path else "class_names.txt"
+    return names, "subfolders of %s (%s not found)" % (input_dir, missing)
 
 
 def collect_images(class_dir):
-    """Todas las imagenes de una clase, recursivo y en orden determinista."""
+    """All images in a class folder, collected recursively in deterministic order."""
     found = []
     for root, _dirs, files in os.walk(class_dir):
         for fn in files:
@@ -106,17 +106,17 @@ def collect_images(class_dir):
 
 
 # --------------------------------------------------------------------------- #
-# Particion
+# Splitting
 # --------------------------------------------------------------------------- #
 def split_one_class(files, p_train, p_val, rng):
-    """Particion estratificada de una clase. Devuelve (train, val, test)."""
+    """Stratified split of a single class. Returns (train, val, test)."""
     items = list(files)
     rng.shuffle(items)
 
     n = len(items)
     n_train = int(round(n * p_train))
     n_val = int(round(n * p_val))
-    # el test recibe el resto, para que las tres particiones sumen n exactamente
+    # test receives the remainder so that the three splits sum to n exactly
     n_train = min(n_train, n)
     n_val = min(n_val, n - n_train)
 
@@ -128,7 +128,7 @@ def split_one_class(files, p_train, p_val, rng):
 
 
 def pick_hil_subset(test_by_class, n_target, rng):
-    """Subconjunto fijo y estratificado del test para el banco HIL."""
+    """Fixed, stratified subset of the test split for the physical HIL rig."""
     total_test = sum(len(v) for v in test_by_class.values())
     if n_target <= 0 or total_test == 0:
         return {c: set() for c in test_by_class}
@@ -141,7 +141,7 @@ def pick_hil_subset(test_by_class, n_target, rng):
     for i, cls in enumerate(classes):
         pool = sorted(test_by_class[cls])
         if i == len(classes) - 1:
-            k = min(n_target - assigned, len(pool))          # resto a la ultima
+            k = min(n_target - assigned, len(pool))          # remainder goes to the last class
         else:
             k = int(round(n_target * len(pool) / total_test))
             k = max(0, min(k, len(pool)))
@@ -151,10 +151,10 @@ def pick_hil_subset(test_by_class, n_target, rng):
 
 
 # --------------------------------------------------------------------------- #
-# Escritura
+# Writing
 # --------------------------------------------------------------------------- #
 def safe_dst(dst_dir, filename, used):
-    """Destino sin colisiones (subcarpetas anidadas pueden repetir nombre)."""
+    """Collision-free destination path (nested subfolders may repeat filenames)."""
     base, ext = os.path.splitext(filename)
     candidate = filename
     k = 1
@@ -167,7 +167,7 @@ def safe_dst(dst_dir, filename, used):
 
 def write_split(output_dir, split, class_names, by_class, hil_chosen,
                 label_of, dry_run):
-    """Copia las imagenes y devuelve las filas del manifiesto."""
+    """Copies images into the target split directory and returns manifest rows."""
     rows = []
     for cls in class_names:
         files = by_class.get(cls, [])
@@ -206,38 +206,38 @@ def write_manifest(path, rows):
 # --------------------------------------------------------------------------- #
 def main():
     ap = argparse.ArgumentParser(
-        description="Particion reproducible train/val/test para PHLAME.",
+        description="Reproducible train/val/test dataset split for PHLAME.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     ap.add_argument("--input_dir", default="data/processed/160x120",
-                    help="Directorio procesado con subcarpetas por clase")
+                    help="Processed directory with one subfolder per class")
     ap.add_argument("--output_dir", default="data/splits",
-                    help="Directorio de salida de las particiones")
-    ap.add_argument("--train", type=float, default=0.70, help="Fraccion train")
-    ap.add_argument("--val", type=float, default=0.15, help="Fraccion val")
-    ap.add_argument("--test", type=float, default=0.15, help="Fraccion test")
+                    help="Output directory for the generated splits")
+    ap.add_argument("--train", type=float, default=0.70, help="Train fraction")
+    ap.add_argument("--val", type=float, default=0.15, help="Validation fraction")
+    ap.add_argument("--test", type=float, default=0.15, help="Test fraction")
     ap.add_argument("--seed", type=int, default=42,
-                    help="Semilla; fija la particion de forma reproducible")
+                    help="Random seed fixing a reproducible split")
     ap.add_argument("--hil-subset", dest="hil_subset", type=int, default=200,
-                    help="Imagenes del test marcadas para el banco HIL (0 = ninguna)")
+                    help="Number of test images flagged for the HIL benchmark (0 = none)")
     ap.add_argument("--class_names_path", default="models/class_names.txt",
-                    help="Archivo que fija el orden de etiquetas (argmax)")
+                    help="File defining the canonical label order (argmax)")
     ap.add_argument("--force", action="store_true",
-                    help="Sobrescribe output_dir si ya existe")
+                    help="Overwrite output_dir if it already exists")
     ap.add_argument("--dry-run", dest="dry_run", action="store_true",
-                    help="No copia nada; solo informa lo que haria")
+                    help="Do not copy files; only report what would be done")
     args = ap.parse_args()
 
-    # ---- validaciones de entrada -----------------------------------------
+    # ---- input validation -------------------------------------------------
     total_p = args.train + args.val + args.test
     if abs(total_p - 1.0) > 1e-6:
-        sys.exit("ERROR: las fracciones deben sumar 1.0 (suman %.4f)" % total_p)
+        sys.exit("ERROR: split fractions must sum to 1.0 (got %.4f)" % total_p)
     if not os.path.isdir(args.input_dir):
-        sys.exit("ERROR: no existe el directorio de entrada: %s" % args.input_dir)
+        sys.exit("ERROR: input directory does not exist: %s" % args.input_dir)
 
     if os.path.isdir(args.output_dir) and os.listdir(args.output_dir):
         if not (args.force or args.dry_run):
-            sys.exit("ERROR: %s ya existe y no esta vacio. Usa --force para "
-                     "sobrescribir (o --dry-run para solo inspeccionar)."
+            sys.exit("ERROR: %s already exists and is not empty. Use --force to "
+                     "overwrite (or --dry-run to inspect only)."
                      % args.output_dir)
         if args.force and not args.dry_run:
             for sp in SPLITS:
@@ -248,16 +248,16 @@ def main():
                                               args.input_dir)
     label_of = {c: i for i, c in enumerate(class_names)}
 
-    print("Entrada     : %s" % args.input_dir)
-    print("Salida      : %s" % args.output_dir)
-    print("Clases      : %s  (orden desde %s)" % (class_names, class_src))
-    print("Proporciones: train %.2f / val %.2f / test %.2f | semilla %d"
+    print("Input       : %s" % args.input_dir)
+    print("Output      : %s" % args.output_dir)
+    print("Classes     : %s  (order from %s)" % (class_names, class_src))
+    print("Proportions : train %.2f / val %.2f / test %.2f | seed %d"
           % (args.train, args.val, args.test, args.seed))
     if args.dry_run:
-        print(">>> DRY RUN: no se copiara ningun archivo <<<")
+        print(">>> DRY RUN: no files will be copied <<<")
     print("")
 
-    # ---- particion estratificada por clase -------------------------------
+    # ---- stratified per-class split ---------------------------------------
     rng = random.Random(args.seed)
     per_split = {sp: {} for sp in SPLITS}
     counts = {}
@@ -265,11 +265,11 @@ def main():
     for cls in class_names:
         class_dir = os.path.join(args.input_dir, cls)
         if not os.path.isdir(class_dir):
-            sys.exit("ERROR: falta la subcarpeta de la clase '%s' en %s"
+            sys.exit("ERROR: missing subfolder for class '%s' in %s"
                      % (cls, args.input_dir))
         files = collect_images(class_dir)
         if not files:
-            sys.exit("ERROR: la clase '%s' no tiene imagenes" % cls)
+            sys.exit("ERROR: class '%s' contains no images" % cls)
 
         tr, va, te = split_one_class(files, args.train, args.val, rng)
         per_split["train"][cls] = tr
@@ -278,11 +278,11 @@ def main():
         counts[cls] = {"total": len(files), "train": len(tr),
                        "val": len(va), "test": len(te)}
 
-    # ---- subconjunto HIL fijo --------------------------------------------
+    # ---- fixed HIL subset -------------------------------------------------
     hil_chosen = pick_hil_subset(per_split["test"], args.hil_subset,
                                  random.Random(args.seed + 1))
 
-    # ---- verificacion de fuga (el motivo de este script) -----------------
+    # ---- leakage verification (the primary reason this script exists) -----
     seen = {}
     duplicated = []
     for sp in SPLITS:
@@ -293,16 +293,16 @@ def main():
                 seen[f] = sp
     if duplicated:
         for f, a, b in duplicated[:5]:
-            print("FUGA: %s aparece en '%s' y '%s'" % (f, a, b))
-        sys.exit("ERROR: las particiones no son disjuntas (%d colisiones)."
+            print("LEAK: %s appears in both '%s' and '%s'" % (f, a, b))
+        sys.exit("ERROR: splits are not disjoint (%d collisions)."
                  % len(duplicated))
 
     n_total_src = sum(c["total"] for c in counts.values())
     if len(seen) != n_total_src:
-        sys.exit("ERROR: %d imagenes repartidas pero %d en el origen."
+        sys.exit("ERROR: %d images assigned across splits, expected %d from source."
                  % (len(seen), n_total_src))
 
-    # ---- escritura --------------------------------------------------------
+    # ---- write splits and manifests ---------------------------------------
     if not args.dry_run:
         os.makedirs(args.output_dir, exist_ok=True)
 
@@ -315,13 +315,13 @@ def main():
             write_manifest(os.path.join(args.output_dir,
                                         "%s_manifest.csv" % sp), rows)
 
-    # ---- informe ----------------------------------------------------------
+    # ---- summary report ---------------------------------------------------
     totals = {sp: sum(len(v) for v in per_split[sp].values()) for sp in SPLITS}
     balance_pct = {cls: round(100.0 * counts[cls]["total"] / n_total_src, 2)
                    for cls in class_names}
     hil_per_class = {cls: len(hil_chosen.get(cls, ())) for cls in class_names}
 
-    print("%-14s %8s %8s %8s %8s" % ("Clase", "total", "train", "val", "test"))
+    print("%-14s %8s %8s %8s %8s" % ("Class", "total", "train", "val", "test"))
     for cls in class_names:
         c = counts[cls]
         print("%-14s %8d %8d %8d %8d"
@@ -330,10 +330,10 @@ def main():
           % ("TOTAL", n_total_src, totals["train"], totals["val"],
              totals["test"]))
     print("")
-    print("Balance de clases (%% del dataset): %s" % balance_pct)
-    print("Subconjunto HIL: %d imagenes marcadas -> %s"
+    print("Class balance (%% of dataset): %s" % balance_pct)
+    print("HIL subset     : %d images marked -> %s"
           % (sum(hil_per_class.values()), hil_per_class))
-    print("Verificacion   : particiones disjuntas OK, %d imagenes repartidas"
+    print("Verification   : disjoint splits OK, %d images accounted for"
           % len(seen))
 
     report = {
@@ -364,11 +364,11 @@ def main():
                   "w", encoding="utf-8") as fh:
             json.dump(report, fh, indent=2, ensure_ascii=False)
         print("")
-        print("Escrito: %s/{train,val,test}/ + *_manifest.csv + "
+        print("Written: %s/{train,val,test}/ + *_manifest.csv + "
               "split_report.json" % args.output_dir)
     else:
         print("")
-        print("(dry-run) no se escribio nada.")
+        print("(dry-run) nothing was written.")
 
 
 if __name__ == "__main__":

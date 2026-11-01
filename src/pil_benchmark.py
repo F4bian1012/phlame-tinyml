@@ -1,36 +1,39 @@
 r"""
-send_multiple_images_serial.py
-================================
-Envía imágenes preprocesadas al Arduino Portenta H7 por puerto serial.
+pil_benchmark.py
+================
+Sends preprocessed images to the Arduino Portenta H7 over the serial port
+for Processor-in-the-Loop (PIL) evaluation.
 
-Protocolo:
-  - Marcador de inicio : '#' (0x23)
-  - Marcador de fin    : '@' (0x40)
-  - Los bytes del payload que coincidan con '#' (0x23), '@' (0x40) o ESC (0x1B)
-    se escapan enviando: ESC (0x1B) seguido del byte XOR 0x20.
+Protocol:
+  - Start marker : '#' (0x23)
+  - End marker   : '@' (0x40)
+  - Payload bytes that match '#' (0x23), '@' (0x40) or ESC (0x1B)
+    are escaped by sending: ESC (0x1B) followed by the byte XOR 0x20.
 
-Uso básico (una imagen):
-  python send_multiple_images_serial.py --port COM3 --image ruta/imagen.png
+Basic usage (single image):
+  python src/pil_benchmark.py --port COM3 --model_path models/tflite/model_int8.tflite --image path/image.png
 
-Uso básico (carpeta completa):
-  python pil_benchmark.py --port COM3
+Basic usage (held-out test split):
+  python src/pil_benchmark.py --port COM3 --model_path models/tflite/model_int8.tflite --width 160 --height 120
 
-El nivel PIL evalúa la partición de test reservada por split_dataset.py, la misma
-que consumen MIL y SIL, para que la brecha entre niveles sea atribuible al nivel
-y no a un muestreo distinto de imágenes.
+The PIL level evaluates the test split held out by split_dataset.py, the same
+one consumed by MIL and SIL, so that the gap between levels is attributable to
+the level and not to a different sampling of images.
 
-Opciones:
-  --port        Puerto serial (ej. COM3, /dev/ttyUSB0)  [requerido]
-  --image       Ruta a una imagen concreta a enviar
-  --splits_dir  Directorio de particiones de split_dataset.py
-                (default: data\splits; el banco usa SOLO <splits_dir>\test)
-  --folder      Carpeta explícita a enviar, en vez de <splits_dir>\test
-  --baud    Tasa de baudios (default: 115200)
-  --width   Ancho objetivo del tensor (default: 120)
-  --height  Alto objetivo del tensor (default: 160)
-  --color   Enviar en color RGB (default: escala de grises)
-  --delay   Segundos de espera antes de la primera transmisión (default: 1.0)
-  --gap     Segundos de espera entre imágenes consecutivas (default: 0.5)
+Options:
+  --port        Serial port (default: COM9; e.g. COM3, /dev/ttyUSB0)
+  --model_path  Path to the flashed .tflite model (required; hashed & used to tag outputs)
+  --image       Path to a specific image to send
+  --splits_dir  Directory with the splits produced by split_dataset.py
+                (default: data/splits; the benchmark uses ONLY <splits_dir>/test)
+  --folder      Explicit folder to send, instead of <splits_dir>/test
+  --baud        Baud rate (default: 115200)
+  --width       Target tensor width (default: 320)
+  --height      Target tensor height (default: 320)
+  --color       Send in RGB color (default: grayscale)
+  --delay       Seconds to wait before the first transmission (default: 1.0)
+  --gap         Seconds to wait between consecutive images (default: 0.5)
+  --count       Number of random images to send from the folder (default: all)
 """
 
 import argparse
@@ -49,15 +52,15 @@ from datetime import datetime, timezone
 try:
     import serial
 except ImportError:
-    print("ERROR: pyserial no está instalado. Ejecuta: pip install pyserial")
+    print("ERROR: pyserial is not installed. Run: pip install pyserial")
     sys.exit(1)
 
 try:
     from PIL import Image
     import numpy as np
 except ImportError:
-    print("ERROR: Pillow y/o numpy no están instalados.")
-    print("Ejecuta: pip install Pillow numpy")
+    print("ERROR: Pillow and/or numpy are not installed.")
+    print("Run: pip install Pillow numpy")
     sys.exit(1)
 
 
@@ -68,27 +71,26 @@ BYTES_TO_ESCAPE = {0x23, 0x40, 0x1B}  # '#', '@', ESC
 
 
 def _json_safe(o):
-    """Convierte a tipos nativos lo que json.dump no sabe serializar.
+    """Convert to native types whatever json.dump cannot serialize.
 
-    classification_report(output_dict=True) devuelve numpy: np.int64 en
-    "support" y np.float64 en las metricas, y json.dump falla con TypeError.
-    No se importa numpy aqui porque en este script solo entra dentro de las
-    funciones; se usa el protocolo .tolist()/.item(), que es justo lo que
-    exponen tanto los escalares como los arrays de numpy.
+    classification_report(output_dict=True) returns numpy scalars (np.int64 in
+    "support" and np.float64 in the metrics), which json.dump rejects with
+    TypeError. Using the .tolist()/.item() duck-typing protocol handles both
+    numpy arrays and numpy scalars cleanly.
     """
     if hasattr(o, "tolist"):
         return o.tolist()
     if hasattr(o, "item"):
         return o.item()
-    raise TypeError("No se puede serializar a JSON: %r (%s)" % (o, type(o).__name__))
+    raise TypeError("Cannot serialize to JSON: %r (%s)" % (o, type(o).__name__))
 
 
 def _sha256_archivo(path, chunk=1024 * 1024):
-    """SHA-256 del archivo, leido por bloques.
+    """SHA-256 of the file, read in chunks.
 
-    Devuelve None si la ruta no es un archivo: es preferible un JSON sin
-    checksum que perder el banco entero en la ultima linea, despues de haber
-    enviado todas las imagenes a la placa.
+    Returns None if the path is not a file: a JSON without a checksum is
+    preferable to losing the whole benchmark on the last line, after having
+    sent every image to the board.
     """
     if not path or not os.path.isfile(path):
         return None
@@ -100,16 +102,16 @@ def _sha256_archivo(path, chunk=1024 * 1024):
 
 
 def _resumen_latencias(filas, campos):
-    """Estadisticos por campo a partir de las lineas CYC_*/US_*/TEMP_C.
+    """Per-field statistics from the CYC_*/US_*/TEMP_C lines.
 
-    Los valores llegan como texto por el puerto serie y pueden faltar (una
-    imagen sin respuesta deja el campo vacio), asi que se descartan los no
-    numericos en vez de abortar el resumen entero. Un campo sin ninguna
-    medida valida queda en None, que es informacion: dice que el firmware no
-    lo reporto.
+    Values arrive as text over the serial port and may be missing (an image
+    with no response leaves the field empty), so non-numeric ones are
+    discarded instead of aborting the whole summary. A field with no valid
+    measurement at all is left as None, which is information: it says the
+    firmware did not report it.
 
-    p95 por rango mas cercano sobre la muestra ordenada (sin interpolar): con
-    pocas imagenes es mas honesto que inventar un valor intermedio.
+    p95 by nearest rank over the sorted sample (no interpolation): with few
+    images this is more honest than inventing an intermediate value.
     """
     resumen = {}
     for campo in campos:
@@ -137,12 +139,12 @@ def _resumen_latencias(filas, campos):
 
 
 def _nombre_clase(idx, class_names):
-    """Nombre de la clase a partir del indice que devuelve la placa.
+    """Class name from the index returned by the board.
 
-    El firmware devuelve un entero crudo. Si no corresponde a ninguna clase
-    conocida (firmware flasheado con otro modelo, o dataset distinto) se marca
-    como Invalida_<n> en vez de reventar la fila: el CSV debe registrar lo que
-    paso, incluida una respuesta incoherente.
+    The firmware returns a raw integer. If it does not correspond to any known
+    class (firmware flashed with another model, or a different dataset) it is
+    marked as Invalida_<n> instead of blowing up the row: the CSV must record
+    what happened, including an incoherent response.
     """
     if idx is None or idx < 0:
         return ""
@@ -153,8 +155,8 @@ def _nombre_clase(idx, class_names):
 
 def escape_payload(raw_bytes: bytes) -> bytes:
     """
-    Aplica el esquema de escape al payload antes de enviarlo.
-    Si un byte es '#', '@' o ESC, se envía como: ESC, (byte XOR 0x20).
+    Applies the escape scheme to the payload before sending it.
+    If a byte is '#', '@' or ESC, it is sent as: ESC, (byte XOR 0x20).
     """
     escaped = bytearray()
     for b in raw_bytes:
@@ -168,8 +170,8 @@ def escape_payload(raw_bytes: bytes) -> bytes:
 
 def preprocess_image(image_path: str, width: int, height: int, grayscale: bool) -> bytes:
     """
-    Carga, redimensiona y convierte la imagen al formato esperado por el tensor.
-    Retorna los bytes RAW (uint8, 0-255) en orden HWC.
+    Loads, resizes and converts the image to the format expected by the tensor.
+    Returns the RAW bytes (uint8, 0-255) in HWC order.
     """
     img = Image.open(image_path)
 
@@ -180,18 +182,18 @@ def preprocess_image(image_path: str, width: int, height: int, grayscale: bool) 
 
     img = img.resize((width, height), Image.LANCZOS)
 
-    arr = np.array(img, dtype=np.uint8)  # shape: (H, W) o (H, W, 3)
+    arr = np.array(img, dtype=np.uint8)  # shape: (H, W) or (H, W, 3)
 
-    # Aplanar en orden C (row-major) → bytes del tensor
+    # Flatten in C order (row-major) -> tensor bytes
     raw = arr.flatten().tobytes()
 
-    print(f"[INFO] Imagen preprocesada: {arr.shape}  -> {len(raw)} bytes de payload")
+    print(f"[INFO] Image preprocessed: {arr.shape}  -> {len(raw)} payload bytes")
     return raw
 
 
 def build_packet(payload_raw: bytes) -> bytes:
     """
-    Construye el paquete completo: MARKER_START + payload_escapado + MARKER_END
+    Builds the full packet: MARKER_START + escaped_payload + MARKER_END
     """
     payload_escaped = escape_payload(payload_raw)
     packet = MARKER_START + payload_escaped + MARKER_END
@@ -202,33 +204,32 @@ def send_image(port: str, baud: int, image_path: str,
                width: int, height: int, grayscale: bool,
                pre_delay: float, model_tag: str):
     """
-    Abre el puerto serial y envía la imagen con el protocolo #...@
+    Opens the serial port and sends the image with the #...@ protocol
     """
     raw_payload = preprocess_image(image_path, width, height, grayscale)
     packet = build_packet(raw_payload)
 
-    print(f"[INFO] Conectando a {port} @ {baud} baud ...")
+    print(f"[INFO] Connecting to {port} @ {baud} baud ...")
     try:
         ser = serial.Serial(port, baud, timeout=10)
     except serial.SerialException as e:
-        print(f"ERROR al abrir el puerto: {e}")
+        print(f"ERROR opening the port: {e}")
         sys.exit(1)
 
-    time.sleep(pre_delay)  # esperar a que el Arduino termine su setup
-    print(f"[INFO] Puerto abierto. Esperando {pre_delay}s antes de enviar...")
-    time.sleep(pre_delay)
+    print(f"[INFO] Port open. Waiting {pre_delay}s before sending...")
+    time.sleep(pre_delay)  # wait for the Arduino to finish its setup
 
     ser.reset_input_buffer()
 
-    print(f"[INFO] Enviando paquete: {len(packet)} bytes totales "
-          f"(payload raw={len(raw_payload)}, escapado={len(packet)-2})")
+    print(f"[INFO] Sending packet: {len(packet)} bytes total "
+          f"(raw payload={len(raw_payload)}, escaped={len(packet)-2})")
 
     ser.write(packet)
     ser.flush()
-    print(f"[OK]   Paquete enviado. Esperando respuesta del Arduino...\n")
+    print("[OK]   Packet sent. Waiting for the Arduino's response...\n")
 
-    # Leer la respuesta hasta que se reciba la línea de "Listo"
-    timeout = time.time() + 30  # máximo 30 segundos esperando respuesta
+    # Read the response until the "Listo" (ready) line is received
+    timeout = time.time() + 30  # at most 30 seconds waiting for a response
 
     csv_path = os.path.join("results", "pil",
                             f"latency_metrics_single_{model_tag}.csv")
@@ -254,6 +255,9 @@ def send_image(port: str, baud: int, image_path: str,
                     value = ":".join(parts[1:]).strip()
                     current_metrics[metric] = value
 
+            # The firmware prints its end-of-inference markers in Spanish
+            # ("siguiente imagen" = "next image", "listo" = "ready"), so these
+            # checks must keep the Spanish words the board actually sends.
             if "siguiente imagen" in line.lower() or "listo" in line.lower():
                 break
         else:
@@ -266,10 +270,10 @@ def send_image(port: str, baud: int, image_path: str,
     csv_file.flush()
 
     csv_file.close()
-    print(f"[INFO] Métricas guardadas en {csv_path}")
+    print(f"[INFO] Metrics saved to {csv_path}")
 
     ser.close()
-    print("\n[INFO] Puerto cerrado. Fin de transmisión.")
+    print("\n[INFO] Port closed. End of transmission.")
 
 
 def send_folder(port: str, baud: int, folder: str,
@@ -279,45 +283,49 @@ def send_folder(port: str, baud: int, folder: str,
                 model_path: str = None,
                 n_samples: int = None):
     """
-    Envía imágenes de `folder` al Arduino en secuencia.
+    Sends the images in `folder` to the Arduino in sequence.
 
-    Si `n_samples` es None envía todas las imágenes encontradas.
-    Si `n_samples` es un entero, selecciona ese número de imágenes
-    aleatoriamente (sin reemplazo) antes de enviarlas.
+    If `n_samples` is None, every image found is sent.
+    If `n_samples` is an integer, that number of images is selected
+    at random (without replacement) before sending them.
 
-    El Arduino retorna únicamente el número entero de la clase predicha.
-    Al finalizar, imprime un resumen con el conteo y porcentaje por clase.
+    The Arduino returns the predicted class index along with on-device telemetry
+    lines (TEMP_C, CYC_*, US_*). On completion, a prediction summary is printed
+    and artifacts are saved under results/pil/ (latency_metrics_*.csv,
+    predictions_*.csv, Matriz_*.png, and metrics_*.json).
 
-    Parámetros
+    Parameters
     ----------
-    port      : Puerto serial (ej. 'COM9' o '/dev/ttyUSB0')
-    baud      : Baudrate
-    folder    : Carpeta que contiene las imágenes
-    width     : Ancho del tensor de entrada
-    height    : Alto del tensor de entrada
-    grayscale : True → escala de grises, False → RGB
-    pre_delay : Segundos de espera antes de enviar la primera imagen
-    gap       : Segundos de espera entre imágenes consecutivas
-    n_samples : Número de imágenes a seleccionar aleatoriamente.
-                Si es None (o >= total disponibles), se envían todas.
+    port       : Serial port (e.g. 'COM9' or '/dev/ttyUSB0')
+    baud       : Baud rate
+    folder     : Folder containing the images
+    width      : Input tensor width
+    height     : Input tensor height
+    grayscale  : True -> grayscale, False -> RGB
+    pre_delay  : Seconds to wait before sending the first image
+    gap        : Seconds to wait between consecutive images
+    model_tag  : Model stem used to name output files under results/pil/
+    model_path : Optional path to the flashed .tflite file (hashed in metrics JSON)
+    n_samples  : Number of images to select at random.
+                 If None (or >= total available), all of them are sent.
     """
     extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.tif')
 
     subdirs = [d for d in os.listdir(folder) if os.path.isdir(os.path.join(folder, d))]
     subdirs.sort()
 
-    image_data = [] # Lista de tuplas: (ruta_imagen, etiqueta_real_int)
+    image_data = [] # List of tuples: (image_path, true_label_int)
     class_names = []
 
     if not subdirs:
-        print(f"[INFO] No se encontraron subcarpetas en {folder}. No se generará matriz de confusión.")
+        print(f"[INFO] No subfolders found in {folder}. No confusion matrix will be generated.")
         for root, _, files in os.walk(folder):
             for f in files:
                 if f.lower().endswith(extensions):
                     image_data.append((os.path.join(root, f), -1))
     else:
         class_names = subdirs
-        print(f"[INFO] Clases reales detectadas: {class_names}")
+        print(f"[INFO] Ground-truth classes detected: {class_names}")
         for label_idx, class_name in enumerate(class_names):
             class_dir = os.path.join(folder, class_name)
             for f in os.listdir(class_dir):
@@ -327,25 +335,25 @@ def send_folder(port: str, baud: int, folder: str,
     image_data = sorted(list(set(image_data)))
 
     if not image_data:
-        print(f"[ERROR] No se encontraron imágenes válidas en: {folder}")
+        print(f"[ERROR] No valid images found in: {folder}")
         sys.exit(1)
 
     available = len(image_data)
     if n_samples is not None and n_samples < available:
         image_data = random.sample(image_data, n_samples)
-        print(f"[INFO] Seleccionadas {n_samples} imágenes aleatoriamente "
-              f"de {available} disponibles en '{folder}'")
+        print(f"[INFO] Selected {n_samples} images at random "
+              f"out of {available} available in '{folder}'")
     else:
-        print(f"[INFO] {available} imágenes encontradas en '{folder}' (enviando todas)")
+        print(f"[INFO] {available} images found in '{folder}' (sending all)")
 
-    print(f"[INFO] Conectando a {port} @ {baud} baud ...")
+    print(f"[INFO] Connecting to {port} @ {baud} baud ...")
     try:
         ser = serial.Serial(port, baud, timeout=10)
     except serial.SerialException as e:
-        print(f"ERROR al abrir el puerto: {e}")
+        print(f"ERROR opening the port: {e}")
         sys.exit(1)
 
-    print(f"[INFO] Puerto abierto. Esperando {pre_delay}s antes de enviar...")
+    print(f"[INFO] Port open. Waiting {pre_delay}s before sending...")
     time.sleep(pre_delay)
 
     total = len(image_data)
@@ -358,10 +366,10 @@ def send_folder(port: str, baud: int, folder: str,
     metrics_headers = ["TEMP_C", "CYC_PRE", "CYC_INF", "CYC_POST", "CYC_TOTAL", "US_PRE", "US_INF", "US_POST", "US_TOTAL"]
     csv_writer.writerow(["Image"] + metrics_headers)
 
-    # CSV aparte con la prediccion por imagen. Separado del de latencias
-    # para no alterar el esquema de aquel, que ya tiene corridas hechas;
-    # ambos comparten la columna Image y se pueden cruzar por nombre.
-    # RelPath desambigua: dos clases pueden tener archivos homonimos.
+    # Separate CSV with the per-image prediction. Kept apart from the latency
+    # one so as not to alter that file's schema, which already has finished
+    # runs; both share the Image column and can be joined by name.
+    # RelPath disambiguates: two classes may have files with the same name.
     pred_csv_path = os.path.join("results", "pil",
                                  f"predictions_{model_tag}.csv")
     pred_file = open(pred_csv_path, "w", newline="", encoding="utf-8")
@@ -373,25 +381,25 @@ def send_folder(port: str, baud: int, folder: str,
     errors = 0
     y_true = []
     y_pred = []
-    # Se acumulan ademas del CSV: el JSON resume por fase y releer el CSV
-    # recien escrito solo para eso seria dar un rodeo.
+    # Accumulated in addition to the CSV: the JSON summarizes per phase, and
+    # re-reading the just-written CSV only for that would be a detour.
     latencias = []
 
     for idx, (image_path, true_label) in enumerate(image_data, start=1):
-        print(f"\n[INFO] ({idx}/{total}) Procesando: {os.path.basename(image_path)}")
+        print(f"\n[INFO] ({idx}/{total}) Processing: {os.path.basename(image_path)}")
 
         raw_payload = preprocess_image(image_path, width, height, grayscale)
         packet = build_packet(raw_payload)
 
         ser.reset_input_buffer()
-        print(f"[INFO] Enviando paquete: {len(packet)} bytes totales "
-              f"(payload raw={len(raw_payload)}, escapado={len(packet)-2})")
+        print(f"[INFO] Sending packet: {len(packet)} bytes total "
+              f"(raw payload={len(raw_payload)}, escaped={len(packet)-2})")
 
         ser.write(packet)
         ser.flush()
-        print(f"[OK]   Paquete enviado. Esperando clase predicha...")
+        print("[OK]   Packet sent. Waiting for the predicted class...")
 
-        # Leer la respuesta: el Arduino envía solo el número de clase y luego latencias
+        # Read the response: the Arduino sends only the class number, then the latencies
         predicted_class = None
         current_metrics = {}
         timeout = time.time() + 30
@@ -407,18 +415,21 @@ def send_folder(port: str, baud: int, folder: str,
                         value = ":".join(parts[1:]).strip()
                         current_metrics[metric] = value
 
+                # The firmware prints its end-of-inference markers in Spanish
+                # ("siguiente imagen" = "next image", "listo" = "ready"), so these
+                # checks must keep the Spanish words the board actually sends.
                 if "siguiente imagen" in line.lower() or "listo" in line.lower():
                     break
 
                 try:
-                    # Si la linea es solo un numero entero, asumimos que es la clase predicha
+                    # If the line is just an integer, assume it is the predicted class
                     parsed_int = int(line.strip())
                     predicted_class = parsed_int
                 except ValueError:
                     pass
             else:
                 time.sleep(0.05)
-                
+
         row = [os.path.basename(image_path)]
         for h in metrics_headers:
             row.append(current_metrics.get(h, ""))
@@ -428,17 +439,18 @@ def send_folder(port: str, baud: int, folder: str,
 
         if predicted_class is not None:
             class_counts[predicted_class] += 1
-            print(f"  → Clase predicha: {predicted_class}")
+            print(f"  -> Predicted class: {predicted_class}")
             if true_label != -1:
                 y_true.append(true_label)
                 y_pred.append(predicted_class)
         else:
             errors += 1
-            print(f"  [WARN] No se recibió clase predicha para esta imagen.")
+            print("  [WARN] No predicted class received for this image.")
 
-        # Una fila por imagen, se sepa o no la etiqueta y responda o no la
-        # placa: las celdas vacias distinguen "no habia etiqueta" de "no
-        # hubo respuesta", y ambas cosas importan al interpretar el banco.
+        # One row per image, whether or not the label is known and whether or
+        # not the board answered: the empty cells distinguish "there was no
+        # label" from "there was no response", and both matter when
+        # interpreting the benchmark.
         etiqueta_conocida = (true_label != -1)
         hubo_respuesta = (predicted_class is not None)
         if etiqueta_conocida and hubo_respuesta:
@@ -454,30 +466,30 @@ def send_folder(port: str, baud: int, folder: str,
             _nombre_clase(predicted_class, class_names) if hubo_respuesta else "",
             correcto,
         ])
-        # flush por fila, igual que el CSV de latencias: un banco por serie
-        # puede interrumpirse y lo ya medido no deberia perderse.
+        # flush per row, like the latency CSV: a serial benchmark can be
+        # interrupted and what has already been measured should not be lost.
         pred_file.flush()
 
         if idx < total:
-            print(f"[INFO] Esperando {gap}s antes de la siguiente imagen...")
+            print(f"[INFO] Waiting {gap}s before the next image...")
             time.sleep(gap)
 
     csv_file.close()
-    print(f"\n[INFO] Métricas de latencia guardadas en {csv_path}")
+    print(f"\n[INFO] Latency metrics saved to {csv_path}")
     pred_file.close()
-    print(f"[INFO] Predicciones por imagen guardadas en {pred_csv_path}")
+    print(f"[INFO] Per-image predictions saved to {pred_csv_path}")
 
     ser.close()
-    print("\n[INFO] Puerto cerrado. Todas las imágenes enviadas.")
+    print("\n[INFO] Port closed. All images sent.")
 
     respondidas = total - errors
     print("\n" + "=" * 45)
-    print(f"  RESUMEN DE PREDICCIONES")
-    print(f"  Carpeta : {folder}")
-    print(f"  Total   : {total} imágenes  |  Respondidas: {respondidas}  |  Sin respuesta: {errors}")
+    print("  PREDICTION SUMMARY")
+    print(f"  Folder  : {folder}")
+    print(f"  Total   : {total} images  |  Answered: {respondidas}  |  No response: {errors}")
     print("=" * 45)
     if class_counts:
-        print(f"  {'Clase':>6}  {'Cantidad':>9}  {'Porcentaje':>11}")
+        print(f"  {'Class':>6}  {'Count':>9}  {'Percentage':>11}")
         print("  " + "-" * 32)
         for cls in sorted(class_counts):
             cnt = class_counts[cls]
@@ -485,14 +497,14 @@ def send_folder(port: str, baud: int, folder: str,
             print(f"  {cls:>6}  {cnt:>9}  {pct:>10.1f}%")
     print("=" * 45)
 
-    # Valores por defecto: si no hay etiquetas reales o falta sklearn, el JSON
-    # se escribe igual con estos campos en null y la latencia intacta.
+    # Defaults: if there are no ground-truth labels or sklearn is missing, the
+    # JSON is written anyway with these fields as null and the latency intact.
     metricas_globales = None
     report_dict = None
     matriz_confusion = None
     cm_plot_path = None
 
-    # Generación de la matriz de confusión y métricas si tenemos verdaderas etiquetas
+    # Generate the confusion matrix and metrics if we have ground-truth labels
     if y_true and len(y_true) > 0:
         try:
             import seaborn as sns
@@ -500,17 +512,17 @@ def send_folder(port: str, baud: int, folder: str,
             from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, precision_recall_fscore_support
 
             print("\n" + "="*50)
-            print("                 REPORTE DE MÉTRICAS")
+            print("                 METRICS REPORT")
             print("="*50)
 
             accuracy = accuracy_score(y_true, y_pred)
             precision, recall, f1, _ = precision_recall_fscore_support(y_true, y_pred, average='weighted', zero_division=0)
 
-            print(f"Accuracy (Exactitud): {accuracy:.4f}")
+            print(f"Accuracy:             {accuracy:.4f}")
             print(f"Precision:            {precision:.4f}")
-            print(f"Recall (Exhaustividad):{recall:.4f}")
-            # macro ademas de weighted: mismo criterio que en MIL y SIL, para que
-            # las columnas de la escalera sean comparables entre si.
+            print(f"Recall:               {recall:.4f}")
+            # macro in addition to weighted: same criterion as in MIL and SIL, so
+            # that the columns of the ladder are comparable with each other.
             _, _, f1_macro, _ = precision_recall_fscore_support(y_true, y_pred, average='macro', zero_division=0)
             print(f"F1-Score (weighted):  {f1:.4f}")
             print(f"F1-Score (macro):     {f1_macro:.4f}")
@@ -523,10 +535,10 @@ def send_folder(port: str, baud: int, folder: str,
                 else:
                     target_names.append(f"Invalida_{lab}")
 
-            print("\nReporte de Clasificación Detallado:")
+            print("\nDetailed Classification Report:")
             print(classification_report(y_true, y_pred, labels=labels_present, target_names=target_names, zero_division=0))
 
-            print("\nGenerando Matriz de Confusión...")
+            print("\nGenerating Confusion Matrix...")
             cm = confusion_matrix(y_true, y_pred, labels=labels_present)
 
             plt.figure(figsize=(10, 8))
@@ -536,18 +548,18 @@ def send_folder(port: str, baud: int, folder: str,
             plt.xlabel('Predicted Label')
             plt.tight_layout()
 
-            # Mismo criterio que test_model.py (MIL): el nombre se deriva del
-            # modelo evaluado, para que dos corridas con modelos distintos no se
-            # pisen la matriz la una a la otra.
+            # Same criterion as test_model.py (MIL): the name is derived from the
+            # evaluated model, so that two runs with different models do not
+            # overwrite each other's matrix.
             output_dir = os.path.join("results", "pil")
             os.makedirs(output_dir, exist_ok=True)
             cm_plot_name = f"Matriz_{model_tag}.png"
             cm_plot_path = os.path.join(output_dir, cm_plot_name)
             plt.savefig(cm_plot_path)
-            print(f"Gráfico de la matriz de confusión guardado en: {cm_plot_path}")
+            print(f"Confusion matrix plot saved to: {cm_plot_path}")
 
-            # Se recogen aqui, dentro del try, para que el JSON de mas abajo
-            # los encuentre ya calculados; si sklearn falta quedan en None.
+            # Collected here, inside the try, so that the JSON further below
+            # finds them already computed; if sklearn is missing they stay None.
             metricas_globales = {
                 "accuracy": float(accuracy),
                 "precision_weighted": float(precision),
@@ -566,17 +578,18 @@ def send_folder(port: str, baud: int, folder: str,
 
 
         except ImportError:
-            print("\n[WARN] Faltan librerías para matriz de confusión (seaborn, sklearn, matplotlib).")
-            print("Instálalas con: pip install scikit-learn seaborn matplotlib")
+            print("\n[WARN] Missing libraries for the confusion matrix (seaborn, sklearn, matplotlib).")
+            print("Install them with: pip install scikit-learn seaborn matplotlib")
 
     # ------------------------------------------------------------------
-    # JSON de resultados del nivel PIL.
+    # Results JSON for the PIL level.
     #
-    # Se escribe SIEMPRE, incluso si no hubo etiquetas reales o si falta
-    # sklearn: lo que este nivel aporta de forma exclusiva es la latencia
-    # medida en la placa, y perderla porque no se pudo calcular una matriz de
-    # confusion seria absurdo. Los campos de clasificacion quedan en null
-    # cuando no se pudieron calcular, que tambien es informacion.
+    # It is ALWAYS written, even if there were no ground-truth labels or if
+    # sklearn is missing: what this level contributes exclusively is the
+    # latency measured on the board, and losing it because a confusion
+    # matrix could not be computed would be absurd. The classification
+    # fields are left as null when they could not be computed, which is
+    # also information.
     # ------------------------------------------------------------------
     json_dir = os.path.join("results", "pil")
     os.makedirs(json_dir, exist_ok=True)
@@ -630,64 +643,64 @@ def send_folder(port: str, baud: int, folder: str,
 
     with open(metrics_path, "w", encoding="utf-8") as fh:
         json.dump(resultados, fh, indent=2, ensure_ascii=False, default=_json_safe)
-    print(f"[INFO] Métricas en JSON guardadas en {metrics_path}")
+    print(f"[INFO] JSON metrics saved to {metrics_path}")
 
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Envía imagen(es) al Arduino por serial (protocolo #...@)"
+        description="Sends image(s) to the Arduino over serial (#...@ protocol)"
     )
     parser.add_argument('--port',   default="COM9", required=False,
-                        help="Puerto serial (ej. COM9 o /dev/ttyUSB0)")
+                        help="Serial port (e.g. COM9 or /dev/ttyUSB0)")
 
     source = parser.add_mutually_exclusive_group()
     source.add_argument('--image',  default=None,
-                        help="Ruta a una imagen concreta a enviar")
+                        help="Path to a specific image to send")
     source.add_argument('--folder', default=None,
-                        help="Carpeta explicita a enviar, en vez de la particion "
-                             "de test (default: <splits_dir>/test)")
+                        help="Explicit folder to send, instead of the test "
+                             "split (default: <splits_dir>/test)")
 
     parser.add_argument('--splits_dir', default="data/splits",
-                        help="Directorio con las particiones de split_dataset.py "
-                             "(el banco PIL usa SOLO <splits_dir>/test)")
+                        help="Directory with the splits produced by split_dataset.py "
+                             "(the PIL benchmark uses ONLY <splits_dir>/test)")
 
     parser.add_argument('--model_path', required=True,
-                        help="Ruta al .tflite que esta flasheado en la placa. No se "
-                             "carga: solo identifica la corrida, igual que en "
-                             "test_model.py, para nombrar la matriz y el CSV de "
-                             "latencias (obligatorio)")
+                        help="Path to the .tflite flashed on the board. It is not "
+                             "executed on the PC: its SHA-256/size are recorded in "
+                             "metrics_*.json and its stem names the results/pil/ "
+                             "artifacts (required)")
 
     parser.add_argument('--baud',   type=int, default=115200,
-                        help="Baudrate (default: 115200)")
+                        help="Baud rate (default: 115200)")
     parser.add_argument('--width',  type=int, default=320,
-                        help="Ancho del tensor de entrada (default: 320)")
+                        help="Input tensor width (default: 320)")
     parser.add_argument('--height', type=int, default=320,
-                        help="Alto del tensor de entrada (default: 320)")
+                        help="Input tensor height (default: 320)")
     parser.add_argument('--color',  action='store_true',
-                        help="Enviar en color RGB (default: escala de grises)")
+                        help="Send in RGB color (default: grayscale)")
     parser.add_argument('--delay',  type=float, default=1.0,
-                        help="Segundos de espera antes de enviar (default: 1.0)")
+                        help="Seconds to wait before sending (default: 1.0)")
     parser.add_argument('--gap',    type=float, default=0.5,
-                        help="Segundos entre imágenes consecutivas (default: 0.5)")
+                        help="Seconds between consecutive images (default: 0.5)")
     parser.add_argument('--count',  type=int, default=None, metavar='N',
-                        help="Número de imágenes aleatorias a enviar de la carpeta. "
-                             "Si no se especifica, se envían todas.")
+                        help="Number of random images to send from the folder. "
+                             "If not specified, all of them are sent.")
     return parser.parse_args()
 
 
 def normalize_port(port: str) -> str:
     """
-    Normaliza el nombre del puerto según la plataforma:
-      - Windows nativo : COM9+ → \\\\.\\COMx
-      - WSL (Linux)    : COMx  → /dev/ttySx  (COM1→ttyS1, COM7→ttyS7, etc.)
-      - Linux nativo   : se usa tal cual (/dev/ttyUSB0, etc.)
+    Normalizes the port name according to the platform:
+      - Native Windows : COM9+ -> \\\\.\\COMx
+      - WSL (Linux)    : COMx  -> /dev/ttySx  (COM1->ttyS1, COM7->ttyS7, etc.)
+      - Native Linux   : used as is (/dev/ttyUSB0, etc.)
     """
     import re
     m = re.match(r'^COM(\d+)$', port.strip().upper())
     if m:
         n = int(m.group(1))
-        # Detectar WSL: sys.platform es 'linux' pero existe /proc/version con 'microsoft'
+        # Detect WSL: sys.platform is 'linux' but /proc/version exists and contains 'microsoft'
         is_wsl = False
         if sys.platform != 'win32':
             try:
@@ -698,27 +711,27 @@ def normalize_port(port: str) -> str:
 
         if is_wsl:
             port = f'/dev/ttyS{n}'
-            print(f"[INFO] Puerto normalizado para WSL: {port}")
+            print(f"[INFO] Port normalized for WSL: {port}")
         elif sys.platform == 'win32' and n >= 9:
             port = f'\\\\.\\COM{n}'
-            print(f"[INFO] Puerto normalizado para Windows: {port}")
+            print(f"[INFO] Port normalized for Windows: {port}")
     return port
 
 
 def resolve_folder(args):
-    """--folder explicito manda; si no, la particion de test de split_dataset.py.
+    """An explicit --folder wins; otherwise, the test split from split_dataset.py.
 
-    PIL nunca debe leer el dataset completo: incluiria las imagenes con las que
-    se entreno el modelo, y la brecha SIL->PIL dejaria de ser atribuible al
-    hardware.
+    PIL must never read the full dataset: it would include the images the
+    model was trained on, and the SIL->PIL gap would no longer be
+    attributable to the hardware.
     """
     if args.folder:
         return args.folder
 
     folder = os.path.join(args.splits_dir, 'test')
     if not os.path.isdir(folder):
-        print(f"ERROR: no se encontro la particion de prueba en {folder}")
-        print("Ejecuta primero la particion del dataset:")
+        print(f"ERROR: test split not found at {folder}")
+        print("Run the dataset split first:")
         print(f"  python src/split_dataset.py"
               f" --input_dir data/processed/{args.width}x{args.height}"
               f" --output_dir {args.splits_dir}")
@@ -730,8 +743,8 @@ if __name__ == '__main__':
     args = parse_args()
     port = normalize_port(args.port)
 
-    # Etiqueta de la corrida: el nombre del modelo sin extension, el mismo
-    # criterio que usa test_model.py para nombrar su matriz de confusion.
+    # Run tag: the model name without extension, the same criterion that
+    # test_model.py uses to name its confusion matrix.
     model_tag = os.path.splitext(os.path.basename(args.model_path))[0]
 
     if args.image:
