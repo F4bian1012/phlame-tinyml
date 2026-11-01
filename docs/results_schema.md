@@ -43,7 +43,7 @@ Every evaluation script writes a `metrics_{model}[_int8].json` file capturing cl
 |---|---|---|---|
 | `modelo.nombre` | All | `string` | Model architecture tag / run identifier (e.g., `"MobileNetV2+32+20+0.0001+160+120_int8"`). |
 | `modelo.path` | All | `string` | Relative path to the evaluated `.keras` or `.tflite` model artifact. |
-| `modelo.sha256` | All | `string` | 64-character SHA-256 hash of the host model file (guarantees identical weights across ladder levels). |
+| `modelo.sha256` | All | `string` | 64-character SHA-256 hash of the host model file: the `.keras` file in MIL and the `.tflite` file in SIL, PIL and HIL. In PIL it does not prove which model is flashed on the board (only HIL checks that, see `modelo.identidad_verificada`). |
 | `modelo.bytes` | All | `integer` | Model file size on disk in bytes. |
 | `modelo.fnv1a_tflite` | HIL | `string` | 8-character hex 32-bit FNV-1a hash computed directly from the host `.tflite` binary file. |
 | `modelo.fnv1a_chip` | HIL | `string` | 8-character hex 32-bit FNV-1a hash computed by the Portenta H7 firmware over the compiled `g_model[]` in flash and emitted at boot (`MODEL_FNV1A:<hex>`). |
