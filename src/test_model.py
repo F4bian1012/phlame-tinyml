@@ -281,6 +281,7 @@ def main():
     }
 
     with open(metrics_path, "w", encoding="utf-8") as fh:
+        # Output schema documented in docs/results_schema.md - update it if you add, rename or remove keys.
         json.dump(resultados, fh, indent=2, ensure_ascii=False, default=_json_safe)
     print(f"JSON metrics saved to {metrics_path}")
 

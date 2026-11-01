@@ -857,6 +857,7 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
     # --- Physical rig conditions (environmental protocol) ---
     cond_path = os.path.join(output_dir, f"hil_conditions_{model_tag}.json")
     with open(cond_path, 'w', encoding='utf-8') as f:
+        # Output schema documented in docs/results_schema.md - update it if you add, rename or remove keys.
         json.dump(conditions, f, indent=2, ensure_ascii=False)
     print(f"[OK]   Rig conditions saved to: {cond_path}")
 
@@ -988,6 +989,7 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
         }
         metrics_path = os.path.join(output_dir, f"metrics_{model_tag}.json")
         with open(metrics_path, "w", encoding="utf-8") as fh:
+            # Output schema documented in docs/results_schema.md - update it if you add, rename or remove keys.
             json.dump(resultados, fh, indent=2, ensure_ascii=False, default=_json_safe)
         print(f"[OK]   JSON metrics (same schema as MIL/SIL/PIL) saved to: {metrics_path}")
         print(f"       F1-macro = {f_m:.4f}   errors = {int(cm.sum() - np.trace(cm))}")
