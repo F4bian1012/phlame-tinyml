@@ -437,10 +437,16 @@ Which of the framework's INT8 models fit, at 160×120:
 | `ResNet18` | 11057 KB | 11.46 MB | **no** — 9.46 MB over |
 
 `MobileNetV3Large` and `ResNet18` train and quantize fine, and are valid MIL/SIL
-targets on the PC, but they cannot be deployed to this board without pruning or a
-smaller input resolution. To free room for a borderline model, swap
-`AllOpsResolver` for a `MicroMutableOpResolver` listing only the operators that
-model uses.
+targets on the PC, but they cannot be deployed from internal flash: the `.tflite`
+alone exceeds it (`MobileNetV3Large`) or exceeds it several times over (`ResNet18`).
+Options are running the model from external memory (QSPI flash or SDRAM, not
+implemented in PHLAME) or a narrower variant (lower width multiplier), which is a
+different model. Unstructured pruning (`prune_model.py`) does not help because tensor
+shapes are kept, and a lower input resolution does not either because these networks
+end in global average pooling: it shrinks the arena, not the model. For a borderline
+model whose `.tflite` does fit, swapping `AllOpsResolver` for a
+`MicroMutableOpResolver` listing only the operators that model uses would free flash
+(not implemented in PHLAME).
 
 **Troubleshooting: `Last page at 0x08... is not writeable`.** `arduino-cli upload`
 failing with `exit status 64` and this message means the binary overflowed the
@@ -670,7 +676,7 @@ To demonstrate dataset-agnostic pipeline reuse on a standard *MLPerf Tiny* task 
 
 ## Known Limitations
 
-- **2 MB internal flash ceiling with `AllOpsResolver`:** Linking all TFLite-Micro kernels (`~673 KB`) leaves `~1,375 KB` of internal flash for `model.h` on the STM32H747XI. Consequently, `MobileNetV3Large` (`2,181 KB`) and `ResNet18` (`11,057 KB`) serve as desktop MIL/SIL baselines and require either pruning, lower input resolution, or `MicroMutableOpResolver` / QSPI external flash XIP for on-chip deployment.
+- **2 MB internal flash ceiling with `AllOpsResolver`:** Linking all TFLite-Micro kernels (`~673 KB`) leaves `~1,375 KB` of internal flash for `model.h` on the STM32H747XI. Consequently, `MobileNetV3Large` (`2,181 KB`) and `ResNet18` (`11,057 KB`) serve as desktop MIL/SIL baselines: each `.tflite` alone exceeds the 2 MB flash, so deploying them requires running from external memory (QSPI flash or SDRAM, not implemented in PHLAME) or a narrower variant, which is a different model. Unstructured pruning, a lower input resolution and `MicroMutableOpResolver` do not solve it.
 - **External SDRAM requirement for large activation arenas:** Three of the five deployed architectures (`MobileNetV2` `348.1 KB`, `ResNet8` `388.8 KB`, and `SqueezeNet` `404.7 KB`) exceed the `~288 KB` contiguous internal SRAM available on SDRAM-less Cortex-M7 boards such as the Arduino Nicla Vision, making the Portenta H7's 8 MB external SDRAM mandatory for uniform multi-architecture benchmarking.
 - **Presentation-order variance in the stimulus rig:** While fixed-seed HIL sessions (`seed=42`) exhibit sd = 0.0030 F1-macro across replicas on the fixed 200-image subset, permuting the stimulus presentation order (`rep4`, `seed=7`) shifts the measured gap by 2.33 / 200 images (−0.0665 vs. −0.0545 mean, 4-run sd = 0.0065); accounting for both 200-image sampling variance and bench repeatability yields the conservative frontend interval of −0.057 [−0.098, −0.017] (95% CI).
 - **Non-interchangeability of PIL and HIL inference cycle counts:** Across all evaluated models, `CYC_INF` in HIL is systematically 0.81%–2.77% lower than in PIL despite an identical `400.0 MHz` clock and SDRAM arena layout (likely due to cache/bus state differences after `cam.grabFrame()` vs. UART reception). PIL and HIL latency baselines should therefore be reported separately rather than mixed.
