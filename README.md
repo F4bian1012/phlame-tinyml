@@ -92,8 +92,8 @@ phlame-tinyml/
 │   ├── pil_benchmark.py
 │   └── hil_camera_benchmark.py
 ├── tensorboard_logs/        # Automated TF event logs (TensorBoard callback)
-├── installed_packages.txt   # Pip freeze snapshot
-├── requirements.txt         # Core dependencies & Hardware setup
+├── requirements.txt         # Minimum compatible dependencies & Hardware setup
+├── requirements-lock.txt    # Pinned exact versions of the verified environment
 └── README.md
 ```
 
