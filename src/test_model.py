@@ -74,6 +74,7 @@ def parse_args():
     parser.add_argument('--model_path', type=str, required=True, help="Ruta al modelo .keras a evaluar (obligatorio)")
     parser.add_argument('--data_dir', type=str, default=None, help="Ruta a la partición de prueba (default: data/splits/test, generada por split_dataset.py)")
     parser.add_argument('--class_names_path', type=str, default="models/class_names.txt", help="Ruta al archivo txt con los nombres de las clases")
+    parser.add_argument('--output_dir', type=str, default=os.path.join("results", "mil"), help="Directorio de salida para matriz, JSON y CSV (default: results/mil)")
     
     args = parser.parse_args()
 
@@ -103,8 +104,20 @@ def main():
     class_names = []
     if os.path.exists(args.class_names_path):
         with open(args.class_names_path, 'r') as f:
-            class_names = [line.strip() for line in f.readlines()]
+            class_names = [line.strip() for line in f.readlines() if line.strip()]
         print(f"Nombres de clases cargados: {class_names}")
+
+    if class_names:
+        subdirs = sorted(
+            d for d in os.listdir(args.data_dir)
+            if os.path.isdir(os.path.join(args.data_dir, d)) and not d.startswith(".")
+        )
+        if subdirs and set(subdirs) != set(class_names):
+            print(
+                f"[WARN] Las subcarpetas de {args.data_dir} ({subdirs}) no coinciden con "
+                f"{args.class_names_path} ({class_names}); se inferirán los nombres de clase del directorio."
+            )
+            class_names = []
 
     print(f"\nCargando el modelo desde {args.model_path}...")
     model = keras.models.load_model(args.model_path, safe_mode=False)
@@ -182,7 +195,7 @@ def main():
     
     # Las matrices del nivel MIL viven junto al resto de resultados de la
     # escalera (results/pil, results/hil), no mezcladas con los checkpoints.
-    out_dir = os.path.join("results", "mil")
+    out_dir = args.output_dir
     os.makedirs(out_dir, exist_ok=True)
 
     model_basename = os.path.basename(args.model_path)

@@ -72,6 +72,7 @@ def parse_args():
                              "(la evaluacion usa SOLO <splits_dir>/test)")
     parser.add_argument('--data_dir', type=str, default=None, help="Ruta explicita a la particion de prueba; por defecto se deduce como <splits_dir>/test")
     parser.add_argument('--class_names_path', type=str, default="models/class_names.txt", help="Ruta al txt con nombres de clases")
+    parser.add_argument('--output_dir', type=str, default=os.path.join("results", "sil"), help="Directorio de salida para matriz, JSON y CSV (default: results/sil)")
 
     args = parser.parse_args()
 
@@ -132,7 +133,7 @@ def main():
     class_names = []
     if os.path.exists(args.class_names_path):
         with open(args.class_names_path, 'r') as f:
-            class_names = [line.strip() for line in f.readlines()]
+            class_names = [line.strip() for line in f.readlines() if line.strip()]
         print(f"Nombres de clases cargados: {class_names}")
 
     print(f"\nInicializando TFLite Interpreter con {args.model_path}...")
@@ -175,6 +176,17 @@ def main():
         exit(1)
 
     print(f"Cargando dataset de prueba desde {args.data_dir}...")
+    if class_names:
+        subdirs = sorted(
+            d for d in os.listdir(args.data_dir)
+            if os.path.isdir(os.path.join(args.data_dir, d)) and not d.startswith(".")
+        )
+        if subdirs and set(subdirs) != set(class_names):
+            print(
+                f"[WARN] Las subcarpetas de {args.data_dir} ({subdirs}) no coinciden con "
+                f"{args.class_names_path} ({class_names}); se inferirán los nombres de clase del directorio."
+            )
+            class_names = []
     # Usamos batch_size=1 porque el intérprete TFLite generalemente infiere en ráfagas de a 1,
     # y shuffle=False para mantener correspondencia entre entrada e imagen/etiqueta.
     test_ds = tf.keras.utils.image_dataset_from_directory(
@@ -268,7 +280,7 @@ def main():
     # (results/mil, results/pil, results/hil), no junto al .tflite. El nombre se
     # deriva del modelo, igual que en test_model.py y pil_benchmark.py, para que
     # dos corridas con modelos distintos no se pisen la matriz.
-    out_dir = os.path.join("results", "sil")
+    out_dir = args.output_dir
     os.makedirs(out_dir, exist_ok=True)
 
     model_basename = os.path.basename(args.model_path)
