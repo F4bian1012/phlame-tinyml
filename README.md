@@ -452,7 +452,17 @@ data/raw/
 ├── Class1/
 └── Class2/
 ```
-then process (convert to grayscale) and resize them with recommended sizes: CAMERA_R160x120 (QQVGA), CAMERA_R320x240 (QVGA), CAMERA_R320x320. 
+
+**Supported formats.** `.jpg`, `.jpeg`, `.png` and `.bmp`, any resolution and colour
+mode: `process_images.py` converts every image to 8-bit single-channel grayscale and
+`reshape_images.py` resizes it to the target resolution. Extensions are matched with
+`glob`, so they are case-insensitive on Windows but case-sensitive on Linux/macOS
+(rename `.JPG` to `.jpg` there). Each subfolder of `data/raw/` is one class, and
+labels follow the alphabetical order of the folder names (`split_dataset.py` reuses
+`models/class_names.txt` when training has already written it). Files with other
+extensions (e.g. `.gif`, `.tif`, `.webp`, `.heic`) are skipped.
+
+Then process (convert to grayscale) and resize them with recommended sizes: CAMERA_R160x120 (QQVGA), CAMERA_R320x240 (QVGA), CAMERA_R320x320. 
 ```bash
 python src/process_images.py --raw_path data/raw --path_processed data/processed/grayscale
 python src/reshape_images.py --width 160 --height 120 --balance undersample
