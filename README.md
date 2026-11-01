@@ -405,12 +405,26 @@ library (see `requirements.txt`).
 ## Quickstart & Usage
 
 ### 1. Prerequisites & Installation
-Ensure you are using Python 3.10+ (the dependency set was verified on Python 3.13 with TensorFlow 2.21) and install the dependencies:
+
+Python 3.10+ is required (the dependency set was verified on Python 3.13 with TensorFlow 2.21).
+We recommend installing PHLAME in an isolated virtual environment:
+
 ```bash
 git clone https://github.com/F4bian1012/phlame-tinyml.git
 cd phlame-tinyml
+python -m venv venv
+
+# Linux / macOS
+source venv/bin/activate
+# Windows (PowerShell)
+venv\Scripts\Activate.ps1
+
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
+
+> On Windows, if PowerShell blocks the activation script, run once:
+> `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
 
 ### 2. Data Preparation
 Place your raw image dataset inside `data/raw/` (organized by class subfolders), 
