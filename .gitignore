@@ -35,6 +35,9 @@ models/checkpoints/*
 *.keras
 *.tflite
 
+# Scratch smoke-test outputs
+results/smoke_test/
+
 # Arduino / PlatformIO
 .pio/
 .pioenvs/

@@ -61,9 +61,10 @@ It bridges the gap between high-level Python model training and static, memory-c
 ### Repository Structure
 ```text
 phlame-tinyml/
-├── data/                    # Local datasets (ignored in git)
+├── data/                    # Local datasets (ignored in git; manifests & sample tracked)
 │   ├── raw/                 # Raw unprocessed images
 │   ├── processed/           # Grayscale, resized (optionally balanced) images
+│   ├── sample/              # 8 public VWW CC-BY smoke-test images + ATTRIBUTION.md
 │   └── splits/              # Disjoint train/val/test partitions + manifests
 ├── deployment/              # C++ Firmware for edge deployment
 │   ├── hil_camera_firmware/ # Portenta H7 Camera-in-the-Loop firmware
@@ -597,12 +598,16 @@ To demonstrate dataset-agnostic pipeline reuse on a standard *MLPerf Tiny* task 
 ## Data Availability
 
 - **Partition Manifests & Per-Image Results (in Git):** Complete stratified partition manifests (`data/splits/{train,val,test}_manifest.csv`, `data/splits/split_report.json`, and `data/splits_vww/{train,val,test}_manifest.csv`) and all per-image prediction and latency tables (`results/{mil,sil,pil,hil}/`) are version-controlled directly in this repository, allowing full statistical and paired 2×3 reproduction without hardware.
-- **Immediate Smoke-Test Sample (`data/sample/`):** A lightweight 8-image sample (`data/sample/Class1/` and `data/sample/Class2/`, 4 images per class from the held-out test split) is tracked in git so users can immediately test `process_images.py`, `test_model.py`, `test_tflite_model.py`, or `pil_benchmark.py --folder data/sample` right after cloning.
+- **Immediate Smoke-Test Sample (`data/sample/`):** A lightweight, personal-data-free 8-image sample (`data/sample/non_person/` and `data/sample/person/`, 4 `160×120` grayscale images per class from the held-out *Visual Wake Words* test split, individually licensed under **CC BY 2.0** with MS-COCO **CC BY 4.0** annotations; full provenance and SHA-256 checksums in `data/sample/ATTRIBUTION.md`) is tracked in git so users can immediately smoke-test data preprocessing right after cloning, or evaluate a downloaded release model without overwriting `results/sil/`:
+  ```bash
+  python src/process_images.py --raw_path data/sample --path_processed data/processed/sample_gray
+  python src/test_tflite_model.py --model_path models/tflite/MobileNetV2_VWW+32+20+0.0001+160+120_int8.tflite --data_dir data/sample --class_names_path models/class_names_vww.txt --output_dir results/smoke_test
+  ```
 - **Automated Visual Wake Words Benchmark (`src/download_vww_subset.py`):** The complete 2,000-image balanced *Visual Wake Words* dataset (`1,000 person` + `1,000 non_person` from MS-COCO `val2017`, `seed=42`, `selection_sha256: b3ab289abd4a`) can be rebuilt automatically in ~60 seconds via HTTP `Range` extraction:
   ```bash
   python src/download_vww_subset.py --per_class 1000 --seed 42
   ```
-- **Trained Checkpoints (`.keras`), Quantized Models (`.tflite`), and Full Dataset Archive:** Because binary weights (`*.keras`, `*.tflite`) and full image directories exceed GitHub's recommended source tree size, they are published as release assets in the versioned **GitHub Release (`v1.0.0`)** and archived on **Zenodo** with a permanent DOI. Every `.keras` and `.tflite` file is verifiable against the `sha256` and `fnv1a` digests recorded in `results/*/metrics_*.json`.
+- **Trained Checkpoints (`.keras`), Quantized Models (`.tflite`), and Primary Dataset Privacy Policy:** Because binary weights (`*.keras`, `*.tflite`) exceed GitHub's recommended source tree size, all trained checkpoints and INT8 quantized models (7 primary architectures plus `MobileNetV2_VWW`) are published as release assets in the versioned **GitHub Release (`v1.0.0`)** and archived on **Zenodo** with a permanent DOI, where every `.keras` and `.tflite` file is verifiable against the `sha256` and `fnv1a` digests recorded in `results/*/metrics_*.json`. Raw photographs from the primary vehicle benchmark are withheld from public redistribution because they contain identifiable vehicle license plates protected as personal data under Colombian data-protection law (**Law 1581 of 2012**); they are available from the author upon reasonable academic request subject to data-protection compliance, while all partition manifests, model weights, per-image predictions/latencies, and the 2,000-image VWW benchmark are 100% openly accessible.
 
 ---
 
