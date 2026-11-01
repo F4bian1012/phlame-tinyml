@@ -1,69 +1,101 @@
 # ==============================================================================
-# Phlame Framework - Python Dependencies
-# Grouped by component to ensure clean environment reproduction
+# PHLAME Framework - Python Dependencies
+# Grouped by component to ensure clean environment reproduction.
+# Minimum compatible versions (>=). Exact versions of the verified environment
+# are pinned in requirements-lock.txt (pip install -r requirements-lock.txt).
 # ==============================================================================
-# Verified working combination (Windows 11, 2026-09-11):
-#   Python 3.13.14 | tensorflow 2.21.0 | keras 3.13.2 | numpy 2.4.2
-#   opencv-python 4.13.0.92 | pillow 11.3.0 | matplotlib 3.10.8 | tensorboard 2.20.0
+# Verified working combination (Windows 11, revised 2026-11-01):
+#   Python 3.13.14 | tensorflow 2.21.0 (keras 3.13.2, tensorboard 2.20.0 pulled
+#   in as its dependencies) | numpy 2.4.2 | opencv-python 4.13.0.92
+#   pillow 11.3.0 | matplotlib 3.10.8 | pyserial 3.5
+# Every script in src/ and nicla_vision_port/ was scanned for imports on
+# 2026-11-01; each entry below names the scripts that need it.
 # ==============================================================================
 
 # --- Core Machine Learning & Deep Learning ---
-# Floor raised from 2.15 to 2.16 to match the verified stack. The previous
-# `tensorflow-intel ; sys_platform == 'win32'` line was dropped: this Windows
-# environment runs tensorflow 2.21 with tensorflow-intel NOT installed, so the
-# extra requirement is unnecessary and only pushes pip toward an older build.
+# train_*.py, test_model.py, test_tflite_model.py, quantize_int8_basic.py,
+# prune_model.py, hil_camera_benchmark.py (SIL/MIL cross-run). The scripts use
+# tf.keras (Keras 3 ships with TensorFlow >= 2.16; no separate `keras` entry).
+# Floor 2.16 because the models rely on Keras 3; the verified build is 2.21.
 tensorflow>=2.16.0
 
 # --- Image Processing & Datasets ---
+# process_images.py, reshape_images.py, hil_camera_benchmark.py (stimulus
+# window, frame handling)
 opencv-python>=4.8.0
+# pil_benchmark.py (image loading / resize before the serial transfer)
 pillow>=10.0.0
-# Floor raised from 1.24 to 2.0: the opencv-python and tensorflow wheels in the
-# verified stack are built against the numpy 2.x ABI, and importing them with
-# numpy 1.x installed fails.
+# Floor 2.0: the opencv-python and tensorflow wheels of the verified stack are
+# built against the numpy 2.x ABI; importing them with numpy 1.x fails.
 numpy>=2.0.0
-# Metricas de evaluacion (accuracy, matriz de confusion, classification_report):
-# test_model.py, test_tflite_model.py, pil_benchmark.py, hil_camera_benchmark.py
+
+# --- Evaluation metrics (REQUIRED for every MIL/SIL/PIL/HIL result) ---
+# accuracy, precision/recall/F1 and the confusion matrix in test_model.py,
+# test_tflite_model.py, pil_benchmark.py and hil_camera_benchmark.py.
+# test_model.py and test_tflite_model.py EXIT if these two are missing; the PIL
+# and HIL benches run but then write no metrics_*.json nor confusion matrix.
+# Note: they are imported inside try/except, so a bare `python script.py`
+# does not fail at import time; the lack only shows at the end of the run.
 scikit-learn>=1.3.0
+# Confusion-matrix heatmaps in the same four scripts.
+seaborn>=0.12.0
 
 # --- Hardware Interface & Communication ---
-# Protocolo serie con la placa: pil_benchmark.py, hil_camera_benchmark.py
+# Serial protocol with the board: pil_benchmark.py, hil_camera_benchmark.py
 pyserial>=3.5
 
-# --- Visualization & Logging ---
+# --- Visualization ---
+# Training curves and confusion matrices (train_*.py, test_*.py, benches)
 matplotlib>=3.7.0
-# Mapas de calor de las matrices de confusion (los mismos cuatro scripts)
-seaborn>=0.12.0
-# Callback keras.callbacks.TensorBoard en train_mobilenet.py y train_resnet.py
-tensorboard>=2.15.0
 
 # ==============================================================================
-# Opcional
+# Optional
 # ==============================================================================
 # tflite-runtime
-#   Rama de respaldo de hil_camera_benchmark.py (~linea 454) para evaluar SIL
-#   sin TensorFlow. Con `tensorflow` instalado nunca se ejecuta, y no existe
-#   wheel oficial para Windows. Instalar solo en un host sin TensorFlow.
+#   Fallback branch of hil_camera_benchmark.py (SilModel) to evaluate SIL on a
+#   host without TensorFlow. With `tensorflow` installed it is never used, and
+#   there is no official wheel for Windows. Install only on a TensorFlow-less host.
 
 # ==============================================================================
-# Declarados anteriormente, sin uso en el codigo actual (revisado 2026-09-11)
-# Se dejan comentados en vez de borrados por si el uso estaba previsto.
+# Declared previously, no longer listed (scan of 2026-11-01)
 # ==============================================================================
+# tensorboard>=2.15.0
+#   No script imports it or uses keras.callbacks.TensorBoard (the earlier
+#   comment claiming train_mobilenet.py / train_resnet.py use it was wrong).
+#   It is still installed automatically as a TensorFlow dependency.
 # pandas>=2.0.0
-#   Ningun script del repositorio lo importa.
+#   No script in the repository imports it.
 # tensorflow-model-optimization>=0.7.5
-#   prune_model.py implementa el pruning a mano con np.percentile sobre los
-#   pesos; no importa tfmot en ningun punto.
+#   prune_model.py implements pruning by hand with np.percentile over the
+#   weights; it never imports tfmot.
+
+# ==============================================================================
+# GPU training (optional): TensorFlow >= 2.11 does not use the GPU on Windows.
+# ==============================================================================
+# Train on WSL2 (Ubuntu 24.04) in its own venv with the CUDA-enabled build:
+#   pip install "tensorflow[and-cuda]>=2.16.0"
+# plus the rest of this file. Keep the SAME tensorflow/keras versions on both
+# sides so the .keras and .tflite files are interchangeable (verified with
+# tensorflow 2.21 + keras 3.13 on Windows and WSL2). The serial benches
+# (pil_benchmark.py, hil_camera_benchmark.py) stay on the Windows side, where
+# the board's COM port is.
 
 # ==============================================================================
 # Hardware & Deployment Dependencies (Non-Python)
 # ==============================================================================
-# The following components are required to compile and upload the model to the Portenta H7:
+# Required to compile and upload the model to the Portenta H7. Versions in
+# brackets are the ones used for the published results (checked 2026-11-01).
 #
-# 1. Arduino CLI (Must be installed in your system PATH)
+# 1. Arduino CLI, in the system PATH            [arduino-cli 1.5.0]
 #    https://arduino.github.io/arduino-cli/
 #
-# 2. Board Core (Arduino Portenta H7)
-#    Run: arduino-cli core install arduino:mbed_portenta
+# 2. Board core (Arduino Portenta H7)            [arduino:mbed_portenta 4.5.0]
+#    Run: arduino-cli core install arduino:mbed_portenta@4.5.0
+#    (4.6.0 is available; the results were produced with 4.5.0)
 #
-# 3. Required Libraries
-#    Run: arduino-cli lib install "Chirale_TensorFlowLite"
+# 3. TensorFlow Lite Micro library               [Chirale_TensorFlowLite 2.0.0]
+#    Run: arduino-cli lib install "Chirale_TensorFlowLite@2.0.0"
+#
+# The Camera/Himax (HM01B0), SDRAM and Portenta_SDCARD libraries used by the
+# firmware ship inside the mbed_portenta core; nothing else to install.
+# Nicla Vision port: arduino:mbed_nicla (4.6.0 used), same TFLM library.
