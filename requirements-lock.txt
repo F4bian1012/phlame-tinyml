@@ -1,23 +1,30 @@
 # ==============================================================================
-# PHLAME Framework - exact versions of the verified environment (2026-11-01)
-# Python 3.13.14 on Windows 11. Use this file to reproduce the environment
-# behind the published results; requirements.txt keeps the minimum versions.
+# PHLAME Framework - exact versions of the project virtual environment
+# Python 3.13.14 on Windows 11 (venv created 2026-09-11, not upgraded since).
+# Use this file to reproduce that environment; requirements.txt keeps the
+# minimum compatible versions.
 #   pip install -r requirements-lock.txt
-# ==============================================================================
-# Installed and used for the results in results/ (pip list --format=freeze):
-tensorflow==2.21.0
-numpy==2.4.2
-opencv-python==4.13.0.92
-pillow==11.3.0
-matplotlib==3.10.8
-pyserial==3.5
-# Pulled in by tensorflow in that environment (listed for traceability, not
-# installed directly): keras 3.13.2, tensorboard 2.20.0, h5py 3.14.0,
-# protobuf 7.34.0.
 #
-# Not present in the environment at the time of this revision (the evaluation
-# scripts require them; see requirements.txt). Pinned to the releases pip
-# resolved for Python 3.13 + numpy 2.4.2 on 2026-11-01:
+# Provenance: the result JSONs do not record package versions. This venv is
+# the likely source of the results in results/ because it predates them
+# (latest results: 2026-10-16/17) and it is the only environment on the
+# development machine with scikit-learn, which the evaluation scripts require.
+# ==============================================================================
+
+# --- Direct dependencies (requirements.txt) ---
+tensorflow==2.21.0
+numpy==2.5.3
+opencv-python==5.0.0.93
+pillow==12.3.0
 scikit-learn==1.9.1
 seaborn==0.13.2
-# (seaborn also installs pandas 3.1.0; the scripts do not import pandas.)
+pyserial==3.5
+matplotlib==3.11.2
+
+# --- Indirect dependencies that affect model files and metrics ---
+keras==3.15.1
+tensorboard==2.21.0
+h5py==3.14.0
+protobuf==7.36.1
+scipy==1.18.1
+pandas==3.0.5

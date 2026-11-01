@@ -434,7 +434,7 @@ pip install -r requirements.txt
 **Why two requirements files.** `requirements.txt` declares *minimum* compatible
 versions (`>=`): it installs on any supported Python and OS, even with newer
 releases, and is what the commands above use. `requirements-lock.txt` pins the
-*exact* versions of the environment behind the published results (Python
+*exact* versions of the project virtual environment, the likely source of the published results (Python
 3.13.14, TensorFlow 2.21.0, see its header): use `pip install -r requirements-lock.txt`
 when you need to reproduce the reported numbers rather than just run the
 framework. One file cannot do both: exact pins stop installing as soon as a
