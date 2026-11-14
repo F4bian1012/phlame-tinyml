@@ -8,6 +8,8 @@ import sys
 import datetime
 import argparse
 
+import artifacts
+
 LOG_DIR = "tensorboard_logs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
 os.makedirs("models/checkpoints", exist_ok=True)
@@ -274,19 +276,20 @@ def plot_history(history, plot_path):
     print(f"Training plots saved to: {plot_path}")
 
 
-def main(img_width, img_height, batch_size, epochs, learning_rate, dropout_rate, splits_dir):
+def main(img_width, img_height, batch_size, epochs, learning_rate, dropout_rate, splits_dir,
+         tag=None, overwrite=False):
     model_name = "SqueezeNet"
     img_shape = (img_height, img_width, 1)
-    plot_path = (
-        f"results/training_curves/{model_name}_training_history"
-        f"+{batch_size}+{epochs}+{learning_rate}"
-        f"+{img_width}+{img_height}.png"
-    )
-    checkpoint_path = (
-        f"models/checkpoints/{model_name}"
-        f"+{batch_size}+{epochs}+{learning_rate}"
-        f"+{img_width}+{img_height}.keras"
-    )
+    plot_path = "results/training_curves/" + artifacts.training_curve_name(
+        model_name, batch_size, epochs, learning_rate, img_width, img_height, tag)
+    checkpoint_path = "models/checkpoints/" + artifacts.model_stem(
+        model_name, batch_size, epochs, learning_rate, img_width, img_height, tag) + ".keras"
+
+    # Checked before any work: a run on another dataset must not replace the
+    # checkpoint or the training curve of a previous one.
+    artifacts.refuse_to_overwrite(
+        [checkpoint_path, plot_path], overwrite,
+        hint="pass --tag NAME to give this run its own name (e.g. the dataset)")
 
     train_ds, val_ds, class_names = load_custom_data(
         splits_dir, img_width, img_height, batch_size
@@ -338,10 +341,10 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, dropout_rate,
         plot_history(history, plot_path)
         print(f"Model saved to: {checkpoint_path}")
 
-        with open("models/class_names.txt", "w") as f:
-            for name in class_names:
-                f.write(f"{name}\n")
-        print("Class names saved to models/class_names.txt")
+        # The label order travels with the checkpoint, so runs on different
+        # datasets do not share (and overwrite) a single class-name file.
+        classes_path = artifacts.write_class_names(checkpoint_path, class_names)
+        print(f"Class names saved to {classes_path}")
 
     except Exception as e:
         print(f"Error during training: {e}")
@@ -380,11 +383,21 @@ if __name__ == "__main__":
         "--dropout_rate", type=float, default=0.5,
         help="Dropout rate before the final layer (default: 0.5)"
     )
+    parser.add_argument(
+        "--tag", type=artifacts.valid_tag, default=None,
+        help="Optional run name added after the architecture (e.g. the dataset: SqueezeNet_VWW+...), "
+             "so runs on different datasets do not share file names"
+    )
+    parser.add_argument(
+        "--overwrite", action="store_true",
+        help="Replace the checkpoint and the training curve if they already exist"
+    )
 
     args = parser.parse_args()
     main(
         args.width, args.height,
         args.batch_size, args.epochs,
         args.learning_rate,
-        args.dropout_rate, args.splits_dir
+        args.dropout_rate, args.splits_dir,
+        tag=args.tag, overwrite=args.overwrite
     )

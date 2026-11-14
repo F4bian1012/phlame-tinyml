@@ -3,6 +3,8 @@ import glob
 import argparse
 import tensorflow as tf
 
+import artifacts
+
 def representative_data_gen(dataset, n_samples=100):
     """Generator yielding dataset samples to calibrate INT8 activation ranges.
 
@@ -27,6 +29,8 @@ def main():
                         help="Number of calibration images drawn from the train split")
     parser.add_argument("--calib_seed", type=int, default=42,
                         help="Random seed for calibration shuffling; fixes the generated .tflite")
+    parser.add_argument("--overwrite", action="store_true",
+                        help="Replace the .tflite if it already exists")
     args = parser.parse_args()
 
     if args.model_path:
@@ -49,6 +53,13 @@ def main():
     # Extract basename to preserve full model identity (including any _pruned suffix)
     # Expected format example: MobileNetV2+32+20+0.0001+160+120.keras
     basename = os.path.basename(model_path).replace(".keras", "")
+
+    # Checked before calibrating: the .tflite of another run is not replaced silently.
+    tflite_dir = "models/tflite"
+    out_path = os.path.join(tflite_dir, f"{basename}_int8.tflite")
+    artifacts.refuse_to_overwrite(
+        [out_path], args.overwrite,
+        hint="train with --tag NAME so the model of this dataset has its own name")
 
     # Strip any pruning suffix on a temporary stem only when parsing WxH dimensions
     dim_stem = basename.split("_pruned")[0]
@@ -110,15 +121,17 @@ def main():
     try:
         tflite_model = converter.convert()
 
-        tflite_dir = "models/tflite"
         os.makedirs(tflite_dir, exist_ok=True)
 
-        out_path = os.path.join(tflite_dir, f"{basename}_int8.tflite")
         with open(out_path, "wb") as f:
             f.write(tflite_model)
 
         print("\nConversion successful!")
         print(f"Model saved to: {out_path}")
+        # The label order follows the model, so SIL finds it next to the .tflite.
+        classes_path = artifacts.copy_class_names(model_path, out_path)
+        if classes_path:
+            print(f"Class names copied to: {classes_path}")
         print(f"Final size: {len(tflite_model) / 1024:.2f} KB")
 
     except Exception as e:

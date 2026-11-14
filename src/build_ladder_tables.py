@@ -20,7 +20,7 @@ Inputs (all tracked in git; <tag> = <Architecture>+32+20+0.0001+160+120):
   results/hil/metrics_<tag>_int8.json         HIL per-phase latency
   results/hil/hil_conditions_<tag>_int8.json  firmware fingerprint and tensor-arena usage
   results/hil/rep*/                           HIL repeatability runs of the reference architecture
-  data/splits/test_manifest.csv               hil_subset flag (the 200 rig images)
+  data/splits_plates/test_manifest.csv        hil_subset flag (the 200 rig images)
 
 Outputs (in --output_dir, default results/tables/):
   ladder_tables.md          the eight tables, formatted
@@ -87,7 +87,7 @@ def parse_args():
                         "The first one is the reference for the rig subset and the repeatability runs.")
     p.add_argument("--tag_suffix", default="+32+20+0.0001+160+120",
                    help="Model-name suffix after the architecture (batch+epochs+lr+W+H)")
-    p.add_argument("--manifest", default=os.path.join("data", "splits", "test_manifest.csv"),
+    p.add_argument("--manifest", default=os.path.join("data", "splits_plates", "test_manifest.csv"),
                    help="Test manifest with the hil_subset column (checked if present)")
     p.add_argument("--class_names", default=os.path.join("models", "class_names.txt"),
                    help="Class names, one per line, in label order")

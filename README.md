@@ -228,6 +228,11 @@ flowchart TD
 
 Every step needs your own dataset in `data/raw/`; steps 5 to 7 also need the board. Extra options and details are in the [usage notes](docs/scripts.md#usage-notes).
 
+No dataset at hand? The public Visual Wake Words subset can stand in for it. This downloads 2,000 images into `data/raw/person` and `data/raw/non_person` in about a minute, and every command below then works unchanged:
+```bash
+python src/download_vww_subset.py --per_class 1000 --seed 42 --output_dir data/raw
+```
+
 ### 1. Data Preparation
 Place your raw image dataset inside `data/raw/` (organized by class subfolders):
 ```
@@ -240,8 +245,7 @@ data/raw/
 mode: `process_images.py` converts every image to 8-bit single-channel grayscale and
 `reshape_images.py` resizes it to the target resolution (extensions are matched
 case-insensitively, so `.JPG` or `.Png` also count). Each subfolder of `data/raw/` is one class, and
-labels follow the alphabetical order of the folder names (`split_dataset.py` reuses
-`models/class_names.txt` when training has already written it). Files with other
+labels follow the alphabetical order of the folder names. Files with other
 extensions (e.g. `.gif`, `.tif`, `.webp`, `.heic`) are skipped.
 
 Then process (convert to grayscale) and resize them with recommended sizes: CAMERA_R160x120 (QQVGA), CAMERA_R320x240 (QVGA), CAMERA_R320x320.
@@ -254,18 +258,21 @@ Finally, partition the resized dataset. This step is **required** before trainin
 ```bash
 python src/split_dataset.py --input_dir data/processed/160x120 --output_dir data/splits --seed 42
 ```
+`data/splits/` is a git-ignored working folder for your own partition. The partitions behind the published results are versioned in separate folders (`data/splits_plates/`, `data/splits_vww/`) and these commands do not touch them.
 
 ### 2. Model Training
 Train an architecture (e.g., MobileNetV2). Training reads `data/splits/train` and `data/splits/val`, and fails with instructions if the partition is missing.
 ```bash
-python src/train_mobilenet.py --base_model MobileNetV2 --width 160 --height 120 --batch_size 32 --epochs 20 --learning_rate 0.0001
+python src/train_mobilenet.py --base_model MobileNetV2 --width 160 --height 120 --batch_size 32 --epochs 20 --learning_rate 0.0001 --tag demo
 ```
 For ResNet or SqueezeNet, run `src/train_resnet.py` or `src/train_squeezenet.py`.
+
+`--tag` names the run: the checkpoint is `MobileNetV2_demo+32+20+0.0001+160+120.keras`, and the `.tflite` and every result file of that model inherit the name. Use a different tag for each dataset. Without a tag the run takes the names of the published models, and the scripts stop instead of replacing an existing checkpoint, `.tflite` or result file; `--overwrite` allows it. The label order is saved next to the checkpoint (`.classes.txt`).
 
 ### 3. Model Evaluation
 Evaluate the `.keras` model at the **MIL** level. Outputs go to `results/mil/`:
 ```bash
-python src/test_model.py --width 160 --height 120 --model_path models/checkpoints/MobileNetV2+32+20+0.0001+160+120.keras
+python src/test_model.py --width 160 --height 120 --model_path models/checkpoints/MobileNetV2_demo+32+20+0.0001+160+120.keras
 ```
 
 ### 4. INT8 Quantization
@@ -306,7 +313,7 @@ python src/hil_camera_benchmark.py --port COM9 \
 
 ### 1. Fidelity Ladder Across Seven Architectures (Primary Benchmark, 160×120)
 
-Evaluated on the balanced binary partition (`data/splits/test`, n = 940 held-out images for MIL/SIL/PIL; n = 200 `hil_subset == 1` stimuli at 10 lux, 24 cm, 24 °C for HIL). All metrics are **F1-macro** (which equals weighted F1 and accuracy to within ≤ 0.002 on this 50/50 split); latencies are measured on-chip via the Cortex-M7 `DWT->CYCCNT` cycle counter at `SystemCoreClock = 400.0 MHz`:
+Evaluated on the balanced binary partition (`data/splits_plates/test`, n = 940 held-out images for MIL/SIL/PIL; n = 200 `hil_subset == 1` stimuli at 10 lux, 24 cm, 24 °C for HIL). All metrics are **F1-macro** (which equals weighted F1 and accuracy to within ≤ 0.002 on this 50/50 split); latencies are measured on-chip via the Cortex-M7 `DWT->CYCCNT` cycle counter at `SystemCoreClock = 400.0 MHz`:
 
 | Architecture | `.tflite` (INT8) | Arena used | **MIL** (n=940) | **SIL** (n=940) | **PIL** (n=940 / n=200) | **HIL** (n=200) | HIL `INF` (ms) | HIL `TOTAL` (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -512,6 +519,7 @@ All scripts live in `src/`. Detailed descriptions, output artifacts and usage no
 | Deployment | `tflite_to_c.py` | `.tflite` to the `model.h` C header. |
 | Deployment | `compile_upload_arduino.py` | Compile and upload a firmware with `arduino-cli`. |
 | Analysis | `build_ladder_tables.py` | Rebuild the eight statistical tables of the paper in `results/tables/`. |
+| Shared | `artifacts.py` | Helper module, not run directly: run names (`--tag`), overwrite protection and the per-model label order. |
 
 ### Repository Structure
 ```text
@@ -523,7 +531,7 @@ phlame-tinyml/
 ├── results/               # mil/, sil/, pil/, hil/, tables/, training_curves/
 ├── src/                   # Python source code (see Scripts)
 ├── tensorboard_logs/      # TensorBoard event logs from training
-├── tests/                 # test_results_schema.py
+├── tests/                 # test_results_schema.py, test_own_dataset.py
 ├── CITATION.cff
 ├── LICENSE.txt
 ├── README.md
@@ -549,7 +557,7 @@ phlame-tinyml/
 
 ## Data Availability
 
-- **Partition Manifests & Per-Image Results (in Git):** Complete stratified partition manifests (`data/splits/{train,val,test}_manifest.csv`, `data/splits/split_report.json`, and `data/splits_vww/{train,val,test}_manifest.csv`) and all per-image prediction and latency tables (`results/{mil,sil,pil,hil}/`) are version-controlled directly in this repository, allowing full statistical and paired 2×3 reproduction without hardware (see [Reproduce the Paper's Results](#reproduce-the-papers-results-without-hardware)). The generated tables are in `results/tables/`.
+- **Partition Manifests & Per-Image Results (in Git):** Complete stratified partition manifests (`data/splits_plates/{train,val,test}_manifest.csv`, `data/splits_plates/split_report.json`, and `data/splits_vww/{train,val,test}_manifest.csv`) and all per-image prediction and latency tables (`results/{mil,sil,pil,hil}/`) are version-controlled directly in this repository, allowing full statistical and paired 2×3 reproduction without hardware (see [Reproduce the Paper's Results](#reproduce-the-papers-results-without-hardware)). The generated tables are in `results/tables/`.
 - **Immediate Smoke-Test Sample (`data/sample/`):** A lightweight, personal-data-free 8-image sample (`data/sample/non_person/` and `data/sample/person/`, 4 `160×120` grayscale images per class from the held-out *Visual Wake Words* test split, individually licensed under **CC BY 2.0** with MS-COCO **CC BY 4.0** annotations; full provenance and SHA-256 checksums in `data/sample/ATTRIBUTION.md`) is tracked in git so users can immediately smoke-test data preprocessing right after cloning (see [Reproduce the Paper's Results](#reproduce-the-papers-results-without-hardware)), or evaluate a downloaded release model without overwriting `results/sil/`:
   ```bash
   python src/test_tflite_model.py --model_path models/tflite/MobileNetV2_VWW+32+20+0.0001+160+120_int8.tflite --data_dir data/sample --class_names_path models/class_names_vww.txt --output_dir results/smoke_test

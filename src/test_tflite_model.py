@@ -8,6 +8,8 @@ import json
 import os
 from datetime import datetime, timezone
 
+import artifacts
+
 try:
     import seaborn as sns
     from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, precision_recall_fscore_support
@@ -71,8 +73,9 @@ def parse_args():
                         help="Directory holding the splits produced by split_dataset.py "
                              "(evaluation uses ONLY <splits_dir>/test)")
     parser.add_argument('--data_dir', type=str, default=None, help="Explicit path to the test split; defaults to <splits_dir>/test")
-    parser.add_argument('--class_names_path', type=str, default="models/class_names.txt", help="Path to the txt file with the class names")
+    parser.add_argument('--class_names_path', type=str, default=None, help="Path to the txt file with the class names (default: the .classes.txt next to the model, else models/class_names.txt)")
     parser.add_argument('--output_dir', type=str, default=os.path.join("results", "sil"), help="Output directory for the matrix, JSON and CSV (default: results/sil)")
+    parser.add_argument('--overwrite', action='store_true', help="Replace the matrix, JSON and CSV if they already exist")
 
     args = parser.parse_args()
 
@@ -131,11 +134,21 @@ def main():
         print(f"Error: You must provide a valid TFLite model. Not found: {args.model_path}")
         return
 
+    # Checked before loading anything: a run must not replace the results of
+    # another one (the published ones are tracked in results/).
+    stem = os.path.splitext(os.path.basename(args.model_path))[0]
+    artifacts.refuse_to_overwrite(
+        [os.path.join(args.output_dir, name) for name in
+         (f"Matriz_{stem}.png", f"predictions_{stem}.csv", f"metrics_{stem}.json")],
+        args.overwrite,
+        hint="write somewhere else with --output_dir, or train with --tag NAME")
+
     class_names = []
-    if os.path.exists(args.class_names_path):
-        with open(args.class_names_path, 'r') as f:
+    class_names_path = artifacts.resolve_class_names_path(args.model_path, args.class_names_path)
+    if os.path.exists(class_names_path):
+        with open(class_names_path, 'r') as f:
             class_names = [line.strip() for line in f.readlines() if line.strip()]
-        print(f"Class names loaded: {class_names}")
+        print(f"Class names loaded from {class_names_path}: {class_names}")
 
     print(f"\nInitializing TFLite Interpreter with {args.model_path}...")
     interpreter = tf.lite.Interpreter(model_path=args.model_path)
@@ -185,7 +198,7 @@ def main():
         if subdirs and set(subdirs) != set(class_names):
             print(
                 f"[WARN] The subfolders of {args.data_dir} ({subdirs}) do not match "
-                f"{args.class_names_path} ({class_names}); the class names will be inferred from the directory."
+                f"{class_names_path} ({class_names}); the class names will be inferred from the directory."
             )
             class_names = []
     # Use batch_size=1 because the TFLite interpreter typically runs single-frame

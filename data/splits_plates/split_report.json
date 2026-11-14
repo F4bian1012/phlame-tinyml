@@ -2,7 +2,7 @@
   "created_utc": "2026-09-12T00:54:15+00:00",
   "script": "split_dataset.py",
   "input_dir": "data/processed/160x120",
-  "output_dir": "data/splits",
+  "output_dir": "data/splits_plates",
   "seed": 42,
   "proportions": {
     "train": 0.7,

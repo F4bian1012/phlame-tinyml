@@ -55,9 +55,10 @@ Reproducibility notes
 ---------------------
 - The file list is sorted BEFORE shuffling because os.listdir order depends on
   the filesystem. With the same seed, the split is identical on any machine.
-- Label order is read from models/class_names.txt, matching the argmax index
-  returned by the firmware. It is inferred from the filesystem only if that
-  file does not exist.
+- Label order is the alphabetical order of the class subfolders, the same
+  order Keras assigns when training reads the split, so the label matches the
+  argmax index returned by the firmware. --class_names_path imposes the order
+  of an explicit file instead; its classes must be exactly the subfolders.
 - Splitting is stratified: it is applied per class so each split preserves the
   natural class ratio of the input dataset (imbalance is not corrected here;
   it is documented in split_report.json).
@@ -79,20 +80,35 @@ SPLITS = ("train", "val", "test")
 # --------------------------------------------------------------------------- #
 # Class and image discovery
 # --------------------------------------------------------------------------- #
-def load_class_names(class_names_path, input_dir):
-    """Label order: class_names.txt if it exists, otherwise sorted subfolders."""
-    if class_names_path and os.path.exists(class_names_path):
-        with open(class_names_path, encoding="utf-8") as fh:
-            names = [ln.strip() for ln in fh if ln.strip()]
-        if names:
-            return names, class_names_path.replace(os.sep, "/")
-
-    names = sorted(
+def list_class_dirs(input_dir):
+    """Class subfolders in the order Keras assigns labels (alphabetical, hidden ones skipped)."""
+    return sorted(
         d for d in os.listdir(input_dir)
-        if os.path.isdir(os.path.join(input_dir, d))
+        if os.path.isdir(os.path.join(input_dir, d)) and not d.startswith(".")
     )
-    missing = os.path.basename(class_names_path) if class_names_path else "class_names.txt"
-    return names, "subfolders of %s (%s not found)" % (input_dir, missing)
+
+
+def load_class_names(class_names_path, input_dir):
+    """Label order: the class subfolders, or the explicit file given on the command line."""
+    folders = list_class_dirs(input_dir)
+    if not folders:
+        sys.exit("ERROR: %s has no class subfolders (expected one folder per class)."
+                 % input_dir)
+    if not class_names_path:
+        return folders, "subfolders of %s (alphabetical)" % input_dir.replace(os.sep, "/")
+
+    if not os.path.isfile(class_names_path):
+        sys.exit("ERROR: class names file not found: %s" % class_names_path)
+    with open(class_names_path, encoding="utf-8") as fh:
+        names = [ln.strip() for ln in fh if ln.strip()]
+    if set(names) != set(folders):
+        sys.exit("ERROR: %s lists %s but %s has the subfolders %s.\n"
+                 "Omit --class_names_path to take the classes from the subfolders."
+                 % (class_names_path, names, input_dir, folders))
+    if names != folders:
+        print("WARNING: %s orders the classes as %s; training assigns labels "
+              "alphabetically (%s)." % (class_names_path, names, folders))
+    return names, class_names_path.replace(os.sep, "/")
 
 
 def collect_images(class_dir):
@@ -219,8 +235,10 @@ def main():
                     help="Random seed fixing a reproducible split")
     ap.add_argument("--hil-subset", dest="hil_subset", type=int, default=200,
                     help="Number of test images flagged for the HIL benchmark (0 = none)")
-    ap.add_argument("--class_names_path", default="models/class_names.txt",
-                    help="File defining the canonical label order (argmax)")
+    ap.add_argument("--class_names_path", default=None,
+                    help="Optional file imposing the label order, one class per line; "
+                         "by default the classes are the subfolders of input_dir, "
+                         "in alphabetical order")
     ap.add_argument("--force", action="store_true",
                     help="Overwrite output_dir if it already exists")
     ap.add_argument("--dry-run", dest="dry_run", action="store_true",

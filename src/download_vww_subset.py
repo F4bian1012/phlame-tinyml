@@ -384,8 +384,22 @@ def main():
         "download_summary": counts,
     }
     report_path = os.path.join(args.output_dir, "vww_subset_report.json")
-    with open(report_path, "w", encoding="utf-8") as fh:
-        json.dump(report, fh, indent=2, ensure_ascii=False)
+    # A complete re-run of the same selection keeps the existing report and its
+    # timestamp: the one in data/raw_vww is versioned, and rebuilding the subset
+    # must not show up as a change in the repository.
+    previous = None
+    if os.path.isfile(report_path):
+        try:
+            with open(report_path, encoding="utf-8") as fh:
+                previous = json.load(fh)
+        except (OSError, ValueError):
+            previous = None
+    volatile = ("generado_utc", "download_summary")
+    unchanged = (previous is not None and not failures and
+                 all(previous.get(k) == v for k, v in report.items() if k not in volatile))
+    if not unchanged:
+        with open(report_path, "w", encoding="utf-8") as fh:
+            json.dump(report, fh, indent=2, ensure_ascii=False)
 
     if failures:
         print(f"\n[WARN] VWW subset incomplete in: {args.output_dir} "

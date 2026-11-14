@@ -19,14 +19,12 @@ data/hil_frames*/
 !data/augmented/.gitkeep
 !data/raw_vww/vww_subset_report.json
 
-# Splits: ignore the copied images, keep the manifests and the report so the
-# partition stays reproducible (split_dataset.py rebuilds the images from them)
-data/splits/*/
-data/splits_vww/*/
-!data/splits/*_manifest.csv
-!data/splits/split_report.json
-!data/splits_vww/*_manifest.csv
-!data/splits_vww/split_report.json
+# Splits. data/splits/ is the working partition of the user's own dataset and
+# is ignored entirely. The published partitions live in named folders
+# (data/splits_plates, data/splits_vww): their copied images are ignored, their
+# manifests and reports are versioned so the partition stays reproducible.
+data/splits/
+data/splits_*/*/
 
 # Models (Exclude heavy weights)
 models/checkpoints/*
@@ -34,6 +32,8 @@ models/checkpoints/*
 *.h5
 *.keras
 *.tflite
+# Label order written next to each .tflite by quantize_int8_basic.py
+models/tflite/*.classes.txt
 
 # Scratch smoke-test outputs
 results/smoke_test/
