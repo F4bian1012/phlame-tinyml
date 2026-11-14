@@ -1,6 +1,6 @@
 {
-  "generated_utc": "2026-11-01T23:16:46+00:00",
-  "git_commit": "52ddf02f5621b542106caebe6f67ff4fc4a05e0b",
+  "generated_utc": "2026-11-14T17:52:43+00:00",
+  "git_commit": "bb37690a40a37f415540b13d3059bd66afa9e7b7",
   "parameters": {
     "bootstrap": 10000,
     "seed": 20261016,
@@ -126,7 +126,7 @@
     "python": "3.13.14",
     "numpy": "2.5.3",
     "scipy": "1.18.1",
-    "platform": "Windows-11-10.0.26200-SP0"
+    "platform": "Windows-11-10.0.26300-SP0"
   },
   "inputs_sha256": {
     "data/splits/test_manifest.csv": "f961aa2ab5e53be432bd78060d25ca7c52053bb70b58af39a811ef78d0b85a7a",
