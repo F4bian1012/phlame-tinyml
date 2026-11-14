@@ -1,0 +1,351 @@
+test_file,match_file,checked,note,found_by
+000000000139.jpg,000000473156.jpg,different,,first check
+000000001490.jpg,000000010624.jpg,different,,first check
+000000001490.jpg,000000407319.jpg,different,,detector
+000000005586.jpg,000000054868.jpg,different,,detector
+000000005586.jpg,000000221172.jpg,different,,first check
+000000005992.jpg,000000480823.jpg,different,,detector
+000000007511.jpg,000000569901.jpg,different,,detector
+000000014007.jpg,000000063724.jpg,different,,detector
+000000014007.jpg,000000555857.jpg,different,,first check
+000000014380.jpg,000000400104.jpg,different,,first check
+000000014380.jpg,000000435034.jpg,different,,detector
+000000017436.jpg,000000067407.jpg,different,,first check
+000000017436.jpg,000000370103.jpg,different,,detector
+000000018519.jpg,000000055937.jpg,different,,detector
+000000023781.jpg,000000038083.jpg,same_scene,"same market stall, framed slightly differently",first check + detector + second search
+000000025139.jpg,000000024404.jpg,different,,second search
+000000032038.jpg,000000031971.jpg,different,,first check
+000000033005.jpg,000000310875.jpg,different,,detector
+000000033005.jpg,000000465508.jpg,different,,first check
+000000033221.jpg,000000024778.jpg,different,,first check
+000000033221.jpg,000000401608.jpg,different,,detector
+000000035326.jpg,000000079896.jpg,different,,first check
+000000037670.jpg,000000075521.jpg,different,,first check
+000000037670.jpg,000000146126.jpg,different,,detector
+000000038048.jpg,000000001102.jpg,different,,detector
+000000038048.jpg,000000330564.jpg,different,,first check
+000000039951.jpg,000000252868.jpg,different,,second search
+000000041635.jpg,000000486203.jpg,different,,detector
+000000041888.jpg,000000540283.jpg,different,,detector
+000000047121.jpg,000000370808.jpg,different,,detector
+000000051598.jpg,000000187169.jpg,different,,first check
+000000051598.jpg,000000328654.jpg,different,,detector
+000000054967.jpg,000000063556.jpg,different,,first check
+000000054967.jpg,000000487834.jpg,different,,detector
+000000055299.jpg,000000141755.jpg,different,,first check
+000000055299.jpg,000000354546.jpg,different,,detector
+000000057149.jpg,000000447279.jpg,different,,detector
+000000057725.jpg,000000045768.jpg,different,,first check
+000000057725.jpg,000000159320.jpg,different,,detector
+000000060449.jpg,000000493828.jpg,different,,first check
+000000060449.jpg,000000496059.jpg,different,,detector
+000000060855.jpg,000000417144.jpg,different,,detector
+000000060899.jpg,000000101079.jpg,different,,detector
+000000061747.jpg,000000327174.jpg,different,,detector
+000000061747.jpg,000000579136.jpg,different,,first check
+000000062692.jpg,000000258237.jpg,different,,second search
+000000064084.jpg,000000523316.jpg,different,possibly the same food; another viewpoint and framing,second search
+000000064574.jpg,000000407644.jpg,different,,detector
+000000066635.jpg,000000061911.jpg,different,,detector
+000000076211.jpg,000000407566.jpg,different,,detector
+000000076417.jpg,000000370808.jpg,different,,detector
+000000080671.jpg,000000035935.jpg,different,,first check
+000000080671.jpg,000000385107.jpg,different,,detector
+000000082180.jpg,000000084460.jpg,different,,detector
+000000085329.jpg,000000487090.jpg,different,,first check
+000000085682.jpg,000000518555.jpg,different,,detector
+000000086755.jpg,000000030879.jpg,different,,detector
+000000086755.jpg,000000497719.jpg,different,,first check
+000000090003.jpg,000000022599.jpg,different,,first check + detector
+000000093154.jpg,000000216952.jpg,different,,first check
+000000094614.jpg,000000069169.jpg,different,,detector
+000000094614.jpg,000000158747.jpg,different,,first check
+000000095069.jpg,000000370103.jpg,different,,detector
+000000095707.jpg,000000314188.jpg,different,,first check
+000000096427.jpg,000000216237.jpg,different,,detector
+000000096493.jpg,000000101079.jpg,different,,detector
+000000097278.jpg,000000388893.jpg,different,,detector
+000000107226.jpg,000000527899.jpg,different,,detector
+000000107851.jpg,000000118806.jpg,different,,detector
+000000107851.jpg,000000562573.jpg,different,,first check
+000000110972.jpg,000000549629.jpg,different,possibly the same animal; another pose and framing,second search
+000000116206.jpg,000000038190.jpg,different,,detector
+000000116206.jpg,000000204288.jpg,different,,first check
+000000123131.jpg,000000448703.jpg,different,,first check
+000000125257.jpg,000000394533.jpg,different,,detector
+000000127624.jpg,000000204572.jpg,different,,first check
+000000127624.jpg,000000354546.jpg,different,,detector
+000000127955.jpg,000000379620.jpg,different,,detector
+000000128675.jpg,000000548592.jpg,different,,first check
+000000128699.jpg,000000230777.jpg,different,,second search
+000000129135.jpg,000000272316.jpg,different,,second search
+000000130579.jpg,000000465941.jpg,different,,detector
+000000133567.jpg,000000447279.jpg,different,,detector
+000000133778.jpg,000000163107.jpg,different,,first check
+000000134689.jpg,000000420466.jpg,different,,first check + detector
+000000135604.jpg,000000074369.jpg,different,,second search
+000000135604.jpg,000000461445.jpg,different,,first check
+000000138639.jpg,000000216393.jpg,different,,detector
+000000144706.jpg,000000102307.jpg,different,,detector
+000000146363.jpg,000000175256.jpg,different,,detector
+000000147498.jpg,000000102307.jpg,different,,first check
+000000147498.jpg,000000412204.jpg,different,,detector
+000000147518.jpg,000000385001.jpg,different,,detector
+000000151820.jpg,000000520199.jpg,different,,first check
+000000154425.jpg,000000055318.jpg,different,,detector
+000000154947.jpg,000000119120.jpg,different,,first check
+000000154947.jpg,000000361309.jpg,different,,detector
+000000157138.jpg,000000215577.jpg,different,,detector
+000000157601.jpg,000000078026.jpg,different,,first check
+000000158744.jpg,000000030455.jpg,different,,first check
+000000158744.jpg,000000247130.jpg,different,,detector
+000000161008.jpg,000000064961.jpg,different,,detector
+000000161044.jpg,000000142333.jpg,different,,detector
+000000161044.jpg,000000169505.jpg,different,,first check
+000000162130.jpg,000000048756.jpg,different,,detector
+000000162130.jpg,000000167422.jpg,different,,first check
+000000162366.jpg,000000433546.jpg,different,,second search
+000000163057.jpg,000000065189.jpg,different,,first check
+000000163057.jpg,000000081296.jpg,different,,detector
+000000166259.jpg,000000153604.jpg,different,,second search
+000000167902.jpg,000000142786.jpg,different,,second search
+000000169076.jpg,000000188712.jpg,different,,detector
+000000170955.jpg,000000111338.jpg,different,,detector
+000000173830.jpg,000000426997.jpg,different,,detector
+000000179392.jpg,000000069364.jpg,different,,detector
+000000179392.jpg,000000531414.jpg,different,,first check
+000000181753.jpg,000000334463.jpg,different,,first check
+000000181753.jpg,000000559560.jpg,different,,detector
+000000182805.jpg,000000045388.jpg,different,,detector
+000000194832.jpg,000000425522.jpg,different,,first check
+000000198928.jpg,000000365170.jpg,different,,first check
+000000198928.jpg,000000378012.jpg,different,,detector
+000000206487.jpg,000000216952.jpg,different,,detector
+000000209829.jpg,000000283772.jpg,different,,detector
+000000210030.jpg,000000542129.jpg,different,,first check
+000000210030.jpg,000000546337.jpg,different,,detector
+000000210099.jpg,000000488980.jpg,different,,detector
+000000210915.jpg,000000021049.jpg,different,,detector
+000000212895.jpg,000000045388.jpg,different,,detector
+000000212895.jpg,000000516634.jpg,different,,first check
+000000216296.jpg,000000539967.jpg,different,,detector
+000000221017.jpg,000000298830.jpg,different,,first check
+000000221017.jpg,000000370808.jpg,different,,detector
+000000224093.jpg,000000065189.jpg,different,,detector
+000000226802.jpg,000000311524.jpg,different,,first check
+000000226802.jpg,000000487834.jpg,different,,detector
+000000227491.jpg,000000527718.jpg,different,,first check
+000000229221.jpg,000000136903.jpg,different,,detector
+000000229747.jpg,000000445295.jpg,different,,first check
+000000230362.jpg,000000107979.jpg,different,,first check
+000000230362.jpg,000000141755.jpg,different,,detector
+000000233567.jpg,000000091735.jpg,different,,detector
+000000233567.jpg,000000298830.jpg,different,,first check
+000000236426.jpg,000000390475.jpg,different,,detector
+000000237118.jpg,000000029041.jpg,different,,second search
+000000237118.jpg,000000148931.jpg,different,,first check
+000000237118.jpg,000000487284.jpg,different,,detector
+000000242934.jpg,000000245823.jpg,different,,first check
+000000244019.jpg,000000251439.jpg,different,,second search
+000000244379.jpg,000000090373.jpg,different,,first check
+000000244379.jpg,000000546307.jpg,different,,detector
+000000246522.jpg,000000009217.jpg,different,,first check + detector
+000000246963.jpg,000000120224.jpg,different,,first check
+000000248314.jpg,000000334470.jpg,different,,detector
+000000253835.jpg,000000085482.jpg,different,,detector
+000000253835.jpg,000000090373.jpg,different,,first check
+000000255165.jpg,000000247680.jpg,different,,first check
+000000255165.jpg,000000395405.jpg,different,,detector
+000000255824.jpg,000000077516.jpg,different,,first check
+000000256775.jpg,000000188130.jpg,different,,first check
+000000256775.jpg,000000394729.jpg,different,,detector
+000000257169.jpg,000000211806.jpg,different,,detector
+000000257865.jpg,000000070020.jpg,different,,detector
+000000257865.jpg,000000289640.jpg,different,,first check
+000000259382.jpg,000000530888.jpg,different,,detector
+000000259382.jpg,000000567375.jpg,different,,first check
+000000261888.jpg,000000235098.jpg,different,,detector
+000000261888.jpg,000000293308.jpg,different,,first check
+000000262682.jpg,000000044294.jpg,different,,first check
+000000262682.jpg,000000222500.jpg,different,,detector
+000000263068.jpg,000000400544.jpg,different,,first check
+000000263068.jpg,000000492008.jpg,different,,detector
+000000263966.jpg,000000284274.jpg,different,,first check
+000000266409.jpg,000000158747.jpg,different,,first check
+000000267434.jpg,000000539255.jpg,different,,detector
+000000269121.jpg,000000163350.jpg,different,,second search
+000000273132.jpg,000000179753.jpg,different,,second search
+000000273132.jpg,000000180941.jpg,different,,detector
+000000274708.jpg,000000201120.jpg,different,,first check
+000000274708.jpg,000000363654.jpg,different,,detector
+000000276720.jpg,000000322892.jpg,different,,first check
+000000276720.jpg,000000370103.jpg,different,,detector
+000000282296.jpg,000000264870.jpg,different,,detector
+000000282296.jpg,000000435707.jpg,different,,first check
+000000284623.jpg,000000292047.jpg,different,,detector
+000000290768.jpg,000000322321.jpg,different,,first check
+000000298697.jpg,000000022168.jpg,different,,first check
+000000298697.jpg,000000406056.jpg,different,,detector
+000000300659.jpg,000000386389.jpg,different,,first check
+000000301376.jpg,000000295334.jpg,different,,detector
+000000301376.jpg,000000487953.jpg,different,,first check
+000000308531.jpg,000000566262.jpg,different,,detector
+000000310862.jpg,000000099416.jpg,different,,second search
+000000310980.jpg,000000320658.jpg,different,,detector
+000000311295.jpg,000000502630.jpg,different,,detector
+000000311295.jpg,000000550310.jpg,different,,first check
+000000312237.jpg,000000405365.jpg,different,,detector
+000000314709.jpg,000000048034.jpg,different,,detector
+000000318908.jpg,000000393857.jpg,different,,detector
+000000322574.jpg,000000030973.jpg,different,,detector
+000000323571.jpg,000000136819.jpg,different,,detector
+000000323571.jpg,000000576461.jpg,different,,first check
+000000329614.jpg,000000067407.jpg,different,,first check + detector
+000000335450.jpg,000000393423.jpg,different,,detector
+000000338901.jpg,000000227428.jpg,same_scene,"same dog on the same sofa and blanket, in another pose",detector + second search
+000000346638.jpg,000000390179.jpg,different,,first check
+000000347254.jpg,000000010613.jpg,different,,detector
+000000347254.jpg,000000438422.jpg,different,,second search
+000000347265.jpg,000000001102.jpg,different,,first check
+000000347265.jpg,000000014677.jpg,different,,detector
+000000348488.jpg,000000090201.jpg,different,,first check
+000000348488.jpg,000000102307.jpg,different,,detector
+000000349594.jpg,000000255326.jpg,different,,detector
+000000349594.jpg,000000315899.jpg,different,,second search
+000000351362.jpg,000000328452.jpg,different,,detector
+000000355169.jpg,000000172702.jpg,different,,second search
+000000356387.jpg,000000191177.jpg,different,,first check
+000000356387.jpg,000000233916.jpg,different,,detector
+000000359677.jpg,000000380750.jpg,different,,first check + detector
+000000360943.jpg,000000549044.jpg,different,,detector
+000000360943.jpg,000000569249.jpg,different,,second search
+000000364102.jpg,000000327332.jpg,different,,detector
+000000364102.jpg,000000409681.jpg,different,,first check
+000000365642.jpg,000000567000.jpg,different,,first check
+000000367228.jpg,000000298830.jpg,different,,first check
+000000367228.jpg,000000467589.jpg,different,,detector
+000000368684.jpg,000000247130.jpg,same_scene,"same room and furniture, taken moments apart (the television shows another frame)",first check + detector + second search
+000000380203.jpg,000000044250.jpg,different,,detector
+000000382734.jpg,000000375220.jpg,different,,first check
+000000382734.jpg,000000474369.jpg,different,,detector
+000000383337.jpg,000000047940.jpg,different,,detector
+000000387383.jpg,000000564611.jpg,different,,first check + detector
+000000387387.jpg,000000135618.jpg,different,,first check
+000000387387.jpg,000000441034.jpg,different,,detector
+000000390246.jpg,000000114661.jpg,different,,detector
+000000390246.jpg,000000156328.jpg,different,,first check
+000000392228.jpg,000000006527.jpg,different,,second search
+000000392228.jpg,000000362620.jpg,different,,detector
+000000394559.jpg,000000317500.jpg,different,,detector
+000000396568.jpg,000000204572.jpg,different,,first check
+000000396568.jpg,000000429585.jpg,different,,detector
+000000398810.jpg,000000347673.jpg,different,,detector
+000000398810.jpg,000000510328.jpg,different,,first check
+000000398905.jpg,000000505949.jpg,different,,detector
+000000402096.jpg,000000480157.jpg,different,,second search
+000000406417.jpg,000000421250.jpg,different,,detector
+000000406417.jpg,000000524601.jpg,different,,second search
+000000409211.jpg,000000441363.jpg,same_scene,"same tennis match: same player, court and scoreboard at another instant",detector + second search
+000000410878.jpg,000000301491.jpg,different,,first check
+000000411774.jpg,000000512416.jpg,different,,second search
+000000416343.jpg,000000304627.jpg,different,,first check
+000000423519.jpg,000000435034.jpg,different,,detector
+000000423519.jpg,000000551199.jpg,different,,first check
+000000426297.jpg,000000117019.jpg,different,,second search
+000000429761.jpg,000000451406.jpg,different,,second search
+000000431848.jpg,000000499268.jpg,different,,second search
+000000432898.jpg,000000188130.jpg,different,,detector
+000000432898.jpg,000000241557.jpg,different,,first check
+000000435205.jpg,000000201757.jpg,different,,first check
+000000439854.jpg,000000049006.jpg,different,,first check
+000000439854.jpg,000000089921.jpg,different,,detector
+000000442323.jpg,000000061911.jpg,different,,detector
+000000442323.jpg,000000552235.jpg,different,,first check
+000000443498.jpg,000000558634.jpg,different,,detector
+000000445846.jpg,000000245823.jpg,different,,first check
+000000445846.jpg,000000368402.jpg,different,,detector
+000000447314.jpg,000000055559.jpg,different,,detector
+000000447314.jpg,000000329640.jpg,different,,first check
+000000451144.jpg,000000000508.jpg,different,,detector
+000000451144.jpg,000000329640.jpg,different,,first check
+000000451155.jpg,000000073688.jpg,different,,first check
+000000451155.jpg,000000202187.jpg,different,,detector
+000000452793.jpg,000000148706.jpg,different,,first check
+000000455872.jpg,000000189561.jpg,different,,detector
+000000455872.jpg,000000566262.jpg,different,,first check
+000000458768.jpg,000000251062.jpg,different,,detector
+000000460379.jpg,000000264336.jpg,different,,first check + detector
+000000464872.jpg,000000310861.jpg,different,,first check
+000000464872.jpg,000000483656.jpg,different,,detector
+000000465585.jpg,000000465050.jpg,different,,second search
+000000465675.jpg,000000080303.jpg,different,,detector
+000000465675.jpg,000000155083.jpg,different,,first check
+000000469174.jpg,000000157815.jpg,different,,first check
+000000469174.jpg,000000174337.jpg,different,,detector
+000000473015.jpg,000000183387.jpg,different,,detector
+000000473015.jpg,000000258888.jpg,different,,first check
+000000473821.jpg,000000247680.jpg,different,,detector
+000000473821.jpg,000000268350.jpg,different,,first check
+000000476491.jpg,000000096303.jpg,different,,detector
+000000476491.jpg,000000357290.jpg,different,,first check
+000000476810.jpg,000000350481.jpg,different,,detector
+000000476810.jpg,000000406286.jpg,different,,first check
+000000479953.jpg,000000555534.jpg,different,,detector + second search
+000000481480.jpg,000000085482.jpg,different,,detector
+000000481480.jpg,000000517612.jpg,different,,first check
+000000482585.jpg,000000030267.jpg,different,,detector
+000000482585.jpg,000000359701.jpg,different,,first check
+000000484029.jpg,000000090373.jpg,different,,first check
+000000484029.jpg,000000203870.jpg,different,,second search
+000000488736.jpg,000000221346.jpg,different,,detector
+000000491470.jpg,000000142674.jpg,different,,detector
+000000491470.jpg,000000411028.jpg,different,,second search
+000000494427.jpg,000000406286.jpg,different,,first check
+000000495054.jpg,000000100757.jpg,different,,detector
+000000495054.jpg,000000458649.jpg,different,,first check
+000000495146.jpg,000000169340.jpg,different,,detector
+000000495146.jpg,000000414851.jpg,different,,first check
+000000500716.jpg,000000189550.jpg,different,,detector
+000000502229.jpg,000000203370.jpg,different,,second search
+000000502347.jpg,000000188130.jpg,different,,first check
+000000502347.jpg,000000284274.jpg,different,,detector
+000000502910.jpg,000000565571.jpg,different,,detector
+000000503755.jpg,000000514556.jpg,different,,second search
+000000504415.jpg,000000346812.jpg,different,,detector
+000000512985.jpg,000000092715.jpg,different,,detector
+000000512985.jpg,000000497299.jpg,different,,first check
+000000513181.jpg,000000216952.jpg,different,,first check
+000000513181.jpg,000000354546.jpg,different,,detector
+000000515077.jpg,000000047192.jpg,different,,detector
+000000516601.jpg,000000100226.jpg,different,,detector
+000000519338.jpg,000000564031.jpg,different,,first check + detector
+000000523241.jpg,000000399275.jpg,different,,detector
+000000532493.jpg,000000263083.jpg,different,,detector
+000000532690.jpg,000000116147.jpg,different,,detector
+000000533536.jpg,000000045721.jpg,different,,first check
+000000533536.jpg,000000051281.jpg,different,,detector
+000000545826.jpg,000000505949.jpg,different,,detector
+000000551804.jpg,000000224596.jpg,different,,detector
+000000552883.jpg,000000066647.jpg,different,,detector
+000000552883.jpg,000000222500.jpg,different,,first check
+000000557501.jpg,000000438694.jpg,different,,second search
+000000557916.jpg,000000401398.jpg,different,,first check
+000000559099.jpg,000000183131.jpg,different,,first check
+000000559099.jpg,000000486203.jpg,different,,detector
+000000559160.jpg,000000306061.jpg,different,,detector
+000000561366.jpg,000000334470.jpg,different,,detector
+000000564127.jpg,000000082530.jpg,different,,detector
+000000564127.jpg,000000436027.jpg,different,,second search
+000000567432.jpg,000000126876.jpg,different,,first check
+000000567432.jpg,000000187890.jpg,different,,detector
+000000569700.jpg,000000329640.jpg,different,,detector
+000000570688.jpg,000000200796.jpg,different,,detector
+000000570688.jpg,000000395083.jpg,different,,first check
+000000571008.jpg,000000025797.jpg,different,,detector
+000000571008.jpg,000000247547.jpg,different,,second search
+000000573391.jpg,000000225054.jpg,different,,first check
+000000573391.jpg,000000322858.jpg,different,,detector
+000000575205.jpg,000000232114.jpg,different,,detector
+000000575205.jpg,000000339120.jpg,different,,first check
+000000575357.jpg,000000136903.jpg,different,,detector

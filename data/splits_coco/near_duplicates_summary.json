@@ -1,0 +1,93 @@
+{
+  "n_test": 1000,
+  "n_trainval": 12000,
+  "exact_pixel_duplicates": 0,
+  "verdicts": {
+    "near_duplicate": 1,
+    "review": 190,
+    "distinct": 809
+  },
+  "near_duplicate_by_class": {
+    "non_person": 1,
+    "person": 0
+  },
+  "near_duplicate_in_hil_subset": 0,
+  "near_duplicate_match_split": {
+    "train": 1,
+    "val": 0
+  },
+  "near_duplicate_label_mismatch": 0,
+  "within_test": {
+    "near_duplicate": 0,
+    "review": 46,
+    "distinct": 954
+  },
+  "ncc_alone": {
+    "at_or_above_threshold": 32,
+    "review_band": 135
+  },
+  "calibration": {
+    "ncc": {
+      "positive_copies": {
+        "1": 0.9269,
+        "5": 0.9606,
+        "50": 0.9837
+      },
+      "negative_different_photos": {
+        "50": 0.2782,
+        "95": 0.569,
+        "99": 0.6941
+      },
+      "negative_max": 0.8431,
+      "n_pos": 300,
+      "n_neg": 300,
+      "overlap": false,
+      "threshold": 0.8105,
+      "threshold_overridden": false
+    },
+    "feature_inliers": {
+      "positive_copies": {
+        "1": 66.66,
+        "5": 96.0,
+        "50": 146.5
+      },
+      "negative_different_photos": {
+        "50": 2.0,
+        "95": 7.0,
+        "99": 15.02
+      },
+      "negative_max": 22.0,
+      "n_pos": 300,
+      "n_neg": 300,
+      "overlap": false,
+      "threshold": 40.84,
+      "threshold_overridden": false
+    }
+  },
+  "rule": {
+    "ncc_threshold": 0.8105,
+    "ncc_review_from": 0.6941,
+    "features_used": true,
+    "inliers_threshold": 40.84,
+    "inliers_review_from": 23.0
+  },
+  "parameters": {
+    "region": "full",
+    "embed": "mobilenetv2",
+    "topk": 10,
+    "topk_features": 30,
+    "controls": 300,
+    "seed": 20261102,
+    "working_size": [
+      160,
+      120
+    ]
+  },
+  "environment": {
+    "python": "3.13.14",
+    "numpy": "2.5.3",
+    "opencv": "5.0.0",
+    "embedding": "MobileNetV2/imagenet",
+    "tensorflow": "2.21.0"
+  }
+}
