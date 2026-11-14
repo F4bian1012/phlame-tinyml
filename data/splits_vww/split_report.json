@@ -13,7 +13,7 @@
     "non_person",
     "person"
   ],
-  "class_names_source": "subcarpetas de data/processed/vww_160x120 (class_names.txt no encontrado)",
+  "class_names_source": "subfolders of data/processed/vww_160x120 (class_names.txt not found)",
   "label_map": {
     "non_person": 0,
     "person": 1

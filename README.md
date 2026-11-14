@@ -398,18 +398,18 @@ In HIL the per-image predictions are columns of `latency_metrics_{model}.csv`, n
 
 | Key | Description |
 |---|---|
-| `nivel` | Evaluation level in the fidelity ladder: `"MIL"`, `"SIL"`, `"PIL"`, or `"HIL"`. |
-| `generado_utc` | ISO 8601 UTC timestamp when the evaluation run was completed. |
-| `modelo` | Model identification, checksums, and on-chip verification. |
+| `level` | Evaluation level in the fidelity ladder: `"MIL"`, `"SIL"`, `"PIL"`, or `"HIL"`. |
+| `generated_utc` | ISO 8601 UTC timestamp when the evaluation run was completed. |
+| `model` | Model identification, checksums, and on-chip verification. |
 | `dataset` | Evaluated images: directories, sample counts, and class names. |
-| `corrida` | PIL and HIL only: serial parameters and physical rig settings. |
-| `metricas_globales` | Global accuracy, precision, recall, and F1. |
-| `metricas_por_clase` | Per-class precision, recall, F1-score, and support, plus aggregates. |
-| `matriz_confusion` | Confusion matrix with its labels and layout. |
-| `conteo_predicciones` | PIL only: number of predictions per class index. |
-| `latencia` | PIL and HIL only: per-phase cycle and microsecond statistics. |
-| `validacion_cruzada` | HIL only: paired PC MIL/SIL evaluation on the captured frames. |
-| `artefactos` | Relative paths to the companion output files. |
+| `run` | PIL and HIL only: serial parameters and physical rig settings. |
+| `global_metrics` | Global accuracy, precision, recall, and F1. |
+| `per_class_metrics` | Per-class precision, recall, F1-score, and support, plus aggregates. |
+| `confusion_matrix` | Confusion matrix with its labels and layout. |
+| `prediction_counts` | PIL only: number of predictions per class index. |
+| `latency` | PIL and HIL only: per-phase cycle and microsecond statistics. |
+| `cross_validation` | HIL only: paired PC MIL/SIL evaluation on the captured frames. |
+| `artifacts` | Relative paths to the companion output files. |
 
 The `conditions_*.json` schema and all nested keys are documented in [`docs/results_schema.md`](docs/results_schema.md). Check that document against every published JSON with:
 
@@ -429,22 +429,22 @@ import glob, json
 for f in sorted(glob.glob("results/*/metrics_*.json")):
     with open(f, encoding="utf-8") as fh:
         d = json.load(fh)
-    level = d["nivel"]
-    m_name = d["modelo"]["nombre"]
-    g = d["metricas_globales"]
-    sha = (d["modelo"]["sha256"] or "N/A")[:12]
-    unresp = d.get("dataset", {}).get("n_sin_respuesta", 0)
+    level = d["level"]
+    m_name = d["model"]["name"]
+    g = d["global_metrics"]
+    sha = (d["model"]["sha256"] or "N/A")[:12]
+    unresp = d.get("dataset", {}).get("n_unanswered", 0)
 
     # Hardware latency & on-chip verification (PIL / HIL)
     lat_str = ""
-    if "latencia" in d and "por_campo" in d["latencia"]:
-        us_tot = d["latencia"]["por_campo"].get("US_TOTAL")
-        if us_tot and us_tot.get("media") is not None:
-            lat_str = f" | {us_tot['media']/1000.0:.2f} ms"
+    if "latency" in d and "per_field" in d["latency"]:
+        us_tot = d["latency"]["per_field"].get("US_TOTAL")
+        if us_tot and us_tot.get("mean") is not None:
+            lat_str = f" | {us_tot['mean']/1000.0:.2f} ms"
 
     verif_str = ""
     if level == "HIL":
-        verified = d["modelo"].get("identidad_verificada")
+        verified = d["model"].get("identity_verified")
         verif_str = f" [chip_verified={verified}]"
 
     print(f"{level:4} {m_name:40} acc={g['accuracy']:.4f} f1_macro={g['f1_macro']:.4f} "

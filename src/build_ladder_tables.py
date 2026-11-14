@@ -40,8 +40,8 @@ Methods
     fixed order (full test set first, then the rig subset), so repeated runs give
     identical numbers.
 
-Note: the metrics_*.json schema uses Spanish keys (e.g. 'modelo', 'latencia',
-'por_campo', 'media', 'desv_std'); they are read here as-is. See "Results Format"
+Note: the keys of the metrics_*.json files read here ('model', 'latency',
+'per_field', 'mean', 'std') are documented in "Results Format"
 in the README.
 
 Dependencies: numpy and scipy (scipy is installed with scikit-learn). pandas is not needed.
@@ -339,7 +339,7 @@ def main():
 
     tfl = {}
     for a in archs:
-        mo = io.json(f"results/sil/metrics_{tag(a)}_int8.json")["modelo"]
+        mo = io.json(f"results/sil/metrics_{tag(a)}_int8.json")["model"]
         tfl[a] = (int(mo["bytes"]), mo.get("sha256"))
 
     # ======================================================================
@@ -394,21 +394,21 @@ def main():
     # ======================================================================
     t3 = {}
     for a in dep:
-        P = io.json(f"results/pil/metrics_{tag(a)}_int8.json")["latencia"]["por_campo"]
-        H = io.json(f"results/hil/metrics_{tag(a)}_int8.json")["latencia"]["por_campo"]
+        P = io.json(f"results/pil/metrics_{tag(a)}_int8.json")["latency"]["per_field"]
+        H = io.json(f"results/hil/metrics_{tag(a)}_int8.json")["latency"]["per_field"]
         fw = io.json(f"results/hil/conditions_{tag(a)}_int8.json")["firmware_model"]
-        ms = lambda d, k: d[k]["media"] / 1000.0
+        ms = lambda d, k: d[k]["mean"] / 1000.0
         t3[a] = {"tflite_KiB": tfl[a][0] / 1024.0, "arena_KiB": fw["arena_used_bytes"] / 1024.0,
                  "PIL_pre_ms": ms(P, "US_PRE"), "PIL_inf_ms": ms(P, "US_INF"), "PIL_post_ms": ms(P, "US_POST"),
                  "PIL_total_ms": ms(P, "US_TOTAL"),
-                 "PIL_cv_pct": 100 * P["US_TOTAL"]["desv_std"] / P["US_TOTAL"]["media"],
-                 "PIL_cycles_inf": P["CYC_INF"]["media"],
-                 "PIL_cycles_per_us": P["CYC_INF"]["media"] / P["US_INF"]["media"],
+                 "PIL_cv_pct": 100 * P["US_TOTAL"]["std"] / P["US_TOTAL"]["mean"],
+                 "PIL_cycles_inf": P["CYC_INF"]["mean"],
+                 "PIL_cycles_per_us": P["CYC_INF"]["mean"] / P["US_INF"]["mean"],
                  "HIL_capture_ms": ms(H, "US_CAPTURE"), "HIL_inf_ms": ms(H, "US_INF"), "HIL_total_ms": ms(H, "US_TOTAL"),
-                 "HIL_cv_pct": 100 * H["US_TOTAL"]["desv_std"] / H["US_TOTAL"]["media"],
-                 "HIL_cycles_inf": H["CYC_INF"]["media"],
-                 "d_cycles_inf_HIL_vs_PIL_pct": 100 * (H["CYC_INF"]["media"] - P["CYC_INF"]["media"]) / P["CYC_INF"]["media"],
-                 "inf_share_PIL_pct": 100 * P["US_INF"]["media"] / P["US_TOTAL"]["media"],
+                 "HIL_cv_pct": 100 * H["US_TOTAL"]["std"] / H["US_TOTAL"]["mean"],
+                 "HIL_cycles_inf": H["CYC_INF"]["mean"],
+                 "d_cycles_inf_HIL_vs_PIL_pct": 100 * (H["CYC_INF"]["mean"] - P["CYC_INF"]["mean"]) / P["CYC_INF"]["mean"],
+                 "inf_share_PIL_pct": 100 * P["US_INF"]["mean"] / P["US_TOTAL"]["mean"],
                  "n_PIL": P["US_TOTAL"].get("n"), "n_HIL": H["US_TOTAL"].get("n")}
     t3_order = sorted(dep, key=lambda a: t3[a]["PIL_total_ms"])
 

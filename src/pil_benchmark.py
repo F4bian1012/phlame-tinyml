@@ -87,7 +87,7 @@ def _json_safe(o):
     raise TypeError("Cannot serialize to JSON: %r (%s)" % (o, type(o).__name__))
 
 
-def _sha256_archivo(path, chunk=1024 * 1024):
+def _sha256_file(path, chunk=1024 * 1024):
     """SHA-256 of the file, read in chunks.
 
     Returns None if the path is not a file: a JSON without a checksum is
@@ -98,12 +98,12 @@ def _sha256_archivo(path, chunk=1024 * 1024):
         return None
     h = hashlib.sha256()
     with open(path, "rb") as fh:
-        for bloque in iter(lambda: fh.read(chunk), b""):
-            h.update(bloque)
+        for block in iter(lambda: fh.read(chunk), b""):
+            h.update(block)
     return h.hexdigest()
 
 
-def _resumen_latencias(filas, campos):
+def _latency_summary(rows, fields):
     """Per-field statistics from the CYC_*/US_*/TEMP_C lines.
 
     Values arrive as text over the serial port and may be missing (an image
@@ -115,44 +115,44 @@ def _resumen_latencias(filas, campos):
     p95 by nearest rank over the sorted sample (no interpolation): with few
     images this is more honest than inventing an intermediate value.
     """
-    resumen = {}
-    for campo in campos:
+    summary = {}
+    for field in fields:
         vals = []
-        for fila in filas:
+        for row in rows:
             try:
-                vals.append(float(fila.get(campo, "")))
+                vals.append(float(row.get(field, "")))
             except (TypeError, ValueError):
                 continue
         if not vals:
-            resumen[campo] = None
+            summary[field] = None
             continue
-        ordenados = sorted(vals)
-        idx95 = int(round(0.95 * (len(ordenados) - 1)))
-        resumen[campo] = {
+        ordered = sorted(vals)
+        idx95 = int(round(0.95 * (len(ordered) - 1)))
+        summary[field] = {
             "n": len(vals),
-            "media": statistics.fmean(vals),
-            "mediana": statistics.median(vals),
-            "desv_std": statistics.stdev(vals) if len(vals) > 1 else 0.0,
-            "min": ordenados[0],
-            "max": ordenados[-1],
-            "p95": ordenados[idx95],
+            "mean": statistics.fmean(vals),
+            "median": statistics.median(vals),
+            "std": statistics.stdev(vals) if len(vals) > 1 else 0.0,
+            "min": ordered[0],
+            "max": ordered[-1],
+            "p95": ordered[idx95],
         }
-    return resumen
+    return summary
 
 
-def _nombre_clase(idx, class_names):
+def _class_name(idx, class_names):
     """Class name from the index returned by the board.
 
     The firmware returns a raw integer. If it does not correspond to any known
     class (firmware flashed with another model, or a different dataset) it is
-    marked as Invalida_<n> instead of blowing up the row: the CSV must record
+    marked as Invalid_<n> instead of blowing up the row: the CSV must record
     what happened, including an incoherent response.
     """
     if idx is None or idx < 0:
         return ""
     if idx < len(class_names):
         return class_names[idx]
-    return "Invalida_%d" % idx
+    return "Invalid_%d" % idx
 
 
 def escape_payload(raw_bytes: bytes) -> bytes:
@@ -388,7 +388,7 @@ def send_folder(port: str, baud: int, folder: str,
     y_pred = []
     # Accumulated in addition to the CSV: the JSON summarizes per phase, and
     # re-reading the just-written CSV only for that would be a detour.
-    latencias = []
+    latencies = []
 
     for idx, (image_path, true_label) in enumerate(image_data, start=1):
         print(f"\n[INFO] ({idx}/{total}) Processing: {os.path.basename(image_path)}")
@@ -440,7 +440,7 @@ def send_folder(port: str, baud: int, folder: str,
             row.append(current_metrics.get(h, ""))
         csv_writer.writerow(row)
         csv_file.flush()
-        latencias.append(dict(current_metrics))
+        latencies.append(dict(current_metrics))
 
         if predicted_class is not None:
             class_counts[predicted_class] += 1
@@ -456,20 +456,20 @@ def send_folder(port: str, baud: int, folder: str,
         # not the board answered: the empty cells distinguish "there was no
         # label" from "there was no response", and both matter when
         # interpreting the benchmark.
-        etiqueta_conocida = (true_label != -1)
-        hubo_respuesta = (predicted_class is not None)
-        if etiqueta_conocida and hubo_respuesta:
-            correcto = 1 if true_label == predicted_class else 0
+        label_known = (true_label != -1)
+        got_response = (predicted_class is not None)
+        if label_known and got_response:
+            correct = 1 if true_label == predicted_class else 0
         else:
-            correcto = ""
+            correct = ""
         pred_writer.writerow([
             os.path.basename(image_path),
             os.path.relpath(image_path, folder),
-            true_label if etiqueta_conocida else "",
-            _nombre_clase(true_label, class_names) if etiqueta_conocida else "",
-            predicted_class if hubo_respuesta else "",
-            _nombre_clase(predicted_class, class_names) if hubo_respuesta else "",
-            correcto,
+            true_label if label_known else "",
+            _class_name(true_label, class_names) if label_known else "",
+            predicted_class if got_response else "",
+            _class_name(predicted_class, class_names) if got_response else "",
+            correct,
         ])
         # flush per row, like the latency CSV: a serial benchmark can be
         # interrupted and what has already been measured should not be lost.
@@ -487,26 +487,26 @@ def send_folder(port: str, baud: int, folder: str,
     ser.close()
     print("\n[INFO] Port closed. All images sent.")
 
-    respondidas = total - errors
+    answered = total - errors
     print("\n" + "=" * 45)
     print("  PREDICTION SUMMARY")
     print(f"  Folder  : {folder}")
-    print(f"  Total   : {total} images  |  Answered: {respondidas}  |  No response: {errors}")
+    print(f"  Total   : {total} images  |  Answered: {answered}  |  No response: {errors}")
     print("=" * 45)
     if class_counts:
         print(f"  {'Class':>6}  {'Count':>9}  {'Percentage':>11}")
         print("  " + "-" * 32)
         for cls in sorted(class_counts):
             cnt = class_counts[cls]
-            pct = cnt / respondidas * 100 if respondidas else 0
+            pct = cnt / answered * 100 if answered else 0
             print(f"  {cls:>6}  {cnt:>9}  {pct:>10.1f}%")
     print("=" * 45)
 
     # Defaults: if there are no ground-truth labels or sklearn is missing, the
     # JSON is written anyway with these fields as null and the latency intact.
-    metricas_globales = None
+    global_metrics = None
     report_dict = None
-    matriz_confusion = None
+    confusion = None
     cm_plot_path = None
 
     # Generate the confusion matrix and metrics if we have ground-truth labels
@@ -538,7 +538,7 @@ def send_folder(port: str, baud: int, folder: str,
                 if lab < len(class_names):
                     target_names.append(class_names[lab])
                 else:
-                    target_names.append(f"Invalida_{lab}")
+                    target_names.append(f"Invalid_{lab}")
 
             print("\nDetailed Classification Report:")
             print(classification_report(y_true, y_pred, labels=labels_present, target_names=target_names, zero_division=0))
@@ -564,7 +564,7 @@ def send_folder(port: str, baud: int, folder: str,
 
             # Collected here, inside the try, so that the JSON further below
             # finds them already computed; if sklearn is missing they stay None.
-            metricas_globales = {
+            global_metrics = {
                 "accuracy": float(accuracy),
                 "precision_weighted": float(precision),
                 "recall_weighted": float(recall),
@@ -574,10 +574,10 @@ def send_folder(port: str, baud: int, folder: str,
             report_dict = classification_report(y_true, y_pred, labels=labels_present,
                                                 target_names=target_names,
                                                 zero_division=0, output_dict=True)
-            matriz_confusion = {
+            confusion = {
                 "labels": target_names,
-                "matriz": cm.tolist(),
-                "orden": "filas = etiqueta real, columnas = etiqueta predicha",
+                "matrix": cm.tolist(),
+                "order": "rows = true label, columns = predicted label",
             }
 
 
@@ -599,55 +599,55 @@ def send_folder(port: str, baud: int, folder: str,
     os.makedirs(json_dir, exist_ok=True)
     metrics_path = os.path.join(json_dir, f"metrics_{model_tag}.json")
 
-    resultados = {
-        "nivel": "PIL",
-        "generado_utc": datetime.now(timezone.utc).isoformat(),
-        "modelo": {
+    results = {
+        "level": "PIL",
+        "generated_utc": datetime.now(timezone.utc).isoformat(),
+        "model": {
             "path": model_path,
-            "nombre": model_tag,
-            "sha256": _sha256_archivo(model_path),
+            "name": model_tag,
+            "sha256": _sha256_file(model_path),
             "bytes": os.path.getsize(model_path) if model_path and os.path.isfile(model_path) else None,
-            "nota": ("checksum del .tflite indicado con --model_path. El banco NO lo "
-                     "carga ni lo compara contra la placa: acredita que este archivo "
-                     "es el mismo que evaluo SIL, no que sea el que esta flasheado."),
+            "note": ("checksum of the .tflite given with --model_path. The bench does "
+                     "NOT load it or compare it against the board: it certifies that "
+                     "this file is the one SIL evaluated, not that it is the one flashed."),
         },
-        "corrida": {
-            "puerto": port,
+        "run": {
+            "port": port,
             "baud": baud,
             "input_shape": {"width": width, "height": height,
                             "channels": 1 if grayscale else 3},
             "pre_delay_s": pre_delay,
             "gap_s": gap,
-            "n_samples_pedidas": n_samples,
+            "n_samples_requested": n_samples,
         },
         "dataset": {
             "folder": folder,
             "class_names": list(class_names),
-            "n_imagenes": total,
-            "n_respondidas": respondidas,
-            "n_sin_respuesta": errors,
+            "n_images": total,
+            "n_answered": answered,
+            "n_unanswered": errors,
         },
-        "metricas_globales": metricas_globales,
-        "metricas_por_clase": report_dict,
-        "matriz_confusion": matriz_confusion,
-        "latencia": {
-            "fuente": ("contador de ciclos DWT->CYCCNT del Cortex-M7, reportado por "
-                       "el firmware en las lineas CYC_*/US_*"),
-            "n_imagenes_con_medida": len(latencias),
-            "metodo_p95": "rango mas cercano sobre la muestra ordenada, sin interpolar",
-            "por_campo": _resumen_latencias(latencias, metrics_headers),
+        "global_metrics": global_metrics,
+        "per_class_metrics": report_dict,
+        "confusion_matrix": confusion,
+        "latency": {
+            "source": ("DWT->CYCCNT cycle counter of the Cortex-M7, reported by "
+                       "the firmware in the CYC_*/US_* lines"),
+            "n_images_measured": len(latencies),
+            "p95_method": "nearest rank on the sorted sample, no interpolation",
+            "per_field": _latency_summary(latencies, metrics_headers),
         },
-        "conteo_predicciones": {str(k): v for k, v in sorted(class_counts.items())},
-        "artefactos": {
-            "matriz_png": cm_plot_path,
-            "latencias_csv": csv_path,
-            "predicciones_csv": pred_csv_path,
+        "prediction_counts": {str(k): v for k, v in sorted(class_counts.items())},
+        "artifacts": {
+            "confusion_matrix_png": cm_plot_path,
+            "latency_csv": csv_path,
+            "predictions_csv": pred_csv_path,
         },
     }
 
     with open(metrics_path, "w", encoding="utf-8") as fh:
         # Output schema documented in docs/results_schema.md - update it if you add, rename or remove keys.
-        json.dump(resultados, fh, indent=2, ensure_ascii=False, default=_json_safe)
+        json.dump(results, fh, indent=2, ensure_ascii=False, default=_json_safe)
     print(f"[INFO] JSON metrics saved to {metrics_path}")
 
 

@@ -10,45 +10,96 @@ of the metrics JSON; the `conditions_*.json` section gives paths from the root o
 
 Dynamic keys use placeholders:
 
-- `<FIELD>`: a telemetry field under `latencia.por_campo` (listed in section 7).
-- `<CLASS>` under `metricas_por_clase`: the class names (`Class1`, `Class2`; `person`, `non_person` in
+- `<FIELD>`: a telemetry field under `latency.per_field` (listed in section 7).
+- `<CLASS>` under `per_class_metrics`: the class names (`Class1`, `Class2`; `person`, `non_person` in
   VWW) and also the aggregate entries added by scikit-learn: `macro avg` and `weighted avg` (objects with
   `precision`, `recall`, `f1-score`, `support`) and `accuracy` (a number, not an object).
-- `<CLASS>` under `conteo_predicciones`: a predicted class index as a string (`"0"`, `"1"`, ...).
+- `<CLASS>` under `prediction_counts`: a predicted class index as a string (`"0"`, `"1"`, ...).
+
+## Former Key Names
+
+Until November 2026 the keys of `metrics_*.json` were written in Spanish. They were renamed in the
+scripts and in every published file; no measured value changed. Code written against the former names
+needs the new ones:
+
+| Former key | Current key |
+|---|---|
+| `nivel` | `level` |
+| `generado_utc` | `generated_utc` |
+| `modelo` | `model` |
+| `nombre` | `name` |
+| `identidad_verificada` | `identity_verified` |
+| `nota` | `note` |
+| `corrida` | `run` |
+| `puerto` | `port` |
+| `condiciones_completas` | `conditions_complete` |
+| `nota_correccion` | `correction_note` |
+| `n_samples_pedidas` | `n_samples_requested` |
+| `n_estimulos` | `n_stimuli` |
+| `n_respondidas` | `n_answered` |
+| `n_sin_respuesta` | `n_unanswered` |
+| `n_muestras` | `n_samples` |
+| `n_imagenes` | `n_images` |
+| `metricas_globales` | `global_metrics` |
+| `metricas_por_clase` | `per_class_metrics` |
+| `matriz_confusion` | `confusion_matrix` |
+| `matriz` | `matrix` |
+| `orden` | `order` |
+| `latencia` | `latency` |
+| `fuente` | `source` |
+| `n_imagenes_con_medida` | `n_images_measured` |
+| `metodo_p95` | `p95_method` |
+| `por_campo` | `per_field` |
+| `media` | `mean` |
+| `mediana` | `median` |
+| `desv_std` | `std` |
+| `validacion_cruzada` | `cross_validation` |
+| `sil_en_pc` | `sil_on_pc` |
+| `mil_en_pc` | `mil_on_pc` |
+| `n_con_sil` | `n_with_sil` |
+| `n_con_mil` | `n_with_mil` |
+| `artefactos` | `artifacts` |
+| `matriz_png` | `confusion_matrix_png` |
+| `latencias_csv` | `latency_csv` |
+| `condiciones_json` | `conditions_json` |
+| `predicciones_csv` | `predictions_csv` |
+| `conteo_predicciones` | `prediction_counts` |
+
+The fixed descriptive texts (`confusion_matrix.order`, `latency.source`, `latency.p95_method`,
+`model.note`, `rig`) and the hand-written session notes (`notes`, `run.correction_note`) were translated
+to English in the same change.
 
 ## Metrics Schema Glossary (`metrics_*.json`)
 
 Every evaluation script writes a `metrics_{model}[_int8].json` file capturing classification accuracy, execution metadata, and latency.
 
-> **Note on Schema Keys:** JSON keys are maintained in Spanish (e.g., `nivel`, `n_sin_respuesta`, `identidad_verificada`, `conteo_predicciones`) across all 32 published files in `results/` to guarantee strict backward compatibility with existing analysis notebooks, data pipelines, and validation scripts. All field definitions, data types, and documentation below are in English.
-
 ### 1. Root & Metadata
 | Key | Level | Type | Description |
 |---|---|---|---|
-| `nivel` | All | `string` | Evaluation level in the fidelity ladder: `"MIL"`, `"SIL"`, `"PIL"`, or `"HIL"`. |
-| `generado_utc` | All | `string` | ISO 8601 UTC timestamp when the evaluation run was completed. |
-| `modelo` | All | `object` | Model identification, checksums, and on-chip hardware verification (see Section 2). |
-| `corrida` | PIL, HIL | `object` | Serial connection parameters and physical rig environment settings (see Section 4). |
+| `level` | All | `string` | Evaluation level in the fidelity ladder: `"MIL"`, `"SIL"`, `"PIL"`, or `"HIL"`. |
+| `generated_utc` | All | `string` | ISO 8601 UTC timestamp when the evaluation run was completed. |
+| `model` | All | `object` | Model identification, checksums, and on-chip hardware verification (see Section 2). |
+| `run` | PIL, HIL | `object` | Serial connection parameters and physical rig environment settings (see Section 4). |
 | `dataset` | All | `object` | Dataset partition directories, sample counts, and class definitions (see Section 3). |
-| `metricas_globales` | All | `object` | Global classification summary: accuracy, weighted/macro F1, precision, recall (see Section 5). |
-| `metricas_por_clase` | All | `object` | Detailed classification breakdown per class (`precision`, `recall`, `f1-score`, `support`), plus macro/weighted averages (see Section 5). |
-| `matriz_confusion` | All | `object` | Confusion matrix structure (`labels`, `matriz`, and layout orientation `orden`; see Section 6). |
-| `latencia` | PIL, HIL | `object` | Hardware cycle and microsecond timer statistics per inference phase (see Section 7). |
-| `conteo_predicciones` | PIL | `object` | Frequency dictionary mapping predicted class index strings (`"0"`, `"1"`, etc.) to total counts (see Section 6). |
-| `validacion_cruzada` | HIL | `object` | Summary of paired PC MIL/SIL evaluation on the exact camera-captured frames (see Section 8). |
-| `artefactos` | All | `object` | Relative filesystem paths to companion outputs (PNG heatmap, CSV tables, conditions JSON; see Section 9). |
+| `global_metrics` | All | `object` | Global classification summary: accuracy, weighted/macro F1, precision, recall (see Section 5). |
+| `per_class_metrics` | All | `object` | Detailed classification breakdown per class (`precision`, `recall`, `f1-score`, `support`), plus macro/weighted averages (see Section 5). |
+| `confusion_matrix` | All | `object` | Confusion matrix structure (`labels`, `matrix`, and layout orientation `order`; see Section 6). |
+| `latency` | PIL, HIL | `object` | Hardware cycle and microsecond timer statistics per inference phase (see Section 7). |
+| `prediction_counts` | PIL | `object` | Frequency dictionary mapping predicted class index strings (`"0"`, `"1"`, etc.) to total counts (see Section 6). |
+| `cross_validation` | HIL | `object` | Summary of paired PC MIL/SIL evaluation on the exact camera-captured frames (see Section 8). |
+| `artifacts` | All | `object` | Relative filesystem paths to companion outputs (PNG heatmap, CSV tables, conditions JSON; see Section 9). |
 
-### 2. Model Traceability (`modelo`)
+### 2. Model Traceability (`model`)
 | Key | Level | Type | Description |
 |---|---|---|---|
-| `modelo.nombre` | All | `string` | Model architecture tag / run identifier (e.g., `"MobileNetV2+32+20+0.0001+160+120_int8"`). |
-| `modelo.path` | All | `string` | Relative path to the evaluated `.keras` or `.tflite` model artifact. |
-| `modelo.sha256` | All | `string` | 64-character SHA-256 hash of the host model file: the `.keras` file in MIL and the `.tflite` file in SIL, PIL and HIL. In PIL it does not prove which model is flashed on the board (only HIL checks that, see `modelo.identidad_verificada`). |
-| `modelo.bytes` | All | `integer` | Model file size on disk in bytes. |
-| `modelo.fnv1a_tflite` | HIL | `string` | 8-character hex 32-bit FNV-1a hash computed directly from the host `.tflite` binary file. |
-| `modelo.fnv1a_chip` | HIL | `string` | 8-character hex 32-bit FNV-1a hash computed by the Portenta H7 firmware over the compiled `g_model[]` in flash and emitted at boot (`MODEL_FNV1A:<hex>`). |
-| `modelo.identidad_verificada` | HIL | `boolean` | `true` if the on-chip fingerprint and size match the host `.tflite` file. Confirms that the physical board ran the expected compiled model (a non-cryptographic check against stale or wrongly flashed firmware). |
-| `modelo.nota` | PIL, HIL | `string` | Explanatory note detailing the verification method and scope of the checksum. |
+| `model.name` | All | `string` | Model architecture tag / run identifier (e.g., `"MobileNetV2+32+20+0.0001+160+120_int8"`). |
+| `model.path` | All | `string` | Relative path to the evaluated `.keras` or `.tflite` model artifact. |
+| `model.sha256` | All | `string` | 64-character SHA-256 hash of the host model file: the `.keras` file in MIL and the `.tflite` file in SIL, PIL and HIL. In PIL it does not prove which model is flashed on the board (only HIL checks that, see `model.identity_verified`). |
+| `model.bytes` | All | `integer` | Model file size on disk in bytes. |
+| `model.fnv1a_tflite` | HIL | `string` | 8-character hex 32-bit FNV-1a hash computed directly from the host `.tflite` binary file. |
+| `model.fnv1a_chip` | HIL | `string` | 8-character hex 32-bit FNV-1a hash computed by the Portenta H7 firmware over the compiled `g_model[]` in flash and emitted at boot (`MODEL_FNV1A:<hex>`). |
+| `model.identity_verified` | HIL | `boolean` | `true` if the on-chip fingerprint and size match the host `.tflite` file. Confirms that the physical board ran the expected compiled model (a non-cryptographic check against stale or wrongly flashed firmware). |
+| `model.note` | PIL, HIL | `string` | Explanatory note detailing the verification method and scope of the checksum. |
 
 ### 3. Dataset & Sampling (`dataset`)
 | Key | Level | Type | Description |
@@ -62,72 +113,72 @@ Every evaluation script writes a `metrics_{model}[_int8].json` file capturing cl
 | `dataset.image_size` | MIL, SIL | `object` | Tensor input geometry. |
 | `dataset.image_size.width` | MIL, SIL | `integer` | Input width in pixels. |
 | `dataset.image_size.height` | MIL, SIL | `integer` | Input height in pixels. |
-| `dataset.n_muestras` | MIL, SIL | `integer` | Total number of test images evaluated in the session. |
-| `dataset.n_imagenes` | PIL | `integer` | Total number of test images sent to the board in the session. |
-| `dataset.n_estimulos` | HIL | `integer` | Total number of optical stimuli presented in the session. |
-| `dataset.n_respondidas` | PIL, HIL | `integer` | Number of test items for which the microcontroller successfully returned a class prediction. |
-| `dataset.n_sin_respuesta` | PIL, HIL | `integer` | Number of test items where the board timed out or failed to return a prediction. Disentangles hardware/communication dropouts from classification errors. |
+| `dataset.n_samples` | MIL, SIL | `integer` | Total number of test images evaluated in the session. |
+| `dataset.n_images` | PIL | `integer` | Total number of test images sent to the board in the session. |
+| `dataset.n_stimuli` | HIL | `integer` | Total number of optical stimuli presented in the session. |
+| `dataset.n_answered` | PIL, HIL | `integer` | Number of test items for which the microcontroller successfully returned a class prediction. |
+| `dataset.n_unanswered` | PIL, HIL | `integer` | Number of test items where the board timed out or failed to return a prediction. Disentangles hardware/communication dropouts from classification errors. |
 
-### 4. Run & Environmental Rig Configuration (`corrida`)
+### 4. Run & Environmental Rig Configuration (`run`)
 | Key | Level | Type | Description |
 |---|---|---|---|
-| `corrida.puerto` | PIL, HIL | `string` | Serial port used to communicate with the Arduino Portenta H7 (e.g., `"COM9"`). |
-| `corrida.baud` | PIL, HIL | `integer` | Serial transmission speed in baud (default: `115200`). |
-| `corrida.input_shape` | PIL | `object` | Geometry of the images sent over serial. |
-| `corrida.input_shape.width` | PIL | `integer` | Image width in pixels. |
-| `corrida.input_shape.height` | PIL | `integer` | Image height in pixels. |
-| `corrida.input_shape.channels` | PIL | `integer` | Image channels: `1` for grayscale, `3` for RGB (`--color`). |
-| `corrida.pre_delay_s` | PIL | `float` | Warm-up pause after opening the serial port before transmitting data (seconds). |
-| `corrida.n_samples_pedidas` | PIL | `integer\|null` | PIL only: value of `--count` (number of images requested); `null` means every image in the folder. |
-| `corrida.settle_s` | HIL | `float` | Display stabilization time after rendering each stimulus before triggering optical camera capture (default: `1.5` s). |
-| `corrida.gap_s` | PIL, HIL | `float` | Inter-stimulus delay between successive evaluations (default: `0.5` s). |
-| `corrida.seed` | HIL | `integer` | Random seed used for reproducible stimulus ordering (default: `42`). |
-| `corrida.frame_dump` | HIL | `boolean` | `true` if raw 160×120 sensor frames were read back over serial for cross-level validation and image logging. |
-| `corrida.condiciones_completas` | HIL | `boolean` | `true` if all mandatory environmental conditions (`illuminance_lux`, `camera_to_screen_distance_cm`, `ambient_temp_c`) were recorded. |
-| `corrida.illuminance_lux` | HIL | `float` | Illuminance measured at the screen plane in lux (`10.0` lux in the primary protocol). |
-| `corrida.camera_to_screen_distance_cm` | HIL | `float` | Distance from the camera lens to the monitor screen in cm (`24.0` cm in the primary protocol). |
-| `corrida.ambient_temp_c` | HIL | `float` | Ambient room temperature measured at session start in °C. |
-| `corrida.nota_correccion` | HIL | `string` | Optional post-hoc documentation note (e.g., documenting distance measurement reconciliation). Added by hand to a published file; the bench does not write it. |
+| `run.port` | PIL, HIL | `string` | Serial port used to communicate with the Arduino Portenta H7 (e.g., `"COM9"`). |
+| `run.baud` | PIL, HIL | `integer` | Serial transmission speed in baud (default: `115200`). |
+| `run.input_shape` | PIL | `object` | Geometry of the images sent over serial. |
+| `run.input_shape.width` | PIL | `integer` | Image width in pixels. |
+| `run.input_shape.height` | PIL | `integer` | Image height in pixels. |
+| `run.input_shape.channels` | PIL | `integer` | Image channels: `1` for grayscale, `3` for RGB (`--color`). |
+| `run.pre_delay_s` | PIL | `float` | Warm-up pause after opening the serial port before transmitting data (seconds). |
+| `run.n_samples_requested` | PIL | `integer\|null` | PIL only: value of `--count` (number of images requested); `null` means every image in the folder. |
+| `run.settle_s` | HIL | `float` | Display stabilization time after rendering each stimulus before triggering optical camera capture (default: `1.5` s). |
+| `run.gap_s` | PIL, HIL | `float` | Inter-stimulus delay between successive evaluations (default: `0.5` s). |
+| `run.seed` | HIL | `integer` | Random seed used for reproducible stimulus ordering (default: `42`). |
+| `run.frame_dump` | HIL | `boolean` | `true` if raw 160×120 sensor frames were read back over serial for cross-level validation and image logging. |
+| `run.conditions_complete` | HIL | `boolean` | `true` if all mandatory environmental conditions (`illuminance_lux`, `camera_to_screen_distance_cm`, `ambient_temp_c`) were recorded. |
+| `run.illuminance_lux` | HIL | `float` | Illuminance measured at the screen plane in lux (`10.0` lux in the primary protocol). |
+| `run.camera_to_screen_distance_cm` | HIL | `float` | Distance from the camera lens to the monitor screen in cm (`24.0` cm in the primary protocol). |
+| `run.ambient_temp_c` | HIL | `float` | Ambient room temperature measured at session start in °C. |
+| `run.correction_note` | HIL | `string` | Optional post-hoc documentation note (e.g., documenting distance measurement reconciliation). Added by hand to a published file; the bench does not write it. |
 
-### 5. Evaluation Metrics (`metricas_globales` & `metricas_por_clase`)
+### 5. Evaluation Metrics (`global_metrics` & `per_class_metrics`)
 | Key | Level | Type | Description |
 |---|---|---|---|
-| `metricas_globales.accuracy` | All | `float` | Top-1 overall classification accuracy ($[0.0, 1.0]$). |
-| `metricas_globales.precision_weighted` | All | `float` | Support-weighted average precision across all classes. |
-| `metricas_globales.recall_weighted` | All | `float` | Support-weighted average recall across all classes. |
-| `metricas_globales.f1_weighted` | All | `float` | Support-weighted average F1-score across all classes. |
-| `metricas_globales.f1_macro` | All | `float` | Unweighted macro-average F1-score. On balanced splits it matches weighted F1; any divergence indicates minority-class performance drops. |
-| `metricas_globales.precision_macro` | HIL | `float` | Unweighted macro-average precision across all classes. |
-| `metricas_globales.recall_macro` | HIL | `float` | Unweighted macro-average recall across all classes. |
-| `metricas_por_clase.<CLASS>` | All | `object\|float` | Per-class breakdown dictionary, or the aggregate entries described under *Table convention* (`accuracy` is a number). |
-| `metricas_por_clase.<CLASS>.precision` | All | `float` | Precision of the class or aggregate. |
-| `metricas_por_clase.<CLASS>.recall` | All | `float` | Recall of the class or aggregate. |
-| `metricas_por_clase.<CLASS>.f1-score` | All | `float` | F1-score of the class or aggregate. |
-| `metricas_por_clase.<CLASS>.support` | All | `float` | Sample count of the class or aggregate. |
+| `global_metrics.accuracy` | All | `float` | Top-1 overall classification accuracy ($[0.0, 1.0]$). |
+| `global_metrics.precision_weighted` | All | `float` | Support-weighted average precision across all classes. |
+| `global_metrics.recall_weighted` | All | `float` | Support-weighted average recall across all classes. |
+| `global_metrics.f1_weighted` | All | `float` | Support-weighted average F1-score across all classes. |
+| `global_metrics.f1_macro` | All | `float` | Unweighted macro-average F1-score. On balanced splits it matches weighted F1; any divergence indicates minority-class performance drops. |
+| `global_metrics.precision_macro` | HIL | `float` | Unweighted macro-average precision across all classes. |
+| `global_metrics.recall_macro` | HIL | `float` | Unweighted macro-average recall across all classes. |
+| `per_class_metrics.<CLASS>` | All | `object\|float` | Per-class breakdown dictionary, or the aggregate entries described under *Table convention* (`accuracy` is a number). |
+| `per_class_metrics.<CLASS>.precision` | All | `float` | Precision of the class or aggregate. |
+| `per_class_metrics.<CLASS>.recall` | All | `float` | Recall of the class or aggregate. |
+| `per_class_metrics.<CLASS>.f1-score` | All | `float` | F1-score of the class or aggregate. |
+| `per_class_metrics.<CLASS>.support` | All | `float` | Sample count of the class or aggregate. |
 
-### 6. Confusion Matrix & Prediction Counts (`matriz_confusion`, `conteo_predicciones`)
+### 6. Confusion Matrix & Prediction Counts (`confusion_matrix`, `prediction_counts`)
 | Key | Level | Type | Description |
 |---|---|---|---|
-| `matriz_confusion.labels` | All | `array[string]` | List of class names matching matrix rows and columns in argmax order. |
-| `matriz_confusion.matriz` | All | `array[array[integer]]` | 2D contingency table of predictions. Row index represents true class; column index represents predicted class. |
-| `matriz_confusion.orden` | All | `string` | Clarification string confirming layout: `"filas = etiqueta real, columnas = etiqueta predicha"`. |
-| `conteo_predicciones.<CLASS>` | PIL | `integer` | Total count of predictions for that class index string. |
+| `confusion_matrix.labels` | All | `array[string]` | List of class names matching matrix rows and columns in argmax order. |
+| `confusion_matrix.matrix` | All | `array[array[integer]]` | 2D contingency table of predictions. Row index represents true class; column index represents predicted class. |
+| `confusion_matrix.order` | All | `string` | Clarification string confirming layout: `"rows = true label, columns = predicted label"`. |
+| `prediction_counts.<CLASS>` | PIL | `integer` | Total count of predictions for that class index string. |
 
-### 7. Hardware Latency Profiling (`latencia`)
+### 7. Hardware Latency Profiling (`latency`)
 | Key | Level | Type | Description |
 |---|---|---|---|
-| `latencia.fuente` | PIL, HIL | `string` | Hardware timer description: ARM Cortex-M7 DWT cycle counter (`DWT->CYCCNT`) running at 400.0 MHz. |
-| `latencia.n_imagenes_con_medida` | PIL, HIL | `integer` | Number of processed images with valid hardware latency telemetry lines. |
-| `latencia.metodo_p95` | PIL, HIL | `string` | Method used for 95th percentile: nearest-rank over sorted samples without interpolation. |
-| `latencia.por_campo` | PIL, HIL | `object` | Per-field timing summaries, one entry per `<FIELD>`. |
-| `latencia.por_campo.<FIELD>` | PIL, HIL | `object` | Per-phase timing summary. |
-| `latencia.por_campo.<FIELD>.n` | PIL, HIL | `integer` | Number of samples. |
-| `latencia.por_campo.<FIELD>.media` | PIL, HIL | `float` | Mean. |
-| `latencia.por_campo.<FIELD>.mediana` | PIL, HIL | `float` | Median. |
-| `latencia.por_campo.<FIELD>.desv_std` | PIL, HIL | `float` | Sample standard deviation. |
-| `latencia.por_campo.<FIELD>.min` | PIL, HIL | `float` | Minimum. |
-| `latencia.por_campo.<FIELD>.max` | PIL, HIL | `float` | Maximum. |
-| `latencia.por_campo.<FIELD>.p95` | PIL, HIL | `float` | 95th percentile (see `latencia.metodo_p95`). |
+| `latency.source` | PIL, HIL | `string` | Hardware timer description: ARM Cortex-M7 DWT cycle counter (`DWT->CYCCNT`) running at 400.0 MHz. |
+| `latency.n_images_measured` | PIL, HIL | `integer` | Number of processed images with valid hardware latency telemetry lines. |
+| `latency.p95_method` | PIL, HIL | `string` | Method used for 95th percentile: nearest-rank over sorted samples without interpolation. |
+| `latency.per_field` | PIL, HIL | `object` | Per-field timing summaries, one entry per `<FIELD>`. |
+| `latency.per_field.<FIELD>` | PIL, HIL | `object` | Per-phase timing summary. |
+| `latency.per_field.<FIELD>.n` | PIL, HIL | `integer` | Number of samples. |
+| `latency.per_field.<FIELD>.mean` | PIL, HIL | `float` | Mean. |
+| `latency.per_field.<FIELD>.median` | PIL, HIL | `float` | Median. |
+| `latency.per_field.<FIELD>.std` | PIL, HIL | `float` | Sample standard deviation. |
+| `latency.per_field.<FIELD>.min` | PIL, HIL | `float` | Minimum. |
+| `latency.per_field.<FIELD>.max` | PIL, HIL | `float` | Maximum. |
+| `latency.per_field.<FIELD>.p95` | PIL, HIL | `float` | 95th percentile (see `latency.p95_method`). |
 
 Values of `<FIELD>` (`CYC_*` in core cycles, `US_*` in microseconds):
 
@@ -139,21 +190,21 @@ Values of `<FIELD>` (`CYC_*` in core cycles, `US_*` in microseconds):
 - `TEMP_C` (PIL, HIL): On-chip junction temperature reading from STM32H7 internal sensor in °C.
 - `TS_MS` (HIL): Microcontroller system timestamp in milliseconds (`millis()`).
 
-### 8. Cross-Validation (`validacion_cruzada`)
+### 8. Cross-Validation (`cross_validation`)
 | Key | Level | Type | Description |
 |---|---|---|---|
-| `validacion_cruzada.sil_en_pc` | HIL | `string\|null` | Path to the INT8 `.tflite` model evaluated on the PC over the exact captured camera frame. |
-| `validacion_cruzada.mil_en_pc` | HIL | `string\|null` | Path to the float `.keras` model evaluated on the PC over the exact captured camera frame. |
-| `validacion_cruzada.n_con_sil` | HIL | `integer` | Number of frames successfully cross-evaluated against the PC SIL engine. |
-| `validacion_cruzada.n_con_mil` | HIL | `integer` | Number of frames successfully cross-evaluated against the PC MIL engine. |
+| `cross_validation.sil_on_pc` | HIL | `string\|null` | Path to the INT8 `.tflite` model evaluated on the PC over the exact captured camera frame. |
+| `cross_validation.mil_on_pc` | HIL | `string\|null` | Path to the float `.keras` model evaluated on the PC over the exact captured camera frame. |
+| `cross_validation.n_with_sil` | HIL | `integer` | Number of frames successfully cross-evaluated against the PC SIL engine. |
+| `cross_validation.n_with_mil` | HIL | `integer` | Number of frames successfully cross-evaluated against the PC MIL engine. |
 
-### 9. Output Artifacts (`artefactos`)
+### 9. Output Artifacts (`artifacts`)
 | Key | Level | Type | Description |
 |---|---|---|---|
-| `artefactos.matriz_png` | All | `string` | Relative path to the generated confusion matrix heatmap image (`confusion_matrix_*.png` or `confusion_matrix_*.png`). |
-| `artefactos.predicciones_csv` | MIL, SIL, PIL | `string` | Relative path to the per-image classification table (`predictions_*.csv`). |
-| `artefactos.latencias_csv` | PIL, HIL | `string` | Relative path to the per-stimulus telemetry and timing record (`latency_metrics_*.csv` or `latency_metrics_*.csv`). |
-| `artefactos.condiciones_json` | HIL | `string` | Relative path to the companion test rig environment record (`conditions_*.json`). |
+| `artifacts.confusion_matrix_png` | All | `string` | Relative path to the generated confusion matrix heatmap image (`confusion_matrix_*.png` or `confusion_matrix_*.png`). |
+| `artifacts.predictions_csv` | MIL, SIL, PIL | `string` | Relative path to the per-image classification table (`predictions_*.csv`). |
+| `artifacts.latency_csv` | PIL, HIL | `string` | Relative path to the per-stimulus telemetry and timing record (`latency_metrics_*.csv` or `latency_metrics_*.csv`). |
+| `artifacts.conditions_json` | HIL | `string` | Relative path to the companion test rig environment record (`conditions_*.json`). |
 
 ## Physical Rig Telemetry Schema (`conditions_*.json`)
 
@@ -161,7 +212,7 @@ Alongside `metrics_*.json`, the HIL benchmark generates a standalone `conditions
 
 | Key | Type | Description |
 |---|---|---|
-| `rig` | `string` | Rig configuration identifier (e.g., `"monitor-controlled-stimulus (checklist Fase 1C, opcion a)"`). |
+| `rig` | `string` | Rig configuration identifier (e.g., `"monitor-controlled-stimulus (checklist Phase 1C, option a)"`). |
 | `port` | `string` | USB serial device address. |
 | `baud` | `integer` | Serial communication baud rate. |
 | `settle_s` | `float` | Display stabilization pause in seconds. |

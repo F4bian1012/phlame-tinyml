@@ -302,22 +302,22 @@ def main():
     print(f"  ambiguous ({amb_desc}) : {len(ambiguous):5d} excluded")
     print("------------------------------------------------------------")
 
-    max_posible = min(len(positives), len(negatives))
-    if args.per_class > max_posible:
+    max_possible = min(len(positives), len(negatives))
+    if args.per_class > max_possible:
         print(
             f"[WARN] Requested --per_class {args.per_class}, but in {args.coco_split} "
-            f"the maximum balanced count is {max_posible}. Adjusting to {max_posible} "
+            f"the maximum balanced count is {max_possible}. Adjusting to {max_possible} "
             f"(use --coco_split train2017 if you need more)."
         )
-        objetivo = max_posible
+        target = max_possible
     else:
-        objetivo = args.per_class
+        target = args.per_class
 
     rng = random.Random(args.seed)
-    sel_pos = sorted(rng.sample(positives, objetivo), key=lambda x: x["file_name"])
-    sel_neg = sorted(rng.sample(negatives, objetivo), key=lambda x: x["file_name"])
+    sel_pos = sorted(rng.sample(positives, target), key=lambda x: x["file_name"])
+    sel_neg = sorted(rng.sample(negatives, target), key=lambda x: x["file_name"])
 
-    print(f"  Selected per class (seed={args.seed}): {objetivo} person + {objetivo} non_person = {2 * objetivo} total")
+    print(f"  Selected per class (seed={args.seed}): {target} person + {target} non_person = {2 * target} total")
     print("============================================================")
 
     if args.dry_run:
@@ -370,12 +370,12 @@ def main():
     ).hexdigest()
 
     report = {
-        "generado_utc": datetime.now(timezone.utc).isoformat(),
+        "generated_utc": datetime.now(timezone.utc).isoformat(),
         "coco_split": args.coco_split,
         "min_area_fraction": args.min_area_fraction,
         "include_small_person_as_negative": args.include_small_as_neg,
         "seed": args.seed,
-        "per_class_target": objetivo,
+        "per_class_target": target,
         "selection_sha256": manifest_hash,
         "available_in_split": {
             "person": len(positives),
@@ -395,7 +395,7 @@ def main():
                 previous = json.load(fh)
         except (OSError, ValueError):
             previous = None
-    volatile = ("generado_utc", "download_summary")
+    volatile = ("generated_utc", "download_summary")
     unchanged = (previous is not None and not failures and
                  all(previous.get(k) == v for k, v in report.items() if k not in volatile))
     if not unchanged:
@@ -410,8 +410,8 @@ def main():
         return 1
 
     print(f"\n[OK] VWW subset ready in: {args.output_dir}")
-    print(f"     - {person_dir} ({objetivo} images)")
-    print(f"     - {non_person_dir} ({objetivo} images)")
+    print(f"     - {person_dir} ({target} images)")
+    print(f"     - {non_person_dir} ({target} images)")
     print(f"     - Report: {report_path} (selection sha256: {manifest_hash[:12]})")
     return 0
 

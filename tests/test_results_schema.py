@@ -20,9 +20,9 @@ RESULTS_DIR = REPO_ROOT / "results"
 
 # Parents whose direct children are dynamic, and the placeholder that replaces them.
 DYNAMIC_CHILDREN = {
-    "latencia.por_campo": "<FIELD>",
-    "metricas_por_clase": "<CLASS>",
-    "conteo_predicciones": "<CLASS>",
+    "latency.per_field": "<FIELD>",
+    "per_class_metrics": "<CLASS>",
+    "prediction_counts": "<CLASS>",
 }
 METRICS_HEADING = re.compile(r"^## .*`metrics_\*\.json`")
 CONDITIONS_HEADING = re.compile(r"^## .*`conditions_\*\.json`")

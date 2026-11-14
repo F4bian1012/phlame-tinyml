@@ -398,18 +398,18 @@ def collect_from_manifest(manifest_path: str, use_all_test=False, seed=42):
         print(f"[ERROR] Manifest is empty: {manifest_path}")
         sys.exit(1)
 
-    requeridas = {'class_name', 'label', 'src_path', 'dst_path'}
-    faltan = requeridas - set(rows[0].keys())
-    if faltan:
-        print(f"[ERROR] Manifest is missing required columns {sorted(faltan)}.")
+    required = {'class_name', 'label', 'src_path', 'dst_path'}
+    missing_columns = required - set(rows[0].keys())
+    if missing_columns:
+        print(f"[ERROR] Manifest is missing required columns {sorted(missing_columns)}.")
         print(f"        Columns found: {sorted(rows[0].keys())}")
         sys.exit(1)
 
     # Canonical class order from manifest: integer label -> class_name
-    label_a_nombre = {}
+    label_to_name = {}
     for r in rows:
-        label_a_nombre[int(r['label'])] = r['class_name']
-    class_names = [label_a_nombre[k] for k in sorted(label_a_nombre)]
+        label_to_name[int(r['label'])] = r['class_name']
+    class_names = [label_to_name[k] for k in sorted(label_to_name)]
     print(f"[INFO] Classes loaded from manifest (order = firmware argmax index): "
           f"{class_names}")
 
@@ -433,29 +433,29 @@ def collect_from_manifest(manifest_path: str, use_all_test=False, seed=42):
 
     # Resolve file paths: prefer dst_path (materialized split), fall back to src_path
     image_data = []
-    ausentes = []
+    missing_files = []
     for r in sel:
-        ruta = None
+        path = None
         for cand in (r['dst_path'], r['src_path']):
             if cand and os.path.isfile(cand):
-                ruta = cand
+                path = cand
                 break
-        if ruta is None:
-            ausentes.append(r['dst_path'] or r['src_path'])
+        if path is None:
+            missing_files.append(r['dst_path'] or r['src_path'])
             continue
-        image_data.append((ruta, int(r['label'])))
+        image_data.append((path, int(r['label'])))
 
-    if ausentes:
-        print(f"[ERROR] {len(ausentes)} manifest images do not exist on disk. "
+    if missing_files:
+        print(f"[ERROR] {len(missing_files)} manifest images do not exist on disk. "
               f"First 5 missing paths:")
-        for p in ausentes[:5]:
+        for p in missing_files[:5]:
             print(f"          {p}")
         print("        Materialize the dataset split with:")
         print("          python src/split_dataset.py")
         sys.exit(1)
 
-    reparto = Counter(class_names[lbl] for _, lbl in image_data)
-    print(f"[INFO] Per-class stimulus breakdown: {dict(reparto)}")
+    breakdown = Counter(class_names[lbl] for _, lbl in image_data)
+    print(f"[INFO] Per-class stimulus breakdown: {dict(breakdown)}")
 
     # ALWAYS shuffle with a fixed seed. Manifest rows are grouped by class:
     # presenting them in block order would evaluate one class while the MCU is
@@ -827,8 +827,8 @@ def _latency_summary(rows):
             continue
         arr = np.sort(np.array(vals, dtype=float))
         k = max(0, min(len(arr) - 1, int(round(0.95 * (len(arr) - 1)))))
-        out[field] = {'n': int(len(arr)), 'media': float(arr.mean()),
-                      'mediana': float(np.median(arr)), 'desv_std': float(arr.std(ddof=1)) if len(arr) > 1 else 0.0,
+        out[field] = {'n': int(len(arr)), 'mean': float(arr.mean()),
+                      'median': float(np.median(arr)), 'std': float(arr.std(ddof=1)) if len(arr) > 1 else 0.0,
                       'min': float(arr.min()), 'max': float(arr.max()), 'p95': float(arr[k])}
     return out
 
@@ -892,7 +892,7 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
 
         labels_present = sorted(set(y_true + y_pred))
         target_names = [class_names[l] if 0 <= l < len(class_names)
-                        else f"Invalida_{l}" for l in labels_present]
+                        else f"Invalid_{l}" for l in labels_present]
 
         print("\nDetailed Classification Report:")
         print(classification_report(y_true, y_pred, labels=labels_present,
@@ -920,29 +920,29 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
         n_total = len(rows)
         n_resp = len(y_true)
         exp = conditions.get('expected_model') or {}
-        resultados = {
-            "nivel": "HIL",
-            "generado_utc": datetime.now(timezone.utc).isoformat(),
-            "modelo": {
+        results = {
+            "level": "HIL",
+            "generated_utc": datetime.now(timezone.utc).isoformat(),
+            "model": {
                 "path": exp.get('path'),
-                "nombre": model_tag,
+                "name": model_tag,
                 "sha256": exp.get('sha256'),
                 "bytes": exp.get('bytes'),
                 "fnv1a_tflite": exp.get('fnv1a'),
                 "fnv1a_chip": (conditions.get('firmware_model') or {}).get('model_fnv1a'),
-                "identidad_verificada": conditions.get('model_identity_verified'),
-                "nota": ("identidad_verificada=True significa que la huella FNV-1a del "
-                         "g_model[] en la placa coincide con la del .tflite indicado: "
-                         "el chip ejecuto exactamente ese archivo."),
+                "identity_verified": conditions.get('model_identity_verified'),
+                "note": ("identity_verified=true means that the FNV-1a fingerprint of "
+                         "g_model[] on the board matches that of the given .tflite: "
+                         "the chip ran exactly that file."),
             },
-            "corrida": {
-                "puerto": conditions.get('port'),
+            "run": {
+                "port": conditions.get('port'),
                 "baud": conditions.get('baud'),
                 "settle_s": conditions.get('settle_s'),
                 "gap_s": conditions.get('gap_s'),
                 "seed": conditions.get('seed'),
                 "frame_dump": conditions.get('frame_dump'),
-                "condiciones_completas": conditions.get('conditions_complete'),
+                "conditions_complete": conditions.get('conditions_complete'),
                 "illuminance_lux": conditions.get('illuminance_lux'),
                 "camera_to_screen_distance_cm": conditions.get('camera_to_screen_distance_cm'),
                 "ambient_temp_c": conditions.get('ambient_temp_c'),
@@ -951,11 +951,11 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
                 "stimulus_source": conditions.get('stimulus_source'),
                 "manifest_subset": conditions.get('manifest_subset'),
                 "class_names": list(class_names),
-                "n_estimulos": n_total,
-                "n_respondidas": n_resp,
-                "n_sin_respuesta": n_total - n_resp,
+                "n_stimuli": n_total,
+                "n_answered": n_resp,
+                "n_unanswered": n_total - n_resp,
             },
-            "metricas_globales": {
+            "global_metrics": {
                 "accuracy": float(accuracy),
                 "precision_weighted": float(precision),
                 "recall_weighted": float(recall),
@@ -964,35 +964,35 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
                 "recall_macro": float(r_m),
                 "f1_macro": float(f_m),
             },
-            "metricas_por_clase": report_dict,
-            "matriz_confusion": {
+            "per_class_metrics": report_dict,
+            "confusion_matrix": {
                 "labels": target_names,
-                "matriz": cm.tolist(),
-                "orden": "filas = etiqueta real, columnas = etiqueta predicha",
+                "matrix": cm.tolist(),
+                "order": "rows = true label, columns = predicted label",
             },
-            "latencia": {
-                "fuente": ("contador de ciclos DWT->CYCCNT del Cortex-M7, reportado por "
-                           "el firmware en las lineas CYC_*/US_*; incluye la fase CAPTURE"),
-                "n_imagenes_con_medida": sum(1 for r in rows if r.get('us_total') is not None),
-                "metodo_p95": "rango mas cercano sobre la muestra ordenada, sin interpolar",
-                "por_campo": _latency_summary(rows),
+            "latency": {
+                "source": ("DWT->CYCCNT cycle counter of the Cortex-M7, reported by "
+                           "the firmware in the CYC_*/US_* lines; includes the CAPTURE phase"),
+                "n_images_measured": sum(1 for r in rows if r.get('us_total') is not None),
+                "p95_method": "nearest rank on the sorted sample, no interpolation",
+                "per_field": _latency_summary(rows),
             },
-            "validacion_cruzada": {
-                "sil_en_pc": conditions.get('sil_model'),
-                "mil_en_pc": conditions.get('mil_model'),
-                "n_con_sil": sum(1 for r in rows if r.get('sil_label') is not None),
-                "n_con_mil": sum(1 for r in rows if r.get('mil_label') is not None),
+            "cross_validation": {
+                "sil_on_pc": conditions.get('sil_model'),
+                "mil_on_pc": conditions.get('mil_model'),
+                "n_with_sil": sum(1 for r in rows if r.get('sil_label') is not None),
+                "n_with_mil": sum(1 for r in rows if r.get('mil_label') is not None),
             },
-            "artefactos": {
-                "matriz_png": _relpath_repo(cm_path),
-                "latencias_csv": _relpath_repo(csv_path),
-                "condiciones_json": _relpath_repo(cond_path),
+            "artifacts": {
+                "confusion_matrix_png": _relpath_repo(cm_path),
+                "latency_csv": _relpath_repo(csv_path),
+                "conditions_json": _relpath_repo(cond_path),
             },
         }
         metrics_path = os.path.join(output_dir, f"metrics_{model_tag}.json")
         with open(metrics_path, "w", encoding="utf-8") as fh:
             # Output schema documented in docs/results_schema.md - update it if you add, rename or remove keys.
-            json.dump(resultados, fh, indent=2, ensure_ascii=False, default=_json_safe)
+            json.dump(results, fh, indent=2, ensure_ascii=False, default=_json_safe)
         print(f"[OK]   JSON metrics (same schema as MIL/SIL/PIL) saved to: {metrics_path}")
         print(f"       F1-macro = {f_m:.4f}   errors = {int(cm.sum() - np.trace(cm))}")
     except ImportError:
@@ -1110,11 +1110,11 @@ def run_benchmark(args):
     if args.folder:
         print(f"[WARN] Explicit --folder provided: reading from {args.folder} "
               f"and bypassing the manifest hil_subset filter.")
-        fuente = f"folder:{_relpath_repo(args.folder)}"
+        source = f"folder:{_relpath_repo(args.folder)}"
         image_data, class_names = collect_dataset(args.folder, args.count,
                                                   args.seed)
     else:
-        fuente = f"manifest:{_relpath_repo(args.manifest)}"
+        source = f"manifest:{_relpath_repo(args.manifest)}"
         image_data, class_names = collect_from_manifest(
             args.manifest, use_all_test=args.all_test, seed=args.seed)
         if args.count is not None and args.count < len(image_data):
@@ -1166,7 +1166,7 @@ def run_benchmark(args):
         input("       Press ENTER to start the stimulus sweep... ")
 
     conditions = {
-        'rig': 'monitor-controlled-stimulus (checklist Fase 1C, opcion a)',
+        'rig': 'monitor-controlled-stimulus (checklist Phase 1C, option a)',
         'utc_start': datetime.now(timezone.utc).isoformat(),
         'model_tag': model_tag,
         'firmware_model': fw,
@@ -1176,7 +1176,7 @@ def run_benchmark(args):
                                    (args.lux, args.distance_cm, args.ambient_temp)),
         'port': args.port,
         'baud': args.baud,
-        'stimulus_source': fuente,
+        'stimulus_source': source,
         'manifest': (_relpath_repo(args.manifest)
                      if not args.folder else None),
         'manifest_subset': ('all-test' if args.all_test else 'hil_subset==1')
@@ -1295,10 +1295,10 @@ def run_benchmark(args):
         ser.close()
         cv2.destroyAllWindows()
 
-    respondidas = len(rows) - sum(1 for r in rows if r['pred_label'] is None)
+    answered = len(rows) - sum(1 for r in rows if r['pred_label'] is None)
     print("\n" + "=" * 45)
     print("  SUMMARY — HIL BENCHMARK (Camera-in-the-Loop)")
-    print(f"  Stimuli: {total}  |  Answered: {respondidas}  "
+    print(f"  Stimuli: {total}  |  Answered: {answered}  "
           f"|  Failures: {errors}")
     print("=" * 45)
 

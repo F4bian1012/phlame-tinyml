@@ -1,15 +1,15 @@
 {
-  "nivel": "MIL",
-  "generado_utc": "2026-10-16T23:58:11.451824+00:00",
-  "modelo": {
+  "level": "MIL",
+  "generated_utc": "2026-10-16T23:58:11.451824+00:00",
+  "model": {
     "path": "models/checkpoints/MobileNetV3Small+32+20+0.0001+160+120.keras",
-    "nombre": "MobileNetV3Small+32+20+0.0001+160+120",
+    "name": "MobileNetV3Small+32+20+0.0001+160+120",
     "sha256": "518e226df0d054a83d5d1184372dda46e69227b00f9438c8fc6423fad1aa1137",
     "bytes": 2927151
   },
   "dataset": {
     "data_dir": "data\\splits\\test",
-    "n_muestras": 940,
+    "n_samples": 940,
     "class_names": [
       "Class1",
       "Class2"
@@ -19,14 +19,14 @@
       "height": 120
     }
   },
-  "metricas_globales": {
+  "global_metrics": {
     "accuracy": 0.9478723404255319,
     "precision_weighted": 0.94845905235913,
     "recall_weighted": 0.9478723404255319,
     "f1_weighted": 0.9478552853977817,
     "f1_macro": 0.9478552853977817
   },
-  "metricas_por_clase": {
+  "per_class_metrics": {
     "Class1": {
       "precision": 0.9322381930184805,
       "recall": 0.9659574468085106,
@@ -53,12 +53,12 @@
       "support": 940.0
     }
   },
-  "matriz_confusion": {
+  "confusion_matrix": {
     "labels": [
       "Class1",
       "Class2"
     ],
-    "matriz": [
+    "matrix": [
       [
         454,
         16
@@ -68,10 +68,10 @@
         437
       ]
     ],
-    "orden": "filas = etiqueta real, columnas = etiqueta predicha"
+    "order": "rows = true label, columns = predicted label"
   },
-  "artefactos": {
-    "matriz_png": "results\\mil\\confusion_matrix_MobileNetV3Small+32+20+0.0001+160+120.png",
-    "predicciones_csv": "results\\mil\\predictions_MobileNetV3Small+32+20+0.0001+160+120.csv"
+  "artifacts": {
+    "confusion_matrix_png": "results\\mil\\confusion_matrix_MobileNetV3Small+32+20+0.0001+160+120.png",
+    "predictions_csv": "results\\mil\\predictions_MobileNetV3Small+32+20+0.0001+160+120.csv"
   }
 }

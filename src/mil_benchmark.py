@@ -25,16 +25,16 @@ except ImportError:
 BATCH_SIZE = 32
 
 
-def _nombre_clase(idx, class_names):
+def _class_name(idx, class_names):
     """Class name from the predicted or ground-truth index."""
     if idx is None or idx < 0:
         return ""
     if idx < len(class_names):
         return class_names[idx]
-    return "Invalida_%d" % idx
+    return "Invalid_%d" % idx
 
 
-def _sha256_archivo(path, chunk=1024 * 1024):
+def _sha256_file(path, chunk=1024 * 1024):
     """SHA-256 of the model file, read in chunks.
 
     In chunks because a .keras file can weigh tens of MB and there is no need
@@ -48,8 +48,8 @@ def _sha256_archivo(path, chunk=1024 * 1024):
         return None
     h = hashlib.sha256()
     with open(path, "rb") as fh:
-        for bloque in iter(lambda: fh.read(chunk), b""):
-            h.update(bloque)
+        for block in iter(lambda: fh.read(chunk), b""):
+            h.update(block)
     return h.hexdigest()
 
 
@@ -240,9 +240,9 @@ def main():
                 os.path.basename(fp),
                 os.path.relpath(fp, args.data_dir),
                 t_int,
-                _nombre_clase(t_int, class_names),
+                _class_name(t_int, class_names),
                 p_int,
-                _nombre_clase(p_int, class_names),
+                _class_name(p_int, class_names),
                 1 if t_int == p_int else 0,
             ])
     print(f"Per-image predictions saved to {pred_csv_path}")
@@ -259,47 +259,47 @@ def main():
     # away whether the model changed or something else did (the data, the
     # preprocessing, the split). Without it, a regenerated .keras with the
     # same name is indistinguishable from the original.
-    modelo_sha256 = _sha256_archivo(args.model_path)
-    modelo_bytes = os.path.getsize(args.model_path) if os.path.isfile(args.model_path) else None
-    print(f"Model SHA-256:        {modelo_sha256}")
+    model_sha256 = _sha256_file(args.model_path)
+    model_bytes = os.path.getsize(args.model_path) if os.path.isfile(args.model_path) else None
+    print(f"Model SHA-256:        {model_sha256}")
 
-    resultados = {
-        "nivel": "MIL",
-        "generado_utc": datetime.now(timezone.utc).isoformat(),
-        "modelo": {
+    results = {
+        "level": "MIL",
+        "generated_utc": datetime.now(timezone.utc).isoformat(),
+        "model": {
             "path": args.model_path,
-            "nombre": model_name_without_ext,
-            "sha256": modelo_sha256,
-            "bytes": modelo_bytes,
+            "name": model_name_without_ext,
+            "sha256": model_sha256,
+            "bytes": model_bytes,
         },
         "dataset": {
             "data_dir": args.data_dir,
-            "n_muestras": int(len(y_true)),
+            "n_samples": int(len(y_true)),
             "class_names": list(class_names),
             "image_size": {"width": args.width, "height": args.height},
         },
-        "metricas_globales": {
+        "global_metrics": {
             "accuracy": float(accuracy),
             "precision_weighted": float(precision),
             "recall_weighted": float(recall),
             "f1_weighted": float(f1),
             "f1_macro": float(f1_macro),
         },
-        "metricas_por_clase": report_dict,
-        "matriz_confusion": {
+        "per_class_metrics": report_dict,
+        "confusion_matrix": {
             "labels": list(class_names),
-            "matriz": cm.tolist(),
-            "orden": "filas = etiqueta real, columnas = etiqueta predicha",
+            "matrix": cm.tolist(),
+            "order": "rows = true label, columns = predicted label",
         },
-        "artefactos": {
-            "matriz_png": cm_plot_path,
-            "predicciones_csv": pred_csv_path,
+        "artifacts": {
+            "confusion_matrix_png": cm_plot_path,
+            "predictions_csv": pred_csv_path,
         },
     }
 
     with open(metrics_path, "w", encoding="utf-8") as fh:
         # Output schema documented in docs/results_schema.md - update it if you add, rename or remove keys.
-        json.dump(resultados, fh, indent=2, ensure_ascii=False, default=_json_safe)
+        json.dump(results, fh, indent=2, ensure_ascii=False, default=_json_safe)
     print(f"JSON metrics saved to {metrics_path}")
 
 

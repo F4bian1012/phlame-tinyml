@@ -1,15 +1,15 @@
 {
-  "nivel": "PIL",
-  "generado_utc": "2026-09-12T17:14:06.097221+00:00",
-  "modelo": {
+  "level": "PIL",
+  "generated_utc": "2026-09-12T17:14:06.097221+00:00",
+  "model": {
     "path": ".\\models\\tflite\\ResNet8+32+20+0.0001+160+120_int8.tflite",
-    "nombre": "ResNet8+32+20+0.0001+160+120_int8",
+    "name": "ResNet8+32+20+0.0001+160+120_int8",
     "sha256": "f0f293903dd31efc964ad5c4f74a6898b134558272139676bc9e374338ceeac4",
     "bytes": 1279176,
-    "nota": "checksum del .tflite indicado con --model_path. El banco NO lo carga ni lo compara contra la placa: acredita que este archivo es el mismo que evaluo SIL, no que sea el que esta flasheado."
+    "note": "checksum of the .tflite given with --model_path. The bench does NOT load it or compare it against the board: it certifies that this file is the one SIL evaluated, not that it is the one flashed."
   },
-  "corrida": {
-    "puerto": "\\\\.\\COM9",
+  "run": {
+    "port": "\\\\.\\COM9",
     "baud": 115200,
     "input_shape": {
       "width": 160,
@@ -18,7 +18,7 @@
     },
     "pre_delay_s": 1.0,
     "gap_s": 0.5,
-    "n_samples_pedidas": null
+    "n_samples_requested": null
   },
   "dataset": {
     "folder": "data/splits\\test",
@@ -26,18 +26,18 @@
       "Class1",
       "Class2"
     ],
-    "n_imagenes": 940,
-    "n_respondidas": 940,
-    "n_sin_respuesta": 0
+    "n_images": 940,
+    "n_answered": 940,
+    "n_unanswered": 0
   },
-  "metricas_globales": {
+  "global_metrics": {
     "accuracy": 0.9308510638297872,
     "precision_weighted": 0.9329856103652683,
     "recall_weighted": 0.9308510638297872,
     "f1_weighted": 0.9307657354979144,
     "f1_macro": 0.9307657354979144
   },
-  "metricas_por_clase": {
+  "per_class_metrics": {
     "Class1": {
       "precision": 0.9025844930417495,
       "recall": 0.9659574468085106,
@@ -64,12 +64,12 @@
       "support": 940.0
     }
   },
-  "matriz_confusion": {
+  "confusion_matrix": {
     "labels": [
       "Class1",
       "Class2"
     ],
-    "matriz": [
+    "matrix": [
       [
         454,
         16
@@ -79,103 +79,103 @@
         421
       ]
     ],
-    "orden": "filas = etiqueta real, columnas = etiqueta predicha"
+    "order": "rows = true label, columns = predicted label"
   },
-  "latencia": {
-    "fuente": "contador de ciclos DWT->CYCCNT del Cortex-M7, reportado por el firmware en las lineas CYC_*/US_*",
-    "n_imagenes_con_medida": 940,
-    "metodo_p95": "rango mas cercano sobre la muestra ordenada, sin interpolar",
-    "por_campo": {
+  "latency": {
+    "source": "DWT->CYCCNT cycle counter of the Cortex-M7, reported by the firmware in the CYC_*/US_* lines",
+    "n_images_measured": 940,
+    "p95_method": "nearest rank on the sorted sample, no interpolation",
+    "per_field": {
       "TEMP_C": {
         "n": 940,
-        "media": 32.015957446808514,
-        "mediana": 32.0,
-        "desv_std": 0.7560622148571428,
+        "mean": 32.015957446808514,
+        "median": 32.0,
+        "std": 0.7560622148571428,
         "min": 30.0,
         "max": 34.0,
         "p95": 33.0
       },
       "CYC_PRE": {
         "n": 940,
-        "media": 1278111.859574468,
-        "mediana": 1279249.5,
-        "desv_std": 5264.950754443325,
+        "mean": 1278111.859574468,
+        "median": 1279249.5,
+        "std": 5264.950754443325,
         "min": 1226748.0,
         "max": 1293368.0,
         "p95": 1282864.0
       },
       "CYC_INF": {
         "n": 940,
-        "media": 1157636049.1446807,
-        "mediana": 1157638141.5,
-        "desv_std": 79498.19176261414,
+        "mean": 1157636049.1446807,
+        "median": 1157638141.5,
+        "std": 79498.19176261414,
         "min": 1157333971.0,
         "max": 1157901501.0,
         "p95": 1157766765.0
       },
       "CYC_POST": {
         "n": 940,
-        "media": 215.83829787234043,
-        "mediana": 207.0,
-        "desv_std": 89.31542638352526,
+        "mean": 215.83829787234043,
+        "median": 207.0,
+        "std": 89.31542638352526,
         "min": 177.0,
         "max": 2591.0,
         "p95": 275.0
       },
       "CYC_TOTAL": {
         "n": 940,
-        "media": 1158914376.8425531,
-        "mediana": 1158917331.0,
-        "desv_std": 79300.23899651143,
+        "mean": 1158914376.8425531,
+        "median": 1158917331.0,
+        "std": 79300.23899651143,
         "min": 1158606120.0,
         "max": 1159184056.0,
         "p95": 1159044706.0
       },
       "US_PRE": {
         "n": 940,
-        "media": 3195.279654255319,
-        "mediana": 3198.124,
-        "desv_std": 13.162380483651667,
+        "mean": 3195.279654255319,
+        "median": 3198.124,
+        "std": 13.162380483651667,
         "min": 3066.87,
         "max": 3233.42,
         "p95": 3207.16
       },
       "US_INF": {
         "n": 940,
-        "media": 2894090.126861702,
-        "mediana": 2894095.25,
-        "desv_std": 198.74024697067765,
+        "mean": 2894090.126861702,
+        "median": 2894095.25,
+        "std": 198.74024697067765,
         "min": 2893335.0,
         "max": 2894753.5,
         "p95": 2894417.0
       },
       "US_POST": {
         "n": 940,
-        "media": 0.5393946808510638,
-        "mediana": 0.517,
-        "desv_std": 0.22328703899266783,
+        "mean": 0.5393946808510638,
+        "median": 0.517,
+        "std": 0.22328703899266783,
         "min": 0.442,
         "max": 6.477,
         "p95": 0.687
       },
       "US_TOTAL": {
         "n": 940,
-        "media": 2897285.9457446807,
-        "mediana": 2897293.25,
-        "desv_std": 198.24308613733618,
+        "mean": 2897285.9457446807,
+        "median": 2897293.25,
+        "std": 198.24308613733618,
         "min": 2896515.25,
         "max": 2897960.0,
         "p95": 2897611.75
       }
     }
   },
-  "conteo_predicciones": {
+  "prediction_counts": {
     "0": 503,
     "1": 437
   },
-  "artefactos": {
-    "matriz_png": "results\\pil\\confusion_matrix_ResNet8+32+20+0.0001+160+120_int8.png",
-    "latencias_csv": "results\\pil\\latency_metrics_ResNet8+32+20+0.0001+160+120_int8.csv",
-    "predicciones_csv": "results\\pil\\predictions_ResNet8+32+20+0.0001+160+120_int8.csv"
+  "artifacts": {
+    "confusion_matrix_png": "results\\pil\\confusion_matrix_ResNet8+32+20+0.0001+160+120_int8.png",
+    "latency_csv": "results\\pil\\latency_metrics_ResNet8+32+20+0.0001+160+120_int8.csv",
+    "predictions_csv": "results\\pil\\predictions_ResNet8+32+20+0.0001+160+120_int8.csv"
   }
 }

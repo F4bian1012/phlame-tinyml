@@ -1,5 +1,5 @@
 {
-  "generado_utc": "2026-10-17T03:26:52.873575+00:00",
+  "generated_utc": "2026-10-17T03:26:52.873575+00:00",
   "coco_split": "val2017",
   "min_area_fraction": 0.005,
   "include_small_person_as_negative": false,

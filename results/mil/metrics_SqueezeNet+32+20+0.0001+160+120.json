@@ -1,15 +1,15 @@
 {
-  "nivel": "MIL",
-  "generado_utc": "2026-10-16T23:59:05.063708+00:00",
-  "modelo": {
+  "level": "MIL",
+  "generated_utc": "2026-10-16T23:59:05.063708+00:00",
+  "model": {
     "path": "models/checkpoints/SqueezeNet+32+20+0.0001+160+120.keras",
-    "nombre": "SqueezeNet+32+20+0.0001+160+120",
+    "name": "SqueezeNet+32+20+0.0001+160+120",
     "sha256": "a5450053fe23c671605ec8238f97d6c4334759e96a27e7e97c2637e8d0d04940",
     "bytes": 8883453
   },
   "dataset": {
     "data_dir": "data\\splits\\test",
-    "n_muestras": 940,
+    "n_samples": 940,
     "class_names": [
       "Class1",
       "Class2"
@@ -19,14 +19,14 @@
       "height": 120
     }
   },
-  "metricas_globales": {
+  "global_metrics": {
     "accuracy": 0.9159574468085107,
     "precision_weighted": 0.9177749285029031,
     "recall_weighted": 0.9159574468085107,
     "f1_weighted": 0.9158659429279694,
     "f1_macro": 0.9158659429279694
   },
-  "metricas_por_clase": {
+  "per_class_metrics": {
     "Class1": {
       "precision": 0.8902195608782435,
       "recall": 0.948936170212766,
@@ -53,12 +53,12 @@
       "support": 940.0
     }
   },
-  "matriz_confusion": {
+  "confusion_matrix": {
     "labels": [
       "Class1",
       "Class2"
     ],
-    "matriz": [
+    "matrix": [
       [
         446,
         24
@@ -68,10 +68,10 @@
         415
       ]
     ],
-    "orden": "filas = etiqueta real, columnas = etiqueta predicha"
+    "order": "rows = true label, columns = predicted label"
   },
-  "artefactos": {
-    "matriz_png": "results\\mil\\confusion_matrix_SqueezeNet+32+20+0.0001+160+120.png",
-    "predicciones_csv": "results\\mil\\predictions_SqueezeNet+32+20+0.0001+160+120.csv"
+  "artifacts": {
+    "confusion_matrix_png": "results\\mil\\confusion_matrix_SqueezeNet+32+20+0.0001+160+120.png",
+    "predictions_csv": "results\\mil\\predictions_SqueezeNet+32+20+0.0001+160+120.csv"
   }
 }

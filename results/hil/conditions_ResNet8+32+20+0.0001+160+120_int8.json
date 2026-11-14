@@ -1,5 +1,5 @@
 {
-  "rig": "monitor-controlled-stimulus (checklist Fase 1C, opcion a)",
+  "rig": "monitor-controlled-stimulus (checklist Phase 1C, option a)",
   "utc_start": "2026-09-13T01:05:02.963870+00:00",
   "model_tag": "ResNet8+32+20+0.0001+160+120_int8",
   "firmware_model": {
