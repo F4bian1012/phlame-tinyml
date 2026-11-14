@@ -4,19 +4,20 @@ hil_benchmark.py
 Real Camera-in-the-Loop (HIL) benchmark for PHLAME — Phase 1C, Path 2.
 
 Unlike `pil_benchmark.py` (PIL benchmark: preprocessed images sent over serial),
-this script closes the loop through the physical optical sensor: the HM01B0
-camera on the Portenta Vision Shield captures the real scene. The host PC
+this script closes the loop through the physical optical sensor: the camera
+of the board (the HM01B0 of the Portenta Vision Shield, or the GC2145 built
+into the Nicla Vision) captures the real scene. The host PC
 orchestrates the controlled-stimulus rig (monitor displaying dataset images in
 a timed sequence), so the ground-truth label of every inference is known by
 construction:
 
-    host                                    Portenta H7 + Vision Shield
-    ----                                    ---------------------------
+    host                                    board + camera
+    ----                                    --------------
     1. displays stimulus (known class)
        in fullscreen
     2. waits --settle s (display refresh
        + camera auto-exposure settling)
-    3. sends trigger 'T'          ------>   4. captures HM01B0 frame (CAPTURE)
+    3. sends trigger 'T'          ------>   4. captures a camera frame (CAPTURE)
                                             5. resizes + quantizes   (PRE)
                                             6. Invoke()              (INF)
                                             7. argmax                (POST)
@@ -24,7 +25,7 @@ construction:
     9. pairs prediction <-> label
        of the displayed stimulus
 
-Outputs (in --output_dir, default results/hil/):
+Outputs (in --output_dir, default results/hil/; results/nicla/hil/ with --board nicla):
   - confusion_matrix_<tag>.png : sensor->prediction confusion matrix
   - latency_metrics_<tag>.csv        : one row per inference with per-phase
                                      latencies (CAPTURE/PRE/INF/POST/TOTAL),
@@ -77,6 +78,7 @@ from collections import Counter
 from datetime import datetime, timezone
 import hashlib
 import artifacts
+import boards
 import cli
 
 
@@ -260,10 +262,11 @@ def check_required_conditions(args):
 
 def warn_condition_drift(args, output_dir: str):
     """Warns before opening the stimulus rig if the CLI physical conditions
-    differ from previous runs in output_dir (or in results/hil/ when output_dir
-    is a replicate subfolder), catching typos such as 23 vs 24 cm early."""
+    differ from previous runs in output_dir (or in the board's default results
+    folder when output_dir is a replicate subfolder), catching typos such as
+    23 vs 24 cm early."""
     search_dirs = []
-    for d in (output_dir, os.path.join(REPO_ROOT, "results", "hil")):
+    for d in (output_dir, os.path.join(REPO_ROOT, boards.results_dir(args.board, "hil"))):
         if d and os.path.isdir(d) and os.path.abspath(d) not in [os.path.abspath(x) for x in search_dirs]:
             search_dirs.append(d)
 
@@ -330,10 +333,8 @@ TELEMETRY_FIELDS = [
     'CYC_CAPTURE', 'CYC_PRE', 'CYC_INF', 'CYC_POST', 'CYC_TOTAL',
     'US_CAPTURE', 'US_PRE', 'US_INF', 'US_POST', 'US_TOTAL',
 ]
-# The firmware prints its end-of-inference banner in Spanish
-# ("--- Listo. Esperando siguiente trigger... ---"), so END_MARKERS must keep
-# the exact Spanish substrings emitted by hil_firmware.ino.
-END_MARKERS = ("siguiente trigger", "siguiente imagen", "Listo")
+# The banner that closes each inference is recognised by
+# boards.is_end_of_inference(), shared with pil_benchmark.py.
 
 WINDOW_NAME = "PHLAME HIL Stimulus"
 
@@ -537,21 +538,36 @@ def read_lines_until(ser, predicate, timeout_s=30.0, echo=True):
     return lines, None
 
 
-def wait_ready(ser, timeout_s=30.0):
+def wait_ready(ser, board_key=boards.DEFAULT_BOARD, timeout_s=30.0):
     """
     Waits for the boot handshake from the dedicated HIL firmware
-    (hil_firmware.ino): CAM_INIT:OK ... READY_HIL.
-    Aborts if camera initialization fails or times out (e.g. PIL firmware flashed).
+    (hil_firmware.ino): BOARD:<name> ... CAM_INIT:OK ... READY_HIL.
+    Returns (model fingerprint, announced board); the board is None when the
+    firmware is a build that does not announce it.
+    Aborts if camera initialization fails or times out (e.g. PIL firmware
+    flashed), or if the board is not the one named with --board.
     """
     lines, hit = read_lines_until(
         ser, lambda l: l == "READY_HIL" or l == "CAM_INIT:FAIL",
         timeout_s=timeout_s)
     if hit == "READY_HIL":
-        print("[OK]   HIL firmware ready (HM01B0 camera initialized).")
-        return parse_firmware_fingerprint(lines)
+        announced = boards.announced_board(lines)
+        problem = boards.mismatch(board_key, announced)
+        if problem:
+            print(f"[ERROR] Wrong board: {problem}")
+            ser.close()
+            sys.exit(2)
+        if announced is None:
+            print("[WARN] The firmware did not announce its board (no BOARD: line): "
+                  "it is a build earlier than the two-board sketch. The board is "
+                  "recorded as null.")
+        shown = boards.BOARDS[boards.key_of(announced) or board_key]
+        print(f"[OK]   HIL firmware ready on the {shown['label']} "
+              f"({shown['camera']} camera initialized).")
+        return parse_firmware_fingerprint(lines), announced
     if hit == "CAM_INIT:FAIL":
-        print("[ERROR] HM01B0 camera failed to initialize (CAM_INIT:FAIL). "
-              "Is the Portenta Vision Shield properly attached?")
+        print("[ERROR] The camera failed to initialize (CAM_INIT:FAIL). On the "
+              "Portenta H7, check that the Vision Shield is properly attached.")
     else:
         print("[ERROR] Timed out waiting for READY_HIL. Did you flash "
               "deployment/hil_firmware/hil_firmware.ino? "
@@ -592,7 +608,7 @@ def trigger_inference(ser, timeout_s=30.0):
     ser.write(CMD_TRIGGER)
     ser.flush()
     lines, hit = read_lines_until(
-        ser, lambda l: any(mk in l for mk in END_MARKERS),
+        ser, boards.is_end_of_inference,
         timeout_s=timeout_s)
     if hit is None:
         return None, {}
@@ -648,7 +664,7 @@ def read_frame(ser, timeout_s=20.0):
                           f"{n_expected} bytes.")
                     return None
                 arr = np.frombuffer(bytes(payload), dtype=np.uint8)
-                return arr.reshape(120, 160)  # HM01B0 grayscale frame: 160x120
+                return arr.reshape(120, 160)  # grayscale frame: 160x120
             else:
                 payload.append(b)
     print("  [WARN] Timed out while reading captured frame.")
@@ -656,7 +672,7 @@ def read_frame(ser, timeout_s=20.0):
 
 
 # --------------------------------------------------------------------------
-# Cross-validation: PC-side SIL & MIL on the REAL HM01B0 captured frame
+# Cross-validation: PC-side SIL & MIL on the REAL captured camera frame
 # --------------------------------------------------------------------------
 
 class SilModel:
@@ -717,7 +733,7 @@ class SilModel:
 class MilModel:
     """
     MIL level of the ladder: runs the floating-point .keras model on the host
-    PC over the real frame captured by the HM01B0 sensor (matching mil_benchmark.py
+    PC over the real frame captured by the camera (matching mil_benchmark.py
     in numerical representation, but fed with live sensor bytes instead of clean
     dataset files). Shares the exact preprocessing contract of the firmware and
     SilModel: NEAREST resize, grayscale channel replication if RGB, raw [0, 255]
@@ -764,7 +780,7 @@ def open_stimulus_window(fullscreen=True):
 def show_stimulus(image_path, settle_s):
     """
     Displays the stimulus centered on a black canvas and waits settle_s
-    (monitor refresh + HM01B0 auto-exposure settling time).
+    (monitor refresh + camera auto-exposure settling time).
     Uses NEAREST interpolation so the display never synthesizes smoothed pixels:
     optical filtering comes solely from the physical camera path.
     """
@@ -833,7 +849,8 @@ def _latency_summary(rows):
     return out
 
 
-def write_outputs(rows, class_names, conditions, output_dir, model_tag):
+def write_outputs(rows, class_names, conditions, output_dir, model_tag,
+                  board_key=boards.DEFAULT_BOARD):
     """
     Writes all HIL benchmark artifacts tagged with model_tag so consecutive
     runs across different architectures never overwrite each other:
@@ -904,7 +921,8 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
                     xticklabels=target_names, yticklabels=target_names)
         plt.title('HIL (Camera-in-the-Loop) Confusion Matrix')
         plt.ylabel('True Label (stimulus shown)')
-        plt.xlabel('Predicted Label (HM01B0 -> Portenta H7)')
+        shown = boards.BOARDS[boards.key_of(conditions.get('board')) or board_key]
+        plt.xlabel(f"Predicted Label ({shown['camera']} -> {shown['label']})")
         plt.tight_layout()
         cm_path = os.path.join(output_dir, f"confusion_matrix_{model_tag}.png")
         plt.savefig(cm_path)
@@ -937,6 +955,7 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
             },
             "run": {
                 "port": conditions.get('port'),
+                "board": conditions.get('board'),
                 "baud": conditions.get('baud'),
                 "settle_s": conditions.get('settle_s'),
                 "gap_s": conditions.get('gap_s'),
@@ -1036,7 +1055,7 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
         if paired:
             n = len(paired)
             print("\n" + "=" * 64)
-            print("  FIDELITY LADDER — same frame captured by the HM01B0 sensor")
+            print("  FIDELITY LADDER — same frame captured by the camera")
             print(f"  Paired frames: {n}")
             print(f"\n  {'Level':<30} {'Accuracy':>10}")
             print("  " + "-" * 42)
@@ -1134,7 +1153,7 @@ def run_benchmark(args):
     time.sleep(args.delay)
 
     # Handshake with the dedicated HIL firmware (hil_firmware.ino)
-    fw = wait_ready(ser)
+    fw, announced = wait_ready(ser, args.board)
     identity_ok = verify_model_identity(fw, expected, model_tag, args.output_dir,
                                         allow_mismatch=args.allow_model_mismatch)
 
@@ -1175,6 +1194,7 @@ def run_benchmark(args):
         'conditions_complete': all(v is not None for v in
                                    (args.lux, args.distance_cm, args.ambient_temp)),
         'port': args.port,
+        'board': announced,
         'baud': args.baud,
         'stimulus_source': source,
         'manifest': (_relpath_repo(args.manifest)
@@ -1302,18 +1322,23 @@ def run_benchmark(args):
           f"|  Failures: {errors}")
     print("=" * 45)
 
-    write_outputs(rows, class_names, conditions, args.output_dir, model_tag)
+    write_outputs(rows, class_names, conditions, args.output_dir, model_tag,
+                  board_key=args.board)
 
 
 def parse_args():
     parser = cli.ArgumentParser(
-        description="Real Camera-in-the-Loop HIL benchmark: the HM01B0 captures "
-                    "stimuli displayed on a monitor, pairs predictions against "
+        description="Real Camera-in-the-Loop HIL benchmark: the camera of the board "
+                    "captures stimuli displayed on a monitor, pairs predictions against "
                     "ground truth, and measures per-phase sensor->prediction latency.")
     parser.add_argument('--port', default="COM9",
                         help="Serial port (e.g. COM9 or /dev/ttyUSB0)")
     parser.add_argument('--baud', type=int, default=115200,
                         help="Baud rate (default: 115200)")
+    parser.add_argument('--board', choices=sorted(boards.BOARDS), default=boards.DEFAULT_BOARD,
+                        help="Board the firmware runs on (default: portenta). It sets "
+                             "the default output folder and is checked against the "
+                             "board the firmware announces")
     parser.add_argument('--splits_dir', default=os.path.join('data', 'splits'),
                         help="Directory holding the splits produced by "
                              "split_dataset.py (default: data/splits); the "
@@ -1342,8 +1367,9 @@ def parse_args():
                         help="Seconds to wait between consecutive stimuli (default: 0.5)")
     parser.add_argument('--delay', type=float, default=2.0,
                         help="Initial wait in seconds after opening the serial port (default: 2.0)")
-    parser.add_argument('--output_dir', default=os.path.join('results', 'hil'),
-                        help="Output directory (default: results/hil)")
+    parser.add_argument('--output_dir', default=None,
+                        help="Output directory (default: results/hil; "
+                             "results/nicla/hil with --board nicla)")
     parser.add_argument('--overwrite', action='store_true',
                         help="Replace the matrix, JSON and CSV files if they already exist")
     parser.add_argument('--windowed', action='store_true',
@@ -1381,7 +1407,7 @@ def parse_args():
     # Cross-validation: HIL (MCU) vs SIL/MIL (PC) on the exact same frame
     parser.add_argument('--dump_frames', action='store_true',
                         help="Retrieve and save every raw frame captured by "
-                             "the HM01B0 camera (traceability)")
+                             "the camera (traceability)")
     parser.add_argument('--sil_model', default=None, metavar='TFLITE',
                         help="Path to the SAME INT8 .tflite flashed on the MCU: "
                              "runs on the PC over each captured frame (implies "
@@ -1398,6 +1424,8 @@ def parse_args():
     args = parser.parse_args()
     if args.manifest is None:
         args.manifest = os.path.join(args.splits_dir, 'test_manifest.csv')
+    if args.output_dir is None:
+        args.output_dir = boards.results_dir(args.board, 'hil')
     return args
 
 

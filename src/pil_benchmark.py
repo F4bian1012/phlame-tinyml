@@ -1,8 +1,8 @@
 r"""
 pil_benchmark.py
 ================
-Sends preprocessed images to the Arduino Portenta H7 over the serial port
-for Processor-in-the-Loop (PIL) evaluation.
+Sends preprocessed images to the board (Arduino Portenta H7 or Nicla Vision)
+over the serial port for Processor-in-the-Loop (PIL) evaluation.
 
 Protocol:
   - Start marker : '#' (0x23)
@@ -22,6 +22,9 @@ the level and not to a different sampling of images.
 
 Options:
   --port        Serial port (default: COM9; e.g. COM3, /dev/ttyUSB0)
+  --board       Board the firmware runs on: portenta (default) or nicla. Sets the
+                default output folder (results/pil or results/nicla/pil) and is
+                checked against the board the firmware announces
   --model_path  Path to the flashed .tflite model (required; hashed & used to tag outputs)
   --image       Path to a specific image to send
   --splits_dir  Directory with the splits produced by split_dataset.py
@@ -49,6 +52,7 @@ import json
 import statistics
 from datetime import datetime, timezone
 import artifacts
+import boards
 import cli
 
 try:
@@ -231,7 +235,7 @@ def send_image(port: str, baud: int, image_path: str,
     ser.flush()
     print("[OK]   Packet sent. Waiting for the Arduino's response...\n")
 
-    # Read the response until the "Listo" (ready) line is received
+    # Read the response until the banner that closes the inference
     timeout = time.time() + 30  # at most 30 seconds waiting for a response
 
     csv_path = os.path.join(output_dir,
@@ -258,10 +262,7 @@ def send_image(port: str, baud: int, image_path: str,
                     value = ":".join(parts[1:]).strip()
                     current_metrics[metric] = value
 
-            # The firmware prints its end-of-inference markers in Spanish
-            # ("siguiente imagen" = "next image", "listo" = "ready"), so these
-            # checks must keep the Spanish words the board actually sends.
-            if "siguiente imagen" in line.lower() or "listo" in line.lower():
+            if boards.is_end_of_inference(line):
                 break
         else:
             time.sleep(0.05)
@@ -285,7 +286,8 @@ def send_folder(port: str, baud: int, folder: str,
                 model_tag: str,
                 model_path: str = None,
                 n_samples: int = None,
-                output_dir: str = os.path.join("results", "pil")):
+                output_dir: str = os.path.join("results", "pil"),
+                board_key: str = boards.DEFAULT_BOARD):
     """
     Sends the images in `folder` to the Arduino in sequence.
 
@@ -313,6 +315,8 @@ def send_folder(port: str, baud: int, folder: str,
     model_path : Optional path to the flashed .tflite file (hashed in metrics JSON)
     n_samples  : Number of images to select at random.
                  If None (or >= total available), all of them are sent.
+    board_key  : Board named with --board; the run stops if the firmware
+                 announces a different one
     """
     extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.tif')
 
@@ -384,6 +388,7 @@ def send_folder(port: str, baud: int, folder: str,
 
     class_counts: Counter = Counter()
     errors = 0
+    announced = None   # board named by the firmware in its BOARD: line
     y_true = []
     y_pred = []
     # Accumulated in addition to the CSV: the JSON summarizes per phase, and
@@ -420,10 +425,22 @@ def send_folder(port: str, baud: int, folder: str,
                         value = ":".join(parts[1:]).strip()
                         current_metrics[metric] = value
 
-                # The firmware prints its end-of-inference markers in Spanish
-                # ("siguiente imagen" = "next image", "listo" = "ready"), so these
-                # checks must keep the Spanish words the board actually sends.
-                if "siguiente imagen" in line.lower() or "listo" in line.lower():
+                # The firmware says which board it runs on with every image. The
+                # results are filed by board, so a wrong --board stops the run here,
+                # before anything has been measured.
+                if announced is None and line.startswith(boards.BOARD_PREFIX):
+                    announced = boards.announced_board([line])
+                    problem = boards.mismatch(board_key, announced)
+                    if problem:
+                        print(f"[ERROR] Wrong board: {problem}")
+                        ser.close()
+                        csv_file.close()
+                        pred_file.close()
+                        for created in (csv_path, pred_csv_path):
+                            os.remove(created)
+                        sys.exit(2)
+
+                if boards.is_end_of_inference(line):
                     break
 
                 try:
@@ -486,6 +503,9 @@ def send_folder(port: str, baud: int, folder: str,
 
     ser.close()
     print("\n[INFO] Port closed. All images sent.")
+    if announced is None:
+        print("[WARN] The firmware did not announce its board (no BOARD: line): it is "
+              "a build earlier than the two-board sketch. The board is recorded as null.")
 
     answered = total - errors
     print("\n" + "=" * 45)
@@ -613,6 +633,7 @@ def send_folder(port: str, baud: int, folder: str,
         },
         "run": {
             "port": port,
+            "board": announced,
             "baud": baud,
             "input_shape": {"width": width, "height": height,
                             "channels": 1 if grayscale else 3},
@@ -658,6 +679,10 @@ def parse_args():
     )
     parser.add_argument('--port',   default="COM9", required=False,
                         help="Serial port (e.g. COM9 or /dev/ttyUSB0)")
+    parser.add_argument('--board', choices=sorted(boards.BOARDS), default=boards.DEFAULT_BOARD,
+                        help="Board the firmware runs on (default: portenta). It sets "
+                             "the default output folder and is checked against the "
+                             "board the firmware announces")
 
     source = parser.add_mutually_exclusive_group()
     source.add_argument('--image',  default=None,
@@ -691,9 +716,9 @@ def parse_args():
     parser.add_argument('--count',  type=int, default=None, metavar='N',
                         help="Number of random images to send from the folder. "
                              "If not specified, all of them are sent.")
-    parser.add_argument('--output_dir', default=os.path.join("results", "pil"),
+    parser.add_argument('--output_dir', default=None,
                         help="Output directory for the matrix, JSON and CSV files "
-                             "(default: results/pil)")
+                             "(default: results/pil; results/nicla/pil with --board nicla)")
     parser.add_argument('--overwrite', action='store_true',
                         help="Replace the matrix, JSON and CSV files if they already exist")
     return parser.parse_args()
@@ -752,6 +777,8 @@ def resolve_folder(args):
 if __name__ == '__main__':
     args = parse_args()
     port = normalize_port(args.port)
+    if args.output_dir is None:
+        args.output_dir = boards.results_dir(args.board, "pil")
 
     # Run tag: the model name without extension, the same criterion that
     # mil_benchmark.py uses to name its confusion matrix.
@@ -792,4 +819,5 @@ if __name__ == '__main__':
             model_path=args.model_path,
             n_samples=args.count,
             output_dir=args.output_dir,
+            board_key=args.board,
         )
