@@ -131,6 +131,7 @@ Every evaluation script writes a `metrics_{model}[_int8].json` file capturing cl
 | `run.input_shape.channels` | PIL | `integer` | Image channels: `1` for grayscale, `3` for RGB (`--color`). |
 | `run.pre_delay_s` | PIL | `float` | Warm-up pause after opening the serial port before transmitting data (seconds). |
 | `run.n_samples_requested` | PIL | `integer\|null` | PIL only: value of `--count` (number of images requested); `null` means every image in the folder. |
+| `run.n_reconnects` | PIL | `integer` | Times the serial link dropped during the run and the bench reopened the port and sent the image again; `0` in a run without drops. Written from November 2026 on; absent in earlier files. |
 | `run.settle_s` | HIL | `float` | Display stabilization time after rendering each stimulus before triggering optical camera capture (default: `1.5` s). |
 | `run.gap_s` | PIL, HIL | `float` | Inter-stimulus delay between successive evaluations (default: `0.5` s). |
 | `run.seed` | HIL | `integer` | Random seed used for reproducible stimulus ordering (default: `42`). |

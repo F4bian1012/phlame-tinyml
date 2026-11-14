@@ -14,7 +14,7 @@ the top of each sketch, selected by the build target (`--board` in `compile_uplo
 | Image buffer | 400 KiB in external SDRAM (up to 320×320 RGB) | Static array: 19,200 bytes by default (one 160×120 grayscale image) |
 | Camera (HIL) | HM01B0 of the Vision Shield, monochrome, 160×120 | Built-in GC2145, colour: read as RGB565 at 160×120 and converted to luminance |
 | Announces | `BOARD:PORTENTA_H7` | `BOARD:NICLA_VISION` |
-| Status | Board behind every published result | Builds; not run on a board yet |
+| Status | Board behind every published result | PIL measured on the board; HIL builds, not run yet |
 
 The Portenta H7 FQBN needs `:split=100_0` (2 MiB of flash for the M7 core): with the default split the firmware
 does not fit.
@@ -22,8 +22,17 @@ does not fit.
 **What has run on a board.** The published results were measured with the single-board sketches that preceded
 these. The two-board PIL sketch was then checked on a Portenta H7 against its predecessor, following steps 5 and 6
 of the README with the same model and the same 300 test images: both gave the same prediction for all 300 images,
-and the bench recorded `BOARD:PORTENTA_H7`. The two-board HIL sketch has not been run on a board yet, and neither
-sketch has run on a Nicla Vision.
+and the bench recorded `BOARD:PORTENTA_H7`. The two-board HIL sketch has not been run on a board yet.
+
+**First runs on a Nicla Vision** (2026-11-14, `results/nicla/pil/`). The PIL sketch boots on the board, allocates
+the default 368 KiB arena (`MobileNetV2` uses 356,404 bytes of it, the same as on the Portenta H7) and reports the
+same 400 MHz clock. With the published `MobileNetV2` of the vehicle benchmark it answered the 940 test images
+without a dropped link, and gave the same prediction as a Portenta H7 measured the same day for all 940 (937 of
+940 against the Portenta H7 file published in September, for the reason given under
+[Serial Protocol](#serial-protocol-pil-bench): the pixels the host sent were no longer the same for three files).
+One difference stands out: the inference takes 128.8 million cycles on the Nicla Vision and 160.5 million on the
+Portenta H7, 19.7% fewer, with the same MCU, clock and model. The arena is in internal RAM on one board and in
+external SDRAM on the other, which is the likely cause; it has not been isolated.
 
 **Sizes set at build time.** `--arena_kb` and `--image_buffer_bytes` of `compile_upload_arduino.py` (the macros
 `TENSOR_ARENA_KB` and `IMAGE_BUFFER_BYTES` of the sketch) change the two sizes without editing the sketch. On the
@@ -84,7 +93,7 @@ Both host benches (`pil_benchmark.py` and `hil_benchmark.py`) and the wire proto
 
 Adding a third board takes one more block in each sketch and one entry in `src/boards.py`.
 
-**Not yet verified on a Nicla Vision.** The sketches build for it and the host side is tested against a simulated board, but nothing has run on the physical board. Until it does, these remain open: the byte order of the RGB565 frame (taken from the core's own viewers; a wrong order would show as a visibly corrupted frame-dump), the image the GC2145 gives at 160×120 (according to the driver, a central 640×480 window subsampled by four, so a narrower field of view than the full sensor), whether the RAM left is enough at run time, whether `AllocateTensors()` succeeds for each model, the temperature reading, and the clock (`SystemCoreClock` is printed at boot).
+**Not yet verified on a Nicla Vision.** The PIL sketch has run on the board (see [Boards and Memory](#boards-and-memory)); the HIL sketch has not. Until it does, these remain open: the byte order of the RGB565 frame (taken from the core's own viewers; a wrong order would show as a visibly corrupted frame-dump), the image the GC2145 gives at 160×120 (according to the driver, a central 640×480 window subsampled by four, so a narrower field of view than the full sensor), and whether the RAM left is enough for the camera frame at run time. Of the models, only `MobileNetV2` has been run on the board so far.
 
 ## Serial Protocol (PIL Bench)
 
@@ -114,6 +123,12 @@ if the port does not come back it stops with a message instead of a traceback. O
 firmware side a raw `#` in the middle of a packet restarts the packet, so the image sent
 again is not appended to what arrived before the drop. The latency is measured on the
 chip, so a repeated exchange is a valid measurement like any other.
+
+**What the host sends depends on its decoder.** The bench decodes each image file on the host and sends the
+pixels. With JPEG files the pixels are not fixed by the file alone: the same Portenta H7, model and JPEG test
+images gave 3 different predictions out of 940 between the run published in September and a run in November,
+and both boards agreed with each other on all 940 in November. A partition stored as lossless PNG
+(`reshape_images.py --format png`) removes that dependence: every decoder returns the same pixels.
 
 **Input handling.** Received bytes (uint8, 0–255) are written into the model
 input tensor. For an INT8 model the firmware reads the tensor's own
