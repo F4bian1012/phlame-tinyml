@@ -560,6 +560,7 @@ All scripts live in `src/`. Detailed descriptions, output artifacts and usage no
 | Deployment | `tflite_to_c.py` | `.tflite` to the `model.h` C header. |
 | Deployment | `compile_upload_arduino.py` | Compile and upload a firmware with `arduino-cli` (`--board portenta` or `nicla`). |
 | Analysis | `build_ladder_tables.py` | Rebuild the eight statistical tables of the paper in `results/tables/`. |
+| Models | `verify_models.py` | Check the model files against `models/checksums.sha256`, or fetch them from a release. |
 | Shared | `artifacts.py` | Helper module, not run directly: run names (`--tag`), overwrite protection and the per-model label order. |
 | Shared | `cli.py` | Helper module, not run directly: lets every option be written with `_` or `-`. |
 | Shared | `boards.py` | Helper module, not run directly: what changes with the board (`--board`) and the serial text the two board benches wait for. |
@@ -570,11 +571,11 @@ phlame-tinyml/
 ├── data/                  # Datasets (git-ignored); manifests and sample/ are tracked
 ├── deployment/            # Firmware source code: pil_firmware/, hil_firmware/
 ├── docs/                  # scripts.md, hardware.md, results_schema.md
-├── models/                # checkpoints/ (.keras), tflite/ (.tflite), class names
+├── models/                # checkpoints/ (.keras), tflite/ (.tflite), class names, checksums.sha256
 ├── results/               # mil/, sil/, pil/, hil/, tables/, training_curves/
 ├── src/                   # Python source code (see Scripts)
 ├── tensorboard_logs/      # TensorBoard event logs from training
-├── tests/                 # test_results_schema.py, test_own_dataset.py, test_cli.py, test_boards.py
+├── tests/                 # test_results_schema.py, test_own_dataset.py, test_cli.py, test_boards.py, test_release.py
 ├── CITATION.cff
 ├── LICENSE.txt
 ├── README.md

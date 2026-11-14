@@ -1,5 +1,8 @@
 /* Copyright 2023 The TensorFlow Authors. All Rights Reserved.
    Licensed under the Apache License, Version 2.0 (the "License") */
+// Modified for PHLAME: this file derives from the TensorFlow Lite Micro example
+// code and has been changed. A copy of the licence is in
+// deployment/LICENSE-Apache-2.0.txt.
 
 // ============================================================================
 // PHLAME - HIL (camera-in-the-loop) firmware

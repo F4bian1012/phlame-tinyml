@@ -71,7 +71,10 @@ Detailed reference for the scripts in `src/`. The [README](../README.md) has the
     - *Usage:* `python src/build_ladder_tables.py` (overwrites the versioned `results/tables/`; pass `--output_dir` to write elsewhere)
     - *Outputs:* `results/tables/ladder_tables.md`, `ladder_tables.tex`, `table*.csv` (unrounded values), `ladder_summary.json` (headline numbers, SHA-256 of every input file, library versions).
 
-## 7. Shared Helpers
+## 7. Model Files
+*   **`verify_models.py`**: The model files (`.keras`, `.tflite`) are not in git; `models/checksums.sha256` lists the SHA-256 of every one a published result refers to. Without options the script checks the files present in `models/` against that list (`--require_all` fails if one is missing). `--results` checks instead that the digest recorded in every `metrics_*.json` and `conditions_*.json` is in the list. `--download <tag>` fetches the archives attached to a release, unpacks them and checks them; `--bundle <dir> --tag <tag>` is the maintainer's side and writes those archives.
+
+## 8. Shared Helpers
 *   **`artifacts.py`**: Not run directly. Holds the three rules the training, quantization and evaluation scripts share: the run name (`{model}[_{tag}]+{batch}+{epochs}+{lr}+{W}+{H}`), the refusal to replace an existing output without `--overwrite`, and the label order that travels with each model (`.classes.txt`). Standard library only.
 *   **`cli.py`**: Not run directly. Provides the argument parser every script uses, which accepts each multi-word option with `_` or `-`.
 *   **`boards.py`**: Not run directly. Lists what changes with the board (core, FQBN, camera, default results folder, the name the firmware announces) and holds the text the two board benches wait for at the end of an inference. `compile_upload_arduino.py`, `pil_benchmark.py` and `hil_benchmark.py` take their `--board` choices from it.
