@@ -43,6 +43,23 @@ Typical usage
         --train 0.70 --val 0.15 --test 0.15 \
         --seed 42 --hil_subset 200
 
+Test images from a separate source
+----------------------------------
+When the test images come from somewhere else than the training ones (another
+collection campaign, or the validation set of a public dataset), give that
+folder with --test_input_dir. Train and val are then drawn from --input_dir
+only, and EVERY image of --test_input_dir goes to test, so no file can sit on
+both sides of the evaluation:
+
+    python src/split_dataset.py \
+        --input_dir data/processed/coco_train_160x120 \
+        --test_input_dir data/processed/coco_test_160x120 \
+        --train 0.85 --val 0.15 --test 0 \
+        --output_dir data/splits_coco
+
+Each source is shuffled with its own generator started from --seed, so the
+result is the same as splitting the two folders in two separate runs.
+
 How the four levels consume the splits
 --------------------------------------
     train_*.py        --> data/splits/train      (val: data/splits/val)
@@ -144,6 +161,34 @@ def split_one_class(files, p_train, p_val, rng):
     )
 
 
+def split_source(input_dir, class_names, p_train, p_val, seed):
+    """Stratified split of one source folder, with its own generator.
+
+    Returns (per_split, counts): the files of each class in train/val/test and
+    the per-class totals. A separate generator per source keeps the result of
+    a two-source run identical to two single-source runs with the same seed.
+    """
+    rng = random.Random(seed)
+    per_split = {sp: {} for sp in SPLITS}
+    counts = {}
+    for cls in class_names:
+        class_dir = os.path.join(input_dir, cls)
+        if not os.path.isdir(class_dir):
+            sys.exit("ERROR: missing subfolder for class '%s' in %s"
+                     % (cls, input_dir))
+        files = collect_images(class_dir)
+        if not files:
+            sys.exit("ERROR: class '%s' contains no images in %s" % (cls, input_dir))
+
+        tr, va, te = split_one_class(files, p_train, p_val, rng)
+        per_split["train"][cls] = tr
+        per_split["val"][cls] = va
+        per_split["test"][cls] = te
+        counts[cls] = {"total": len(files), "train": len(tr),
+                       "val": len(va), "test": len(te)}
+    return per_split, counts
+
+
 def pick_hil_subset(test_by_class, n_target, rng):
     """Fixed, stratified subset of the test split for the physical HIL rig."""
     total_test = sum(len(v) for v in test_by_class.values())
@@ -227,6 +272,10 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     ap.add_argument("--input_dir", default="data/processed/160x120",
                     help="Processed directory with one subfolder per class")
+    ap.add_argument("--test_input_dir", default=None,
+                    help="Optional separate source of the test images, with the same "
+                         "class subfolders: all of it becomes the test partition and "
+                         "--input_dir only feeds train and val (use --test 0)")
     ap.add_argument("--output_dir", default="data/splits",
                     help="Output directory for the generated splits")
     ap.add_argument("--train", type=float, default=0.70, help="Train fraction")
@@ -252,6 +301,19 @@ def main():
         sys.exit("ERROR: split fractions must sum to 1.0 (got %.4f)" % total_p)
     if not os.path.isdir(args.input_dir):
         sys.exit("ERROR: input directory does not exist: %s" % args.input_dir)
+    if args.test_input_dir:
+        if not os.path.isdir(args.test_input_dir):
+            sys.exit("ERROR: test input directory does not exist: %s" % args.test_input_dir)
+        if os.path.abspath(args.test_input_dir) == os.path.abspath(args.input_dir):
+            sys.exit("ERROR: --test_input_dir is the same folder as --input_dir; "
+                     "omit it to draw the test partition from --input_dir.")
+        if args.test > 1e-6:
+            sys.exit("ERROR: with --test_input_dir the test partition is that whole "
+                     "folder: pass --test 0 and make --train and --val sum to 1.0.")
+        if list_class_dirs(args.test_input_dir) != list_class_dirs(args.input_dir):
+            sys.exit("ERROR: %s has the class subfolders %s but %s has %s."
+                     % (args.test_input_dir, list_class_dirs(args.test_input_dir),
+                        args.input_dir, list_class_dirs(args.input_dir)))
 
     if os.path.isdir(args.output_dir) and os.listdir(args.output_dir):
         if not (args.force or args.dry_run):
@@ -268,6 +330,8 @@ def main():
     label_of = {c: i for i, c in enumerate(class_names)}
 
     print("Input       : %s" % args.input_dir)
+    if args.test_input_dir:
+        print("Test input  : %s  (every image goes to test)" % args.test_input_dir)
     print("Output      : %s" % args.output_dir)
     print("Classes     : %s  (order from %s)" % (class_names, class_src))
     print("Proportions : train %.2f / val %.2f / test %.2f | seed %d"
@@ -277,25 +341,16 @@ def main():
     print("")
 
     # ---- stratified per-class split ---------------------------------------
-    rng = random.Random(args.seed)
-    per_split = {sp: {} for sp in SPLITS}
-    counts = {}
-
-    for cls in class_names:
-        class_dir = os.path.join(args.input_dir, cls)
-        if not os.path.isdir(class_dir):
-            sys.exit("ERROR: missing subfolder for class '%s' in %s"
-                     % (cls, args.input_dir))
-        files = collect_images(class_dir)
-        if not files:
-            sys.exit("ERROR: class '%s' contains no images" % cls)
-
-        tr, va, te = split_one_class(files, args.train, args.val, rng)
-        per_split["train"][cls] = tr
-        per_split["val"][cls] = va
-        per_split["test"][cls] = te
-        counts[cls] = {"total": len(files), "train": len(tr),
-                       "val": len(va), "test": len(te)}
+    per_split, counts = split_source(args.input_dir, class_names,
+                                     args.train, args.val, args.seed)
+    if args.test_input_dir:
+        # The whole second source is the test partition (fractions 0 / 0 / 1).
+        held_out, held_counts = split_source(args.test_input_dir, class_names,
+                                             0.0, 0.0, args.seed)
+        for cls in class_names:
+            per_split["test"][cls] = held_out["test"][cls]
+            counts[cls]["test"] = held_counts[cls]["test"]
+            counts[cls]["total"] += held_counts[cls]["total"]
 
     # ---- fixed HIL subset -------------------------------------------------
     hil_chosen = pick_hil_subset(per_split["test"], args.hil_subset,
@@ -359,6 +414,8 @@ def main():
         "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "script": "split_dataset.py",
         "input_dir": args.input_dir.replace(os.sep, "/"),
+        "test_input_dir": (args.test_input_dir.replace(os.sep, "/")
+                           if args.test_input_dir else None),
         "output_dir": args.output_dir.replace(os.sep, "/"),
         "seed": args.seed,
         "proportions": {"train": args.train, "val": args.val,

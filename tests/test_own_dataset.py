@@ -111,6 +111,41 @@ class SplitOwnDatasetTest(unittest.TestCase):
         report = read_report(os.path.join(self.cwd, "out"))
         self.assertEqual(report["label_map"], {"zebra": 0, "apple": 1})
 
+    def test_separate_test_source_gives_the_same_as_two_runs(self):
+        make_dataset(os.path.join(self.cwd, "held"), ["zebra", "apple"], per_class=10)
+        fractions = ("--train", "0.85", "--val", "0.15", "--test", "0")
+        r = run_split(self.cwd, "--input_dir", "in", "--test_input_dir", "held", *fractions,
+                      "--output_dir", "both", "--hil_subset", "4")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        run_split(self.cwd, "--input_dir", "in", *fractions, "--hil_subset", "0", "--output_dir", "a")
+        run_split(self.cwd, "--input_dir", "held", "--train", "0", "--val", "0", "--test", "1",
+                  "--hil_subset", "4", "--output_dir", "b")
+
+        def key(folder, sp):
+            return [(r_["class_name"], r_["filename"], r_["src_path"], r_["hil_subset"])
+                    for r_ in read_manifest(os.path.join(self.cwd, folder, "%s_manifest.csv" % sp))]
+
+        for sp, single in (("train", "a"), ("val", "a"), ("test", "b")):
+            self.assertEqual(key("both", sp), key(single, sp), sp)
+        self.assertTrue(all(src.startswith("held/") for _, _, src, _ in key("both", "test")))
+        self.assertTrue(all(src.startswith("in/") for sp in ("train", "val") for _, _, src, _ in key("both", sp)))
+        report = read_report(os.path.join(self.cwd, "both"))
+        self.assertEqual(report["test_input_dir"], "held")
+        self.assertEqual(report["totals"], {"train": 34, "val": 6, "test": 20, "dataset": 60})
+        self.assertEqual(report["hil_subset"]["selected"], 4)
+
+    def test_separate_test_source_must_take_the_whole_test_partition(self):
+        make_dataset(os.path.join(self.cwd, "held"), ["zebra", "apple"], per_class=4)
+        r = run_split(self.cwd, "--input_dir", "in", "--test_input_dir", "held", "--output_dir", "out")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("--test 0", r.stdout)
+        make_dataset(os.path.join(self.cwd, "other"), ["zebra", "pear"], per_class=4)
+        r = run_split(self.cwd, "--input_dir", "in", "--test_input_dir", "other",
+                      "--train", "0.85", "--val", "0.15", "--test", "0", "--output_dir", "out")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("pear", r.stdout)
+        self.assertFalse(os.path.exists(os.path.join(self.cwd, "out", "split_report.json")))
+
 
 class RunNameTest(unittest.TestCase):
     def test_stem_without_tag_is_the_published_name(self):
