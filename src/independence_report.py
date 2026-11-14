@@ -35,7 +35,9 @@ partitions kept in the same folders are left out without naming them.
 Output: one CSV (default results/tables/independence_<splits folder>.csv)
 with one row per result file and cleaning. delta = cleaned - full; its 95 %
 interval comes from resampling the test images (--bootstrap times, seeded),
-computing both figures on each resample.
+computing both figures on each resample. The resamples of a result file
+depend on the seed and on its content only, not on its name or on which
+other files are present.
 
 Exit codes: 0 finished; 1 bad input, missing package or existing output
 (--overwrite replaces it).
@@ -44,6 +46,7 @@ import csv
 import glob
 import os
 import sys
+import zlib
 
 import artifacts
 import cli
@@ -138,7 +141,10 @@ def compare(y_true, y_pred, keep, n_boot, rng):
 
 
 def result_files(results_dir):
-    files = sorted(glob.glob(os.path.join(results_dir, "*", "predictions_*.csv")))
+    """Per-image result files, in the order of the ladder (MIL, SIL, PIL, HIL)."""
+    files = []
+    for level in ("mil", "sil", "pil"):
+        files += sorted(glob.glob(os.path.join(results_dir, level, "predictions_*.csv")))
     files += sorted(glob.glob(os.path.join(results_dir, "hil", "latency_metrics_*.csv")))
     return files
 
@@ -182,7 +188,6 @@ def main(argv=None):
           % (len(test_files), len(removed["confirmed"]), len(removed["strict"]),
              " | pairs checked by a person: %d" % len(review) if review else ""))
 
-    rng = np.random.default_rng(args.seed)
     rows, used, skipped = [], 0, 0
     for path in result_files(args.results_dir):
         try:
@@ -199,10 +204,13 @@ def main(argv=None):
         y_true = [t for _, t, _ in preds]
         y_pred = [p for _, _, p in preds]
         used += 1
+        content = zlib.crc32("\n".join("%s,%d,%d" % row for row in preds).encode("utf-8"))
         for cleaning in ("confirmed", "strict"):
             keep = [image not in removed[cleaning] for image, _, _ in preds]
             if sum(keep) == 0:
                 continue
+            # same resamples for both cleanings of a file, whatever the file is called
+            rng = np.random.default_rng([args.seed, content])
             figures = compare(y_true, y_pred, keep, args.bootstrap, rng)
             rows.append({"level": level, "model": model, "cleaning": cleaning,
                          **{key: (round(v, 4) if isinstance(v, float) else v) for key, v in figures.items()}})
