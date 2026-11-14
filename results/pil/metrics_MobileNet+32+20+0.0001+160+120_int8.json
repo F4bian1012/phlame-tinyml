@@ -10,6 +10,7 @@
   },
   "run": {
     "port": "\\\\.\\COM9",
+    "board": "PORTENTA_H7",
     "baud": 115200,
     "input_shape": {
       "width": 160,

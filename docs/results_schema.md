@@ -122,7 +122,8 @@ Every evaluation script writes a `metrics_{model}[_int8].json` file capturing cl
 ### 4. Run & Environmental Rig Configuration (`run`)
 | Key | Level | Type | Description |
 |---|---|---|---|
-| `run.port` | PIL, HIL | `string` | Serial port used to communicate with the Arduino Portenta H7 (e.g., `"COM9"`). |
+| `run.port` | PIL, HIL | `string` | Serial port used to communicate with the board (e.g., `"COM9"`). |
+| `run.board` | PIL, HIL | `string\|null` | Board the run was measured on, as the firmware announces it in its `BOARD:<name>` line: `"PORTENTA_H7"` or `"NICLA_VISION"`. `null` when the firmware is a build that does not announce it. The files published before the firmware announced its board were all measured on a Portenta H7, and the value was added to them by hand. |
 | `run.baud` | PIL, HIL | `integer` | Serial transmission speed in baud (default: `115200`). |
 | `run.input_shape` | PIL | `object` | Geometry of the images sent over serial. |
 | `run.input_shape.width` | PIL | `integer` | Image width in pixels. |
@@ -214,6 +215,7 @@ Alongside `metrics_*.json`, the HIL benchmark generates a standalone `conditions
 |---|---|---|
 | `rig` | `string` | Rig configuration identifier (e.g., `"monitor-controlled-stimulus (checklist Phase 1C, option a)"`). |
 | `port` | `string` | USB serial device address. |
+| `board` | `string\|null` | Board announced by the firmware at boot (`BOARD:<name>`); same values and same remark as `run.board` in the metrics file. |
 | `baud` | `integer` | Serial communication baud rate. |
 | `settle_s` | `float` | Display stabilization pause in seconds. |
 | `gap_s` | `float` | Inter-stimulus gap in seconds. |

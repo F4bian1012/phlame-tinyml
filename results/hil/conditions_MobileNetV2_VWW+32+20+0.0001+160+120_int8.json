@@ -16,6 +16,7 @@
   "model_identity_verified": true,
   "conditions_complete": true,
   "port": "COM3",
+  "board": "PORTENTA_H7",
   "baud": 115200,
   "stimulus_source": "manifest:data/splits_vww/test_manifest.csv",
   "manifest": "data/splits_vww/test_manifest.csv",

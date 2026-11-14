@@ -13,6 +13,7 @@
   },
   "run": {
     "port": "COM3",
+    "board": "PORTENTA_H7",
     "baud": 115200,
     "settle_s": 1.0,
     "gap_s": 0.5,
