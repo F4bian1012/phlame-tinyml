@@ -19,6 +19,12 @@ the top of each sketch, selected by the build target (`--board` in `compile_uplo
 The Portenta H7 FQBN needs `:split=100_0` (2 MiB of flash for the M7 core): with the default split the firmware
 does not fit.
 
+**What has run on a board.** The published results were measured with the single-board sketches that preceded
+these. The two-board PIL sketch was then checked on a Portenta H7 against its predecessor, following steps 5 and 6
+of the README with the same model and the same 300 test images: both gave the same prediction for all 300 images,
+and the bench recorded `BOARD:PORTENTA_H7`. The two-board HIL sketch has not been run on a board yet, and neither
+sketch has run on a Nicla Vision.
+
 **Sizes set at build time.** `--arena_kb` and `--image_buffer_bytes` of `compile_upload_arduino.py` (the macros
 `TENSOR_ARENA_KB` and `IMAGE_BUFFER_BYTES` of the sketch) change the two sizes without editing the sketch. On the
 Nicla Vision both are static arrays, so the linker accounts for them: sizes that do not fit fail at build time
