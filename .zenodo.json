@@ -1,0 +1,39 @@
+{
+  "title": "PHLAME: A Phase-Level Hardware-in-the-Loop Framework for Reproducible Fidelity-Ladder Evaluation of TinyML Image Classifiers on ARM Cortex-M Microcontrollers",
+  "description": "An open-source, reproducible framework for evaluating TinyML vision classifiers across the four-level MIL–SIL–PIL–HIL fidelity ladder on ARM Cortex-M7 microcontrollers (Arduino Portenta H7 + Vision Shield HM01B0). PHLAME couples deterministic dataset partitioning and INT8 post-training quantization with cycle-accurate DWT phase-level latency profiling (CAPTURE, PRE, INF, POST, TOTAL), on-chip FNV-1a model-identity verification, environmental condition tracking, and a camera-in-the-loop HIL bench that decomposes the simulation-to-hardware gap into quantization, on-chip execution, and optical-frontend effects.",
+  "upload_type": "software",
+  "access_right": "open",
+  "license": "mit",
+  "language": "eng",
+  "creators": [
+    {
+      "name": "Villavisan, Jheyson Fabian",
+      "affiliation": "Escuela Tecnológica Instituto Técnico Central, Bogotá, Colombia",
+      "orcid": "0000-0002-2777-1257"
+    }
+  ],
+  "keywords": [
+    "PHLAME",
+    "TinyML",
+    "MLOps",
+    "Hardware-in-the-Loop",
+    "Processor-in-the-Loop",
+    "fidelity ladder",
+    "camera-in-the-loop",
+    "microcontrollers",
+    "ARM Cortex-M7",
+    "Arduino Portenta H7",
+    "TensorFlow Lite Micro",
+    "INT8 quantization",
+    "edge-AI",
+    "cycle-accurate profiling"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/F4bian1012/phlame-tinyml",
+      "relation": "isSupplementTo",
+      "resource_type": "software",
+      "scheme": "url"
+    }
+  ]
+}

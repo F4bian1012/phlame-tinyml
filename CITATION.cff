@@ -20,8 +20,9 @@ authors:
 repository-code: "https://github.com/F4bian1012/phlame-tinyml"
 url: "https://github.com/F4bian1012/phlame-tinyml"
 license: MIT
+# Version this tree is being prepared as. It has not been tagged or archived
+# yet: "date-released" and "doi" are added on the day of the release.
 version: "1.0.0"
-date-released: "2026-10-16"
 keywords:
   - PHLAME
   - TinyML
@@ -37,14 +38,3 @@ keywords:
   - INT8 quantization
   - edge-AI
   - cycle-accurate profiling
-preferred-citation:
-  type: article
-  title: "PHLAME: A Phase-Level Hardware-in-the-Loop Framework for Reproducible Fidelity-Ladder Evaluation of TinyML Image Classifiers on ARM Cortex-M Microcontrollers"
-  authors:
-    - family-names: "Villavisan"
-      given-names: "Jheyson Fabian"
-      orcid: "https://orcid.org/0000-0002-2777-1257"
-      affiliation: "Escuela Tecnológica Instituto Técnico Central, Bogotá, Colombia"
-  journal: "SoftwareX"
-  publisher: "Elsevier"
-  year: 2026
