@@ -9,7 +9,7 @@
 // banco PIL: el firmware canonico deployment/pil_firmware/pil_firmware.ino
 // (imagen por serial, protocolo #...@) queda intacto como fallback publicable.
 //
-// Host companion: src/hil_camera_benchmark.py
+// Host companion: src/hil_benchmark.py
 //
 // Comandos serie:
 //   'T'      -> capturar un frame de la HM01B0 y ejecutar la inferencia

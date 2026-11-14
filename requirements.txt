@@ -14,14 +14,14 @@
 # ==============================================================================
 
 # --- Core Machine Learning & Deep Learning ---
-# train_*.py, test_model.py, test_tflite_model.py, quantize_int8_basic.py,
-# prune_model.py, hil_camera_benchmark.py (SIL/MIL cross-run). The scripts use
+# train_*.py, mil_benchmark.py, sil_benchmark.py, quantize_int8_basic.py,
+# prune_model.py, hil_benchmark.py (SIL/MIL cross-run). The scripts use
 # tf.keras (Keras 3 ships with TensorFlow >= 2.16; no separate `keras` entry).
 # Floor 2.16 because the models rely on Keras 3; the verified build is 2.21.
 tensorflow>=2.16.0
 
 # --- Image Processing & Datasets ---
-# process_images.py, reshape_images.py, hil_camera_benchmark.py (stimulus
+# process_images.py, reshape_images.py, hil_benchmark.py (stimulus
 # window, frame handling)
 opencv-python>=4.8.0
 # pil_benchmark.py (image loading / resize before the serial transfer)
@@ -31,9 +31,9 @@ pillow>=10.0.0
 numpy>=2.0.0
 
 # --- Evaluation metrics (REQUIRED for every MIL/SIL/PIL/HIL result) ---
-# accuracy, precision/recall/F1 and the confusion matrix in test_model.py,
-# test_tflite_model.py, pil_benchmark.py and hil_camera_benchmark.py.
-# test_model.py and test_tflite_model.py EXIT if these two are missing; the PIL
+# accuracy, precision/recall/F1 and the confusion matrix in mil_benchmark.py,
+# sil_benchmark.py, pil_benchmark.py and hil_benchmark.py.
+# mil_benchmark.py and sil_benchmark.py EXIT if these two are missing; the PIL
 # and HIL benches run but then write no metrics_*.json nor confusion matrix.
 # Note: they are imported inside try/except, so a bare `python script.py`
 # does not fail at import time; the lack only shows at the end of the run.
@@ -45,7 +45,7 @@ seaborn>=0.12.0
 scipy>=1.13.0
 
 # --- Hardware Interface & Communication ---
-# Serial protocol with the board: pil_benchmark.py, hil_camera_benchmark.py
+# Serial protocol with the board: pil_benchmark.py, hil_benchmark.py
 pyserial>=3.5
 
 # --- Visualization ---
@@ -59,7 +59,7 @@ tensorboard>=2.15.0
 # Optional
 # ==============================================================================
 # tflite-runtime
-#   Fallback branch of hil_camera_benchmark.py (SilModel) to evaluate SIL on a
+#   Fallback branch of hil_benchmark.py (SilModel) to evaluate SIL on a
 #   host without TensorFlow. With `tensorflow` installed it is never used, and
 #   there is no official wheel for Windows. Install only on a TensorFlow-less host.
 
@@ -80,7 +80,7 @@ tensorboard>=2.15.0
 # plus the rest of this file. Keep the SAME tensorflow/keras versions on both
 # sides so the .keras and .tflite files are interchangeable (verified with
 # tensorflow 2.21 + keras 3.13 on Windows and WSL2). The serial benches
-# (pil_benchmark.py, hil_camera_benchmark.py) stay on the Windows side, where
+# (pil_benchmark.py, hil_benchmark.py) stay on the Windows side, where
 # the board's COM port is.
 
 # ==============================================================================

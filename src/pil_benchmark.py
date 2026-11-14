@@ -548,7 +548,7 @@ def send_folder(port: str, baud: int, folder: str,
             plt.xlabel('Predicted Label')
             plt.tight_layout()
 
-            # Same criterion as test_model.py (MIL): the name is derived from the
+            # Same criterion as mil_benchmark.py (MIL): the name is derived from the
             # evaluated model, so that two runs with different models do not
             # overwrite each other's matrix.
             output_dir = os.path.join("results", "pil")
@@ -745,7 +745,7 @@ if __name__ == '__main__':
     port = normalize_port(args.port)
 
     # Run tag: the model name without extension, the same criterion that
-    # test_model.py uses to name its confusion matrix.
+    # mil_benchmark.py uses to name its confusion matrix.
     model_tag = os.path.splitext(os.path.basename(args.model_path))[0]
 
     if args.image:

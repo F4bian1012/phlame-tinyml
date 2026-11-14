@@ -12,7 +12,7 @@ evaluate EXACTLY the same held-out images.
 Why this script exists
 ----------------------
 Without an explicit on-disk split, train_*.py uses `validation_split` over the
-full directory while the evaluators (test_model.py, test_tflite_model.py) read
+full directory while the evaluators (mil_benchmark.py, sil_benchmark.py) read
 THAT SAME full directory -> reported accuracy includes training images (data
 leakage). Moreover, each benchmark selected images differently (manual folder
 in PIL, random sampling in HIL), so gaps across ladder levels were not
@@ -45,11 +45,11 @@ Typical usage
 
 How the four levels consume the splits
 --------------------------------------
-    train_*.py              --> data/splits/train      (val: data/splits/val)
-    test_model.py           --> data/splits/test       (MIL, float, PC)
-    test_tflite_model.py    --> data/splits/test       (SIL, INT8, PC)
-    pil_benchmark.py        --> data/splits/test       (PIL, INT8, MCU over serial)
-    hil_camera_benchmark.py --> test_manifest.csv      (HIL, rows with hil_subset == 1)
+    train_*.py        --> data/splits/train      (val: data/splits/val)
+    mil_benchmark.py  --> data/splits/test       (MIL, float, PC)
+    sil_benchmark.py  --> data/splits/test       (SIL, INT8, PC)
+    pil_benchmark.py  --> data/splits/test       (PIL, INT8, MCU over serial)
+    hil_benchmark.py  --> test_manifest.csv      (HIL, rows with hil_subset == 1)
 
 Reproducibility notes
 ---------------------

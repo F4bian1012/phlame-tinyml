@@ -1,5 +1,5 @@
 r"""
-hil_camera_benchmark.py
+hil_benchmark.py
 =======================
 Real Camera-in-the-Loop (HIL) benchmark for PHLAME — Phase 1C, Path 2.
 
@@ -46,8 +46,8 @@ Serial protocol:
 Cross-validation (optional, --sil-model / --mil-model): the firmware sends back
 each captured camera frame (command F1) and the host evaluates the lower levels
 of the fidelity ladder on THAT EXACT SAME captured frame:
-  MIL  (--mil-model, .keras float on PC)   <- test_model.py equivalent
-  SIL  (--sil-model, .tflite INT8 on PC)   <- test_tflite_model.py equivalent
+  MIL  (--mil-model, .keras float on PC)   <- mil_benchmark.py equivalent
+  SIL  (--sil-model, .tflite INT8 on PC)   <- sil_benchmark.py equivalent
   HIL  (TFLM INT8 on the Cortex-M7)        <- this benchmark
 Evaluating all three levels on identical sensor bytes decomposes the end-to-end
 gap into attributable components:
@@ -56,7 +56,7 @@ gap into attributable components:
   PIL vs HIL  = physical FRONTEND degradation (display / optics / sensor)
 
 Typical usage (full fidelity ladder on live camera frames, manifest hil_subset):
-  python src/hil_camera_benchmark.py --port COM9 \
+  python src/hil_benchmark.py --port COM9 \
       --settle 1.0 --lux 10 --distance-cm 24 --ambient-temp 24 \
       --sil-model models/tflite/{model_name}_int8.tflite \
       --mil-model models/checkpoints/{model_name}.keras
@@ -715,7 +715,7 @@ class SilModel:
 class MilModel:
     """
     MIL level of the ladder: runs the floating-point .keras model on the host
-    PC over the real frame captured by the HM01B0 sensor (matching test_model.py
+    PC over the real frame captured by the HM01B0 sensor (matching mil_benchmark.py
     in numerical representation, but fed with live sensor bytes instead of clean
     dataset files). Shares the exact preprocessing contract of the firmware and
     SilModel: NEAREST resize, grayscale channel replication if RGB, raw [0, 255]

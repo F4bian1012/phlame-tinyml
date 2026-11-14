@@ -129,10 +129,10 @@ python src/process_images.py --raw_path data/sample --path_processed data/proces
 
 | Level | Model | Runs on | Input | Script | Images |
 |---|---|---|---|---|---:|
-| **MIL** | FP32 `.keras` | PC | Dataset file | `test_model.py` | 940 |
-| **SIL** | INT8 `.tflite` | PC | Dataset file | `test_tflite_model.py` | 940 |
+| **MIL** | FP32 `.keras` | PC | Dataset file | `mil_benchmark.py` | 940 |
+| **SIL** | INT8 `.tflite` | PC | Dataset file | `sil_benchmark.py` | 940 |
 | **PIL** | INT8 `.tflite` | Cortex-M7 | Dataset file, over serial | `pil_benchmark.py` | 940 |
-| **HIL** | INT8 `.tflite` | Cortex-M7 | Camera frame of the on-screen image | `hil_camera_benchmark.py` | 200 |
+| **HIL** | INT8 `.tflite` | Cortex-M7 | Camera frame of the on-screen image | `hil_benchmark.py` | 200 |
 
 The project separates the Python environment (`src/`) from the embedded firmware (`deployment/`):
 
@@ -183,13 +183,13 @@ flowchart TD
         direction TB
         subgraph R_MIL["MIL · float model on PC"]
             direction LR
-            MIL["test_model.py<br/><small>reads the .keras</small>"]:::python
+            MIL["mil_benchmark.py<br/><small>reads the .keras</small>"]:::python
             MIL_OUT("results/mil/<br/><small>PNG · JSON · predictions CSV</small>"):::artifact
             MIL --> MIL_OUT
         end
         subgraph R_SIL["SIL · INT8 model on PC"]
             direction LR
-            SIL["test_tflite_model.py<br/><small>reads the .tflite</small>"]:::python
+            SIL["sil_benchmark.py<br/><small>reads the .tflite</small>"]:::python
             SIL_OUT("results/sil/<br/><small>PNG · JSON · predictions CSV</small>"):::artifact
             SIL --> SIL_OUT
         end
@@ -201,7 +201,7 @@ flowchart TD
         end
         subgraph R_HIL["HIL · real chip and camera, hil_subset"]
             direction LR
-            HIL["hil_camera_benchmark.py<br/><small>talks to the Portenta</small>"]:::python
+            HIL["hil_benchmark.py<br/><small>talks to the Portenta</small>"]:::python
             HIL_OUT("results/hil/<br/><small>PNG · JSON · latency CSV<br/>+ rig conditions JSON</small>"):::artifact
             SCREEN{{"Monitor<br/><small>shows the stimulus</small>"}}:::hardware
             CAM{{"HM01B0 camera<br/><small>on the Portenta</small>"}}:::hardware
@@ -272,7 +272,7 @@ For ResNet or SqueezeNet, run `src/train_resnet.py` or `src/train_squeezenet.py`
 ### 3. Model Evaluation
 Evaluate the `.keras` model at the **MIL** level. Outputs go to `results/mil/`:
 ```bash
-python src/test_model.py --width 160 --height 120 --model_path models/checkpoints/MobileNetV2_demo+32+20+0.0001+160+120.keras
+python src/mil_benchmark.py --width 160 --height 120 --model_path models/checkpoints/MobileNetV2_demo+32+20+0.0001+160+120.keras
 ```
 
 ### 4. INT8 Quantization
@@ -282,7 +282,7 @@ python src/quantize_int8_basic.py --model_path models/checkpoints/{model_name}.k
 ```
 Validate it at the **SIL** level. Outputs go to `results/sil/`:
 ```bash
-python src/test_tflite_model.py --model_path models/tflite/{model_name}_int8.tflite
+python src/sil_benchmark.py --model_path models/tflite/{model_name}_int8.tflite
 ```
 
 ### 5. Embedded Deployment
@@ -301,7 +301,7 @@ python src/pil_benchmark.py --model_path models/tflite/{model_name}_int8.tflite 
 ### 7. Hardware-in-the-Loop (HIL) Evaluation
 Flash the camera firmware with `python src/compile_upload_arduino.py --target hil`. The host displays each stimulus full-screen, the HM01B0 camera captures it, and the on-device prediction is matched with the known label. The bench aborts if the model fingerprint does not match or if a rig condition is missing. Outputs go to `results/hil/`:
 ```bash
-python src/hil_camera_benchmark.py --port COM9 \
+python src/hil_benchmark.py --port COM9 \
     --settle 1.0 --lux 10 --distance-cm 24 --ambient-temp 24 \
     --sil-model models/tflite/{model_name}_int8.tflite \
     --mil-model models/checkpoints/{model_name}.keras
@@ -512,10 +512,10 @@ All scripts live in `src/`. Detailed descriptions, output artifacts and usage no
 | Training | `train_squeezenet.py` | `SqueezeNet`, trained from scratch. |
 | Optimization | `prune_model.py` | Optional unstructured magnitude pruning; not used in the published results. |
 | Optimization | `quantize_int8_basic.py` | Full-INT8 `.tflite`, calibrated on the `train` partition only. |
-| Evaluation | `test_model.py` | MIL level. |
-| Evaluation | `test_tflite_model.py` | SIL level. |
+| Evaluation | `mil_benchmark.py` | MIL level. |
+| Evaluation | `sil_benchmark.py` | SIL level. |
 | Evaluation | `pil_benchmark.py` | PIL level, image over serial. |
-| Evaluation | `hil_camera_benchmark.py` | HIL level, camera in the loop. |
+| Evaluation | `hil_benchmark.py` | HIL level, camera in the loop. |
 | Deployment | `tflite_to_c.py` | `.tflite` to the `model.h` C header. |
 | Deployment | `compile_upload_arduino.py` | Compile and upload a firmware with `arduino-cli`. |
 | Analysis | `build_ladder_tables.py` | Rebuild the eight statistical tables of the paper in `results/tables/`. |
@@ -560,7 +560,7 @@ phlame-tinyml/
 - **Partition Manifests & Per-Image Results (in Git):** Complete stratified partition manifests (`data/splits_plates/{train,val,test}_manifest.csv`, `data/splits_plates/split_report.json`, and `data/splits_vww/{train,val,test}_manifest.csv`) and all per-image prediction and latency tables (`results/{mil,sil,pil,hil}/`) are version-controlled directly in this repository, allowing full statistical and paired 2×3 reproduction without hardware (see [Reproduce the Paper's Results](#reproduce-the-papers-results-without-hardware)). The generated tables are in `results/tables/`.
 - **Immediate Smoke-Test Sample (`data/sample/`):** A lightweight, personal-data-free 8-image sample (`data/sample/non_person/` and `data/sample/person/`, 4 `160×120` grayscale images per class from the held-out *Visual Wake Words* test split, individually licensed under **CC BY 2.0** with MS-COCO **CC BY 4.0** annotations; full provenance and SHA-256 checksums in `data/sample/ATTRIBUTION.md`) is tracked in git so users can immediately smoke-test data preprocessing right after cloning (see [Reproduce the Paper's Results](#reproduce-the-papers-results-without-hardware)), or evaluate a downloaded release model without overwriting `results/sil/`:
   ```bash
-  python src/test_tflite_model.py --model_path models/tflite/MobileNetV2_VWW+32+20+0.0001+160+120_int8.tflite --data_dir data/sample --class_names_path models/class_names_vww.txt --output_dir results/smoke_test
+  python src/sil_benchmark.py --model_path models/tflite/MobileNetV2_VWW+32+20+0.0001+160+120_int8.tflite --data_dir data/sample --class_names_path models/class_names_vww.txt --output_dir results/smoke_test
   ```
 - **Automated Visual Wake Words Benchmark (`src/download_vww_subset.py`):** The complete 2,000-image balanced *Visual Wake Words* dataset (`1,000 person` + `1,000 non_person` from MS-COCO `val2017`, `seed=42`, `selection_sha256: b3ab289abd4a`) can be rebuilt automatically in ~60 seconds via HTTP `Range` extraction:
   ```bash
