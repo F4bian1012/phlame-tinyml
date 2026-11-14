@@ -62,8 +62,8 @@ except ImportError:
     sys.exit(1)
 
 try:
-    from PIL import Image
-    import numpy as np
+    # images.py is the loader shared with MIL and SIL; it needs Pillow and numpy.
+    import images
 except ImportError:
     print("ERROR: Pillow and/or numpy are not installed.")
     print("Run: pip install Pillow numpy")
@@ -178,17 +178,11 @@ def preprocess_image(image_path: str, width: int, height: int, grayscale: bool) 
     """
     Loads, resizes and converts the image to the format expected by the tensor.
     Returns the RAW bytes (uint8, 0-255) in HWC order.
+
+    The array comes from images.load_image(), the loader MIL and SIL also use:
+    the bytes sent to the board are the ones the PC levels evaluate.
     """
-    img = Image.open(image_path)
-
-    if grayscale:
-        img = img.convert('L')
-    else:
-        img = img.convert('RGB')
-
-    img = img.resize((width, height), Image.LANCZOS)
-
-    arr = np.array(img, dtype=np.uint8)  # shape: (H, W) or (H, W, 3)
+    arr = images.load_image(image_path, width, height, grayscale)  # (H, W) or (H, W, 3)
 
     # Flatten in C order (row-major) -> tensor bytes
     raw = arr.flatten().tobytes()
@@ -534,7 +528,7 @@ def send_folder(port: str, baud: int, folder: str,
             correct = ""
         pred_writer.writerow([
             os.path.basename(image_path),
-            os.path.relpath(image_path, folder),
+            os.path.relpath(image_path, folder).replace(os.sep, "/"),
             true_label if label_known else "",
             _class_name(true_label, class_names) if label_known else "",
             predicted_class if got_response else "",

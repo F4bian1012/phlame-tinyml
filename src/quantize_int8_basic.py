@@ -1,24 +1,41 @@
 import os
 import glob
 import argparse
+import random
 import sys
+import numpy as np
 import tensorflow as tf
 
 import artifacts
 import cli
+import images
 
-def representative_data_gen(dataset, n_samples=100):
-    """Generator yielding dataset samples to calibrate INT8 activation ranges.
 
-    IMPORTANT: the dataset must ALWAYS come from the training split
-    (data/splits/train). Calibrating on test images would fit the activation
-    ranges (scale/zero_point) to the evaluation distribution, biasing SIL, PIL,
-    and HIL accuracy upward.
+def calibration_images(data_dir, width, height, n_samples, seed):
+    """The training images that calibrate the INT8 activation ranges.
+
+    IMPORTANT: data_dir must ALWAYS be the training split (data/splits/train).
+    Calibrating on test images would fit the activation ranges
+    (scale/zero_point) to the evaluation distribution, biasing SIL, PIL, and
+    HIL accuracy upward.
+
+    The file list is sorted and then shuffled with the seed (on disk the files
+    are grouped by class), so the same n_samples images are chosen on every
+    machine. They are read with images.py, the loader of MIL, SIL and the PIL
+    bench: calibration sees the pixels the evaluation levels will see.
     """
+    _, items = images.list_images(data_dir)
+    random.Random(seed).shuffle(items)
+    chosen = items[:n_samples]
+    paths = [os.path.join(data_dir, *rel.split('/')) for rel, _ in chosen]
+    return images.load_paths(paths, width, height)
+
+
+def representative_data_gen(calib_images):
+    """Generator yielding the calibration images one by one, as TFLiteConverter expects."""
     def gen():
-        # n_samples images, yielded one by one as expected by TFLiteConverter
-        for images, _ in dataset.unbatch().batch(1).take(n_samples):
-            yield [images]
+        for image in calib_images:
+            yield [images.as_model_input(image[np.newaxis])]
     return gen
 
 def main():
@@ -93,15 +110,9 @@ def main():
 
     print(f"\nCalibrating with {args.calib_samples} images from {data_dir} "
           f"(seed {args.calib_seed})...")
-    calib_ds = tf.keras.utils.image_dataset_from_directory(
-        data_dir,
-        # no validation_split or subset: the directory IS already the train split
-        shuffle=True,            # required: files on disk are grouped by class
-        seed=args.calib_seed,    # fixed seed makes calibration shuffling reproducible
-        color_mode='grayscale',
-        image_size=(height, width),
-        batch_size=32
-    )
+    # No validation_split or subset: the directory IS already the train split.
+    calib_images = calibration_images(data_dir, width, height, args.calib_samples, args.calib_seed)
+    print(f"Calibration images read: {len(calib_images)}")
 
     print("\nLoading model...")
     model = tf.keras.models.load_model(model_path)
@@ -111,7 +122,7 @@ def main():
     converter.optimizations = [tf.lite.Optimize.DEFAULT]
 
     # Provide the representative dataset (mandatory for full-INT8 conversion)
-    converter.representative_dataset = representative_data_gen(calib_ds, args.calib_samples)
+    converter.representative_dataset = representative_data_gen(calib_images)
 
     converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
 

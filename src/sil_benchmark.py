@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 
 import artifacts
 import cli
+import images
 
 try:
     import seaborn as sns
@@ -203,35 +204,27 @@ def main():
                 f"{class_names_path} ({class_names}); the class names will be inferred from the directory."
             )
             class_names = []
-    # Use batch_size=1 because the TFLite interpreter typically runs single-frame
-    # inference, and shuffle=False to keep inputs aligned with filenames/labels.
-    test_ds = tf.keras.utils.image_dataset_from_directory(
-        args.data_dir,
-        labels='inferred',
-        label_mode='int',
-        class_names=class_names if class_names else None,
-        color_mode='grayscale',
-        batch_size=1,
-        image_size=(args.height, args.width),
-        shuffle=False
-    )
-
-    if not class_names:
-        class_names = test_ds.class_names
+    # Read with the loader shared by MIL and the PIL bench (images.py), so the
+    # three levels receive the same bytes for the same file. The order is fixed
+    # (classes, then file names), which keeps inputs aligned with file names and labels.
+    inferred = not class_names
+    test_images, y_true, rel_paths, class_names = images.load_folder(
+        args.data_dir, args.width, args.height, class_names if class_names else None,
+        grayscale=(expected_channels == 1))
+    if inferred:
         print(f"Class names inferred from the directory: {class_names}")
+    print(f"Found {len(rel_paths)} files belonging to {len(class_names)} classes.")
 
     num_classes = len(class_names)
 
-    y_true = []
     predictions = []
 
     print("Generating frame-by-frame predictions with the TFLite model (sequential inference)...")
 
-    for x, y in test_ds:
-        y_true.append(y.numpy()[0])
-
-        # x is originally in [0..255] float32; convert as required by the TFLite input tensor.
-        input_data = x.numpy()
+    # One image per call, because the TFLite interpreter runs single-frame inference.
+    for image in test_images:
+        # Raw pixels in [0..255] as float32; converted below as the input tensor requires.
+        input_data = images.as_model_input(image[np.newaxis])
 
         # Reshape if necessary to match the exact expected input tensor shape
         if tuple(input_data.shape) != tuple(input_details['shape']):
@@ -244,7 +237,6 @@ def main():
         output_data = dequantize_output(output_data, output_details)
         predictions.append(output_data[0])
 
-    y_true = np.array(y_true)
     predictions = np.array(predictions)
 
     if num_classes == 1:
@@ -310,17 +302,17 @@ def main():
     # (Image;RelPath;TrueLabel;TrueClass;PredLabel;PredClass;Correct) so that
     # MIL, SIL, PIL and the HIL subset (hil_subset==1) can be joined image by image.
     pred_csv_path = os.path.join(out_dir, f"predictions_{model_name_without_ext}.csv")
-    file_paths = list(test_ds.file_paths)
     with open(pred_csv_path, "w", newline="", encoding="utf-8") as pred_file:
         pred_writer = csv.writer(pred_file, delimiter=";")
         pred_writer.writerow(["Image", "RelPath", "TrueLabel", "TrueClass",
                               "PredLabel", "PredClass", "Correct"])
-        for fp, t_lbl, p_lbl in zip(file_paths, y_true, y_pred):
+        # RelPath is written with '/' on every operating system
+        for rel, t_lbl, p_lbl in zip(rel_paths, y_true, y_pred):
             t_int = int(t_lbl)
             p_int = int(p_lbl)
             pred_writer.writerow([
-                os.path.basename(fp),
-                os.path.relpath(fp, args.data_dir),
+                rel.split("/")[-1],
+                rel,
                 t_int,
                 _class_name(t_int, class_names),
                 p_int,
