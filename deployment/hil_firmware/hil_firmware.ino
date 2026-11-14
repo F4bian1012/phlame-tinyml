@@ -2,37 +2,37 @@
    Licensed under the Apache License, Version 2.0 (the "License") */
 
 // ============================================================================
-// PHLAME - Firmware HIL (camera-in-the-loop) para Portenta H7 + Vision Shield
+// PHLAME - HIL (camera-in-the-loop) firmware for the Portenta H7 + Vision Shield
 // ----------------------------------------------------------------------------
-// Firmware DEDICADO al banco HIL: la camara HM01B0 captura la
-// escena fisica y el sistema completo corre en el MCU. Es INDEPENDIENTE del
-// banco PIL: el firmware canonico deployment/pil_firmware/pil_firmware.ino
-// (imagen por serial, protocolo #...@) queda intacto como fallback publicable.
+// Firmware DEDICATED to the HIL bench: the HM01B0 camera captures the physical
+// scene and the whole system runs on the MCU. It is INDEPENDENT of the PIL
+// bench: the PIL firmware deployment/pil_firmware/pil_firmware.ino (image over
+// serial, #...@ protocol) is a separate sketch and is left untouched.
 //
 // Host companion: src/hil_benchmark.py
 //
-// Comandos serie:
-//   'T'      -> capturar un frame de la HM01B0 y ejecutar la inferencia
-//   'F' '1'  -> activar frame-dump: tras cada inferencia se devuelve el frame
-//               crudo del sensor (lineas FRAME_BEGIN/END + paquete #...@ con
-//               escape ESC/XOR 0x20, el mismo esquema del banco PIL) para
-//               validacion cruzada SIL-en-PC sobre el frame real
-//   'F' '0'  -> desactivar frame-dump   (responde "FRAME_DUMP:ON|OFF")
+// Serial commands:
+//   'T'      -> capture one frame from the HM01B0 and run the inference
+//   'F' '1'  -> enable frame-dump: after each inference the raw sensor frame
+//               is sent back (FRAME_BEGIN/END lines + #...@ packet with
+//               ESC/XOR 0x20 escaping, the same scheme as the PIL bench) for
+//               SIL-on-PC cross-validation on the real frame
+//   'F' '0'  -> disable frame-dump   (answers "FRAME_DUMP:ON|OFF")
 //
-// Handshake de arranque (lineas parseables):
-//   CAM_INIT:OK | CAM_INIT:FAIL   la camara se inicializa PRIMERO, antes de
-//                                 SDRAM y TFLite (ver nota en setup())
-//   INPUT_SHAPE:<H>x<W>x<C>   geometria del tensor de entrada
-//   READY_HIL                 listo para recibir triggers
+// Boot handshake (parseable lines):
+//   CAM_INIT:OK | CAM_INIT:FAIL   the camera is initialized FIRST, before
+//                                 SDRAM and TFLite (see the note in setup())
+//   INPUT_SHAPE:<H>x<W>x<C>   geometry of the input tensor
+//   READY_HIL                 ready to receive triggers
 //
-// Telemetria por inferencia:
-//   TEMP_C:<int>              temperatura del MCU (fuera de la region medida)
-//   TS_MS:<uint32>            timestamp millis() de la inferencia
-//   <int>                     clase predicha (entero SOLO en su linea)
-//   CYC_CAPTURE / CYC_PRE / CYC_INF / CYC_POST / CYC_TOTAL   ciclos DWT->CYCCNT
-//   US_CAPTURE  / US_PRE  / US_INF  / US_POST  / US_TOTAL    microsegundos
-//   (PRE incluye el resize camara->geometria del modelo y la cuantizacion;
-//    TOTAL = CAPTURE + PRE + INF + POST = latencia sensor->prediccion)
+// Telemetry per inference:
+//   TEMP_C:<int>              MCU temperature (outside the measured region)
+//   TS_MS:<uint32>            millis() timestamp of the inference
+//   <int>                     predicted class (integer ALONE on its line)
+//   CYC_CAPTURE / CYC_PRE / CYC_INF / CYC_POST / CYC_TOTAL   DWT->CYCCNT cycles
+//   US_CAPTURE  / US_PRE  / US_INF  / US_POST  / US_TOTAL    microseconds
+//   (PRE includes the camera->model-geometry resize and the quantization;
+//    TOTAL = CAPTURE + PRE + INF + POST = sensor->prediction latency)
 // ============================================================================
 
 #include "mbed.h"
@@ -40,7 +40,7 @@
 #include <Chirale_TensorFlowLite.h>
 #include <SDRAM.h>
 
-// --- Camara HM01B0 (Portenta Vision Shield) ---
+// --- HM01B0 camera (Portenta Vision Shield) ---
 #include "camera.h"
 #include "himax.h"
 
@@ -58,17 +58,17 @@ tflite::MicroInterpreter *interpreter = nullptr;
 TfLiteTensor *input = nullptr;
 TfLiteTensor *output = nullptr;
 
-// Tensor Arena: Definido como PUNTERO para usar SDRAM
+// Tensor arena: declared as a POINTER so that it can live in SDRAM
 constexpr int kTensorArenaSize =
-    4 * 1024 * 1024; // 4 MB para modelos mas grandes
+    4 * 1024 * 1024; // 4 MB for the larger models
 uint8_t *tensor_arena = nullptr;
 
-// Usamos AllOpsResolver porque la Portenta H7 tiene mucha memoria Flash (2MB)
-// y esto previene errores de "AllocateTensors()" por operaciones faltantes
+// AllOpsResolver is used because the Portenta H7 has plenty of flash (2 MB)
+// and it avoids AllocateTensors() errors caused by missing operations
 tflite::AllOpsResolver resolver;
 
-// ---- CAMARA HM01B0 ----
-// Resolucion nativa de captura del banco HIL: 160x120 gris, 30 fps.
+// ---- HM01B0 CAMERA ----
+// Native capture resolution of the HIL bench: 160x120 grayscale, 30 fps.
 #define CAM_WIDTH 160
 #define CAM_HEIGHT 120
 #define CAM_FPS 30
@@ -76,55 +76,57 @@ tflite::AllOpsResolver resolver;
 HM01B0 himax;
 Camera cam(himax);
 FrameBuffer fb;
-bool frame_dump = false; // 'F1'/'F0': devolver el frame capturado al host
+bool frame_dump = false; // 'F1'/'F0': send the captured frame back to the host
 
-// Geometria del tensor de entrada (se lee de input->dims en setup())
+// Geometry of the input tensor (read from input->dims in setup())
 int model_h = 0, model_w = 0, model_c = 1;
 
-// Buffer de trabajo: frame redimensionado a la geometria del modelo.
-// 400KB en SDRAM cubre holgado hasta 320x320 RGB.
+// Working buffer: the frame resized to the model geometry.
+// 400 KB in SDRAM comfortably covers up to 320x320 RGB.
 #define IMAGE_BUFFER_SIZE (400 * 1024)
 uint8_t *image_buffer = nullptr;
 int image_bytes_ready = 0;
 
-// ---- MEDICION DE LATENCIA: contador de ciclos DWT->CYCCNT ----
-// El Cortex-M7 lleva una unidad Data Watchpoint & Trace (DWT) con un contador
-// de ciclos de nucleo de 32 bits (CYCCNT). Cuenta 1 por ciclo de reloj, asi
-// que la resolucion es 1/SystemCoreClock (2.5 ns a 400 MHz, valor medido: SystemCoreClock), muchisimo mas
-// fina que millis()/micros(). Se habilita una vez en setup().
-// A 400 MHz el contador de 32 bits desborda cada ~10.74 s; como cada fase dura
-// muy por debajo de eso, la resta unsigned (t_fin - t_ini) es correcta incluso
-// con un desbordamiento.
+// ---- LATENCY MEASUREMENT: DWT->CYCCNT cycle counter ----
+// The Cortex-M7 has a Data Watchpoint & Trace (DWT) unit with a 32-bit core
+// cycle counter (CYCCNT). It counts 1 per clock cycle, so the resolution is
+// 1/SystemCoreClock (2.5 ns at 400 MHz, the measured value of
+// SystemCoreClock), far finer than millis()/micros(). It is enabled once in
+// setup().
+// At 400 MHz the 32-bit counter wraps every ~10.74 s; since each phase lasts
+// far less than that, the unsigned subtraction (t_end - t_start) is correct
+// even across one wrap.
 static inline void dwt_enable_cycle_counter() {
   CoreDebug->DEMCR |=
-      CoreDebug_DEMCR_TRCENA_Msk; // habilitar el bloque de trace
+      CoreDebug_DEMCR_TRCENA_Msk; // enable the trace block
 #ifdef DWT_LAR_KEY
-  DWT->LAR = 0xC5ACCE55; // desbloquear registros DWT (algunos M7 lo requieren)
+  DWT->LAR = 0xC5ACCE55; // unlock the DWT registers (some M7 cores need it)
 #endif
-  DWT->CYCCNT = 0;                     // reiniciar contador
-  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk; // arrancar CYCCNT
+  DWT->CYCCNT = 0;                     // reset the counter
+  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk; // start CYCCNT
 }
 static inline uint32_t dwt_cycles() { return DWT->CYCCNT; }
 
-// Convierte ciclos de nucleo a microsegundos usando el reloj real del MCU.
+// Converts core cycles to microseconds using the actual clock of the MCU.
 static inline float cycles_to_us(uint32_t cycles) {
   return (float)cycles * 1e6f / (float)SystemCoreClock;
 }
 
-// ---- Funcion: resize/crop del frame de camara al buffer de imagen ----
-// Reproduce el MISMO contrato de preprocesado que el pipeline de
-// entrenamiento y el banco PIL: pixel CRUDO uint8 [0,255], orden HWC
-// row-major. La interpolacion es nearest-neighbor (determinista y barata en
-// el M7). Si el modelo es de 3 canales, el gris se replica en R=G=B, igual
-// que convertir 'L'->'RGB' en PIL.
-// NOTA para el paper: el banco PIL usa LANCZOS en el host; aqui se usa
-// nearest. Si la geometria del modelo == 160x120 (nativa de la HM01B0) no
-// hay resize y ambos caminos son identicos. Documentar esta diferencia como
-// parte del contrato (checklist Fase 1C).
+// ---- Function: resize/crop the camera frame into the image buffer ----
+// Reproduces the SAME preprocessing contract as the training pipeline and the
+// PIL bench: RAW uint8 pixel [0,255], HWC row-major order. The interpolation
+// is nearest-neighbor (deterministic and cheap on the M7). If the model has 3
+// channels, the gray value is replicated in R=G=B, the same as converting
+// 'L'->'RGB' in Pillow.
+// Known difference between levels: the PIL bench resizes with LANCZOS on the
+// host; nearest-neighbor is used here. When the model geometry is 160x120
+// (native to the HM01B0) there is no resize and both paths are identical.
+// This difference is part of the preprocessing contract and must be reported
+// with any result obtained at another geometry.
 void cameraFrameToImageBuffer(const uint8_t *frame) {
   int idx = 0;
   if (model_w == CAM_WIDTH && model_h == CAM_HEIGHT) {
-    // Camino rapido sin resize (caso canonico 160x120)
+    // Fast path without resize (canonical 160x120 case)
     if (model_c == 1) {
       memcpy(image_buffer, frame, CAM_WIDTH * CAM_HEIGHT);
       idx = CAM_WIDTH * CAM_HEIGHT;
@@ -136,7 +138,7 @@ void cameraFrameToImageBuffer(const uint8_t *frame) {
       }
     }
   } else {
-    // Nearest-neighbor: mapear cada pixel destino al origen mas cercano
+    // Nearest-neighbor: map each destination pixel to the closest source one
     for (int y = 0; y < model_h; ++y) {
       int sy = (int)((uint32_t)y * CAM_HEIGHT / model_h);
       for (int x = 0; x < model_w; ++x) {
@@ -155,14 +157,14 @@ void cameraFrameToImageBuffer(const uint8_t *frame) {
   image_bytes_ready = idx;
 }
 
-// ---- Funcion: cargar imagen al tensor de entrada ----
-// Identica al banco PIL: pixel crudo [0,255] cuantizado con los parametros
-// REALES del tensor (scale/zero_point del TFLite converter).
+// ---- Function: load the image into the input tensor ----
+// Identical to the PIL bench: raw pixel [0,255] quantized with the ACTUAL
+// parameters of the tensor (scale/zero_point from the TFLite converter).
 void loadImageToInputTensor() {
   int expected_bytes = 0;
 
   if (input->type == kTfLiteInt8) {
-    expected_bytes = input->bytes; // total bytes del tensor (e.g. 160*120*1)
+    expected_bytes = input->bytes; // total bytes of the tensor (e.g. 160*120*1)
 
     const float in_scale = input->params.scale;
     const int32_t in_zero_point = input->params.zero_point;
@@ -170,13 +172,14 @@ void loadImageToInputTensor() {
     int to_copy = (image_bytes_ready < expected_bytes) ? image_bytes_ready
                                                        : expected_bytes;
     for (int i = 0; i < to_copy; ++i) {
-      // Este modelo fue convertido SIN capa Rescaling: espera el pixel CRUDO
-      // en [0,255]. Si en el futuro entrenas con Rescaling(1./255) -> [0,1]:
+      // This model was converted WITHOUT a Rescaling layer: it expects the
+      // RAW pixel in [0,255]. If you later train with Rescaling(1./255) ->
+      // [0,1]:
       //   (float)image_buffer[i] / 255.0f
-      // Si usas preprocess_input de MobileNet -> [-1,1]:
+      // If you use MobileNet's preprocess_input -> [-1,1]:
       //   ((float)image_buffer[i] / 127.5f) - 1.0f
-      // Debe COINCIDIR con el preprocesado del dataset representativo del
-      // TFLite converter (mira process_images.py / la conversion).
+      // It must MATCH the preprocessing of the representative dataset of the
+      // TFLite converter (see process_images.py / the conversion).
       const float real_value = (float)image_buffer[i];
       int32_t q = (int32_t)lroundf(real_value / in_scale) + in_zero_point;
       if (q < -128)
@@ -185,13 +188,13 @@ void loadImageToInputTensor() {
         q = 127;
       input->data.int8[i] = (int8_t)q;
     }
-    // Relleno: usar el zero_point (representa el "0 real"), no un 0 crudo
+    // Padding: use the zero_point (it represents the "real 0"), not a raw 0
     for (int i = to_copy; i < expected_bytes; ++i) {
       input->data.int8[i] = (int8_t)in_zero_point;
     }
 
   } else if (input->type == kTfLiteFloat32) {
-    expected_bytes = input->bytes / 4; // numero de floats
+    expected_bytes = input->bytes / 4; // number of floats
     int to_copy = (image_bytes_ready < expected_bytes) ? image_bytes_ready
                                                        : expected_bytes;
     for (int i = 0; i < to_copy; ++i) {
@@ -203,28 +206,28 @@ void loadImageToInputTensor() {
   }
 }
 
-// ---- Funcion: ejecutar inferencia y reportar resultado + latencias ----
-// Fases medidas con DWT->CYCCNT:
-//   capture    : adquisicion camara -> framebuffer (pasada en cyc_capture)
-//   preprocess : resize (extra_pre_cycles) + carga/cuantizacion al tensor
+// ---- Function: run the inference and report result + latencies ----
+// Phases measured with DWT->CYCCNT:
+//   capture    : camera acquisition -> framebuffer (passed in cyc_capture)
+//   preprocess : resize (extra_pre_cycles) + loading/quantizing into the tensor
 //   inference  : interpreter->Invoke()
-//   postprocess: argmax de la salida
+//   postprocess: argmax of the output
 void runInference(uint32_t cyc_capture, uint32_t extra_pre_cycles) {
-  // --- Fase: preprocesado (carga + cuantizacion de la imagen) ---
+  // --- Phase: preprocessing (loading + quantizing the image) ---
   uint32_t t0 = dwt_cycles();
   loadImageToInputTensor();
   uint32_t t1 = dwt_cycles();
 
-  // --- Fase: inferencia ---
+  // --- Phase: inference ---
   TfLiteStatus invoke_status = interpreter->Invoke();
   uint32_t t2 = dwt_cycles();
 
   if (invoke_status != kTfLiteOk) {
-    Serial.println("ERROR: Invoke() fallo.");
+    Serial.println("ERROR: Invoke() failed.");
     return;
   }
 
-  // --- Fase: postprocesado (argmax) ---
+  // --- Phase: postprocessing (argmax) ---
   int best_class = 0;
   if (output->type == kTfLiteInt8) {
     int num_classes = output->bytes;
@@ -247,20 +250,20 @@ void runInference(uint32_t cyc_capture, uint32_t extra_pre_cycles) {
   }
   uint32_t t3 = dwt_cycles();
 
-  // Ciclos por fase (resta unsigned: robusta ante un desbordamiento del CYCCNT)
+  // Cycles per phase (unsigned subtraction: robust to one CYCCNT wrap)
   uint32_t cyc_pre = (t1 - t0) + extra_pre_cycles;
   uint32_t cyc_inf = t2 - t1;
   uint32_t cyc_post = t3 - t2;
   uint32_t cyc_total = cyc_capture + cyc_pre + cyc_inf + cyc_post;
 
-  // 0) Timestamp del evento (para emparejar con el ground truth en el host)
+  // 0) Timestamp of the event (to pair it with the ground truth on the host)
   Serial.print("TS_MS:");
   Serial.println(millis());
 
-  // 1) Clase (entero SOLO en su linea, parseable por el host)
+  // 1) Class (an integer ALONE on its line, parseable by the host)
   Serial.println(best_class);
 
-  // 2) Latencia en ciclos de nucleo (medida cruda, sin conversion)
+  // 2) Latency in core cycles (raw measurement, no conversion)
   Serial.print("CYC_CAPTURE:");
   Serial.println(cyc_capture);
   Serial.print("CYC_PRE:");
@@ -272,7 +275,7 @@ void runInference(uint32_t cyc_capture, uint32_t extra_pre_cycles) {
   Serial.print("CYC_TOTAL:");
   Serial.println(cyc_total);
 
-  // 3) Latencia en microsegundos (usando SystemCoreClock real del MCU)
+  // 3) Latency in microseconds (using the actual SystemCoreClock of the MCU)
   Serial.print("US_CAPTURE:");
   Serial.println(cycles_to_us(cyc_capture), 3);
   Serial.print("US_PRE:");
@@ -285,7 +288,7 @@ void runInference(uint32_t cyc_capture, uint32_t extra_pre_cycles) {
   Serial.println(cycles_to_us(cyc_total), 3);
 }
 
-// ---- Telemetria termica (fuera de la region cronometrada) ----
+// ---- Thermal telemetry (outside the timed region) ----
 void printMcuTemperature() {
   mbed::AnalogIn mcuADCVref(ADC_VREF);
   mbed::AnalogIn mcuADCTemp(ADC_TEMP);
@@ -301,15 +304,15 @@ void printMcuTemperature() {
   Serial.println(mcuTemp);
 }
 
-// ---- Funcion: devolver el frame capturado al host (frame-dump) ----
-// Envia el frame CRUDO de la HM01B0 (160x120, tal cual salio del sensor,
-// ANTES del resize a la geometria del modelo) con el esquema de escape del
-// protocolo PIL ('#'/'@'/ESC -> ESC, byte XOR 0x20). El host lo guarda y
-// puede correr el MISMO .tflite en PC (SIL) sobre este frame: asi la brecha
-// PIL->HIL se descompone en (a) degradacion sensor/optica/pantalla y
-// (b) divergencia de ejecucion chip vs PC.
-// Se envia FUERA de la region cronometrada (despues de reportar latencias):
-// no contamina la medicion.
+// ---- Function: send the captured frame back to the host (frame-dump) ----
+// Sends the RAW HM01B0 frame (160x120, exactly as it left the sensor, BEFORE
+// the resize to the model geometry) with the escape scheme of the PIL
+// protocol ('#'/'@'/ESC -> ESC, byte XOR 0x20). The host stores it and can run
+// the SAME .tflite on the PC (SIL) on this frame: the PIL->HIL gap is thus
+// split into (a) sensor/optics/display degradation and (b) chip-vs-PC
+// execution divergence.
+// It is sent OUTSIDE the timed region (after the latencies are reported): it
+// does not contaminate the measurement.
 void sendFrameToHost(const uint8_t *buf, size_t n) {
   Serial.print("FRAME_BEGIN:");
   Serial.println((uint32_t)n);
@@ -330,44 +333,44 @@ void sendFrameToHost(const uint8_t *buf, size_t n) {
   Serial.flush();
 }
 
-// ---- Ciclo HIL: capturar frame real + inferencia sensor->prediccion ----
+// ---- HIL cycle: capture a real frame + sensor->prediction inference ----
 void runHilCapture() {
-  Serial.println("\n--- Trigger HIL. Capturando frame de la HM01B0... ---");
+  Serial.println("\n--- HIL trigger. Capturing a frame from the HM01B0... ---");
 
-  // Telemetria termica ANTES de la region medida
+  // Thermal telemetry BEFORE the measured region
   printMcuTemperature();
 
-  // --- Fase CAPTURE: camara -> framebuffer (medida con DWT->CYCCNT) ---
+  // --- CAPTURE phase: camera -> framebuffer (measured with DWT->CYCCNT) ---
   uint32_t tc0 = dwt_cycles();
-  int grab_status = cam.grabFrame(fb, 3000); // timeout 3 s
+  int grab_status = cam.grabFrame(fb, 3000); // 3 s timeout
   uint32_t tc1 = dwt_cycles();
 
   if (grab_status != 0) {
-    Serial.println("ERROR: grabFrame() fallo (timeout o camara desconectada).");
-    Serial.println("--- Listo. Esperando siguiente trigger... ---\n");
+    Serial.println("ERROR: grabFrame() failed (timeout or camera disconnected).");
+    Serial.println("--- Done. Waiting for the next trigger... ---\n");
     Serial.flush();
     return;
   }
   uint32_t cyc_capture = tc1 - tc0;
 
-  // --- Resize/crop camara -> geometria del modelo (cuenta como PRE) ---
+  // --- Resize/crop camera -> model geometry (counted as PRE) ---
   uint32_t tr0 = dwt_cycles();
   cameraFrameToImageBuffer(fb.getBuffer());
   uint32_t tr1 = dwt_cycles();
 
   runInference(cyc_capture, tr1 - tr0);
 
-  Serial.println("--- Listo. Esperando siguiente trigger... ---\n");
+  Serial.println("--- Done. Waiting for the next trigger... ---\n");
   Serial.flush();
 
-  // Frame-dump (fuera de la medicion): devolver el frame crudo al host para
-  // trazabilidad y validacion cruzada SIL-en-PC.
+  // Frame-dump (outside the measurement): send the raw frame back to the host
+  // for traceability and SIL-on-PC cross-validation.
   if (frame_dump) {
     sendFrameToHost(fb.getBuffer(), (size_t)(CAM_WIDTH * CAM_HEIGHT));
   }
 }
 
-// ---- Dispatcher de comandos serie ('T', 'F0'/'F1') ----
+// ---- Serial command dispatcher ('T', 'F0'/'F1') ----
 void handleSerialCommands() {
   while (Serial.available() > 0) {
     uint8_t byte_in = (uint8_t)Serial.read();
@@ -375,11 +378,11 @@ void handleSerialCommands() {
     if (byte_in == 'T') {
       runHilCapture();
     } else if (byte_in == 'F') {
-      // Comando frame-dump: esperar el segundo byte ('0' o '1')
+      // Frame-dump command: wait for the second byte ('0' or '1')
       unsigned long t = millis();
       while (!Serial.available()) {
         if (millis() - t > 500)
-          return; // comando incompleto: descartar
+          return; // incomplete command: discard it
       }
       uint8_t fd_byte = (uint8_t)Serial.read();
       if (fd_byte == '1') {
@@ -391,16 +394,16 @@ void handleSerialCommands() {
       }
       Serial.flush();
     }
-    // cualquier otro byte se ignora (ruido)
+    // any other byte is ignored (noise)
   }
 }
 
 // ---------------------------------------------------------------------------
-// Huella del modelo (actividad 43). El banco del PC calcula la misma FNV-1a
-// sobre el .tflite y aborta si no coincide: convierte "la placa llevaba otro
-// modelo" de fallo silencioso en fallo ruidoso. g_model[] es el .tflite byte a
-// byte (tflite_to_c.py), asi que las huellas deben ser identicas.
-// Coste: una pasada por flash (~1-3 ms a 400 MHz por MB). Solo en setup().
+// Model fingerprint. The PC bench computes the same FNV-1a over the .tflite
+// and aborts if they differ: it turns "the board was carrying another model"
+// from a silent failure into a loud one. g_model[] is the .tflite byte for
+// byte (tflite_to_c.py), so the fingerprints must be identical.
+// Cost: one pass over flash (~1-3 ms at 400 MHz per MB). Only in setup().
 // ---------------------------------------------------------------------------
 static uint32_t fnv1a32(const uint8_t *p, size_t n) {
   uint32_t h = 2166136261u;
@@ -427,70 +430,69 @@ static void printModelFingerprint() {
 
 void setup() {
   Serial.begin(115200);
-  // Espera ACOTADA: un 'while (!Serial)' sin limite deja la placa colgada en
-  // silencio si nadie abre el puerto, y desde el host es indistinguible de un
-  // firmware que no arranca.
+  // BOUNDED wait: an unlimited 'while (!Serial)' leaves the board hanging in
+  // silence if nobody opens the port, and from the host that cannot be told
+  // apart from a firmware that does not boot.
   uint32_t t_serial = millis();
   while (!Serial && (millis() - t_serial) < 5000) {
   }
   delay(2000);
 
-  // Habilitar el contador de ciclos DWT para medir latencia con precision de
-  // 1 ciclo. Debe hacerse una sola vez, aqui.
+  // Enable the DWT cycle counter to measure latency with 1-cycle resolution.
+  // It must be done only once, here.
   dwt_enable_cycle_counter();
 
-  // --- Inicializar la camara HM01B0 (160x120 gris, 30 fps) ------------------
-  // Se inicializa antes que SDRAM y TFLite para que un fallo del sensor se
-  // reporte cuanto antes, y para que este arranque sea equivalente al del
-  // sketch de diagnostico deployment/camera_test/camera_test.ino.
-  // OJO con el valor de retorno: Camera::begin() devuelve bool (true = exito),
-  // a diferencia del resto de la API de la libreria (grabFrame, setFrameRate...)
-  // que sigue el convenio C de 0 = exito. Compararlo con == 0 invierte la
-  // logica y reporta CAM_INIT:FAIL justo cuando la camara arranca bien.
+  // --- Initialize the HM01B0 camera (160x120 grayscale, 30 fps) -------------
+  // It is initialized before SDRAM and TFLite so that a sensor failure is
+  // reported as early as possible.
+  // MIND the return value: Camera::begin() returns bool (true = success),
+  // unlike the rest of the library API (grabFrame, setFrameRate...), which
+  // follows the C convention of 0 = success. Comparing it with == 0 inverts
+  // the logic and reports CAM_INIT:FAIL exactly when the camera starts fine.
   if (cam.begin(CAMERA_R160x120, CAMERA_GRAYSCALE, CAM_FPS)) {
     Serial.println("CAM_INIT:OK");
   } else {
     Serial.println("CAM_INIT:FAIL");
-    Serial.println("ERROR: Vision Shield no detectado. Sistema detenido.");
+    Serial.println("ERROR: Vision Shield not detected. System halted.");
     Serial.flush();
     while (1)
       ;
   }
 
-  // --- SDRAM: buffer de imagen + arena de tensores ---------------------------
+  // --- SDRAM: image buffer + tensor arena ------------------------------------
   SDRAM.begin();
 
-  // Buffer de trabajo del frame redimensionado, en SDRAM
+  // Working buffer for the resized frame, in SDRAM
   image_buffer = (uint8_t *)ea_malloc(IMAGE_BUFFER_SIZE);
 
-  // Memoria con 16 bytes extra para alineacion
+  // Memory with 16 extra bytes for alignment
   uint8_t *raw_arena = (uint8_t *)ea_malloc(kTensorArenaSize + 16);
 
   if (raw_arena == nullptr || image_buffer == nullptr) {
-    Serial.println("ERROR: No hay SDRAM disponible para Arena o Image Buffer.");
+    Serial.println("ERROR: no SDRAM available for the tensor arena or the image buffer.");
     while (1)
       ;
   }
 
-  // Alineacion a 16 bytes
+  // Align to 16 bytes
   tensor_arena = (uint8_t *)(((uintptr_t)raw_arena + 15) & ~15);
 
   tflite::InitializeTarget();
 
-  Serial.println("\n--- INICIANDO DIAGNOSTICO (HIL/camara) ---");
-  Serial.print("Direccion del Tensor Arena en SDRAM: 0x");
+  Serial.println("\n--- STARTING DIAGNOSTICS (HIL/camera) ---");
+  Serial.print("Tensor arena address in SDRAM: 0x");
   Serial.println((uint32_t)tensor_arena, HEX);
   Serial.print("SystemCoreClock (Hz): ");
   Serial.println(SystemCoreClock);
   Serial.flush();
 
-  Serial.println("1. Registrando operaciones (AllOpsResolver)...");
-  Serial.println("2. Leyendo el modelo de la memoria Flash...");
+  Serial.println("1. Registering operations (AllOpsResolver)...");
+  Serial.println("2. Reading the model from flash memory...");
   Serial.flush();
 
   model = tflite::GetModel(g_model);
 
-  Serial.println("3. Verificando version del modelo...");
+  Serial.println("3. Checking the model version...");
   Serial.flush();
   if (model->version() != TFLITE_SCHEMA_VERSION) {
     Serial.println("Version mismatch!");
@@ -498,29 +500,29 @@ void setup() {
       ;
   }
 
-  Serial.println("4. Creando el interprete estatico...");
+  Serial.println("4. Creating the static interpreter...");
   Serial.flush();
 
   static tflite::MicroInterpreter static_interpreter(
       model, resolver, tensor_arena, kTensorArenaSize);
   interpreter = &static_interpreter;
 
-  Serial.println("5. Ejecutando AllocateTensors()...");
+  Serial.println("5. Running AllocateTensors()...");
   Serial.flush();
 
   TfLiteStatus allocate_status = interpreter->AllocateTensors();
 
   if (allocate_status != kTfLiteOk) {
-    Serial.println("Fallo al asignar tensores. Arena muy pequeno?");
+    Serial.println("Failed to allocate tensors. Arena too small?");
     while (1)
       ;
   }
-  Serial.println("AllocateTensors() EXITOSO!");
+  Serial.println("AllocateTensors() OK.");
 
   input = interpreter->input(0);
   output = interpreter->output(0);
 
-  // Geometria del tensor de entrada (NHWC): la usa el resize camara->modelo
+  // Geometry of the input tensor (NHWC): used by the camera->model resize
   if (input->dims->size == 4) {
     model_h = input->dims->data[1];
     model_w = input->dims->data[2];
@@ -537,7 +539,7 @@ void setup() {
   Serial.print("x");
   Serial.println(model_c);
 
-  // Diagnostico de cuantizacion del tensor de entrada
+  // Quantization diagnostics of the input tensor
   if (input->type == kTfLiteInt8) {
     Serial.print("Input int8 -> scale=");
     Serial.print(input->params.scale, 8);
@@ -545,16 +547,16 @@ void setup() {
     Serial.println(input->params.zero_point);
   }
 
-  // Identidad del modelo cargado: el banco la compara con el .tflite del PC
+  // Identity of the loaded model: the bench compares it with the .tflite on the PC
   printModelFingerprint();
 
-  Serial.println("Setup completado exitosamente.");
-  Serial.println("Comandos: 'T'=capturar+inferir  'F1'/'F0'=frame-dump on/off");
+  Serial.println("Setup completed successfully.");
+  Serial.println("Commands: 'T'=capture+infer  'F1'/'F0'=frame-dump on/off");
   Serial.println("READY_HIL");
   Serial.flush();
 }
 
 void loop() {
-  // Loop no bloqueante: polling continuo de comandos del host
+  // Non-blocking loop: continuous polling of commands from the host
   handleSerialCommands();
 }
