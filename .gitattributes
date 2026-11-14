@@ -1,0 +1,2 @@
+# The checksum list is read by sha256sum, which needs LF line endings on every platform.
+models/checksums.sha256 text eol=lf
