@@ -1,0 +1,182 @@
+{
+  "level": "PIL",
+  "generated_utc": "2026-11-03T14:11:17.584426+00:00",
+  "model": {
+    "path": "models/tflite/MobileNetV3Small_COCO+32+20+0.0001+160+120_int8.tflite",
+    "name": "MobileNetV3Small_COCO+32+20+0.0001+160+120_int8",
+    "sha256": "2615f51faf3fc0e1e327fd722b367edf04ba9a690889be0421efd3f054abfb5d",
+    "bytes": 836896,
+    "note": "checksum of the .tflite given with --model_path. The bench does NOT load it or compare it against the board: it certifies that this file is the one SIL evaluated, not that it is the one flashed."
+  },
+  "run": {
+    "port": "COM3",
+    "board": "PORTENTA_H7",
+    "baud": 115200,
+    "input_shape": {
+      "width": 160,
+      "height": 120,
+      "channels": 1
+    },
+    "pre_delay_s": 1.0,
+    "gap_s": 0.5,
+    "n_samples_requested": null
+  },
+  "dataset": {
+    "folder": "data/splits_coco\\test",
+    "class_names": [
+      "non_person",
+      "person"
+    ],
+    "n_images": 1000,
+    "n_answered": 1000,
+    "n_unanswered": 0
+  },
+  "global_metrics": {
+    "accuracy": 0.655,
+    "precision_weighted": 0.655015501550155,
+    "recall_weighted": 0.655,
+    "f1_weighted": 0.6549913747843695,
+    "f1_macro": 0.6549913747843696
+  },
+  "per_class_metrics": {
+    "non_person": {
+      "precision": 0.6534653465346535,
+      "recall": 0.66,
+      "f1-score": 0.6567164179104478,
+      "support": 500.0
+    },
+    "person": {
+      "precision": 0.6565656565656566,
+      "recall": 0.65,
+      "f1-score": 0.6532663316582915,
+      "support": 500.0
+    },
+    "accuracy": 0.655,
+    "macro avg": {
+      "precision": 0.6550155015501551,
+      "recall": 0.655,
+      "f1-score": 0.6549913747843696,
+      "support": 1000.0
+    },
+    "weighted avg": {
+      "precision": 0.655015501550155,
+      "recall": 0.655,
+      "f1-score": 0.6549913747843695,
+      "support": 1000.0
+    }
+  },
+  "confusion_matrix": {
+    "labels": [
+      "non_person",
+      "person"
+    ],
+    "matrix": [
+      [
+        330,
+        170
+      ],
+      [
+        175,
+        325
+      ]
+    ],
+    "order": "rows = true label, columns = predicted label"
+  },
+  "latency": {
+    "source": "DWT->CYCCNT cycle counter of the Cortex-M7, reported by the firmware in the CYC_*/US_* lines",
+    "n_images_measured": 1000,
+    "p95_method": "nearest rank on the sorted sample, no interpolation",
+    "per_field": {
+      "TEMP_C": {
+        "n": 1000,
+        "mean": 34.138,
+        "median": 34.0,
+        "std": 0.6568008734672841,
+        "min": 32.0,
+        "max": 36.0,
+        "p95": 35.0
+      },
+      "CYC_PRE": {
+        "n": 1000,
+        "mean": 1279306.754,
+        "median": 1279538.5,
+        "std": 2935.767202717639,
+        "min": 1263066.0,
+        "max": 1292904.0,
+        "p95": 1282433.0
+      },
+      "CYC_INF": {
+        "n": 1000,
+        "mean": 194807997.8,
+        "median": 194810835.0,
+        "std": 53911.24571094704,
+        "min": 194594161.0,
+        "max": 194973237.0,
+        "p95": 194888709.0
+      },
+      "CYC_POST": {
+        "n": 1000,
+        "mean": 294.102,
+        "median": 289.0,
+        "std": 122.12773960399325,
+        "min": 193.0,
+        "max": 1545.0,
+        "p95": 411.0
+      },
+      "CYC_TOTAL": {
+        "n": 1000,
+        "mean": 196087598.656,
+        "median": 196090498.0,
+        "std": 53826.2983111931,
+        "min": 195874624.0,
+        "max": 196249978.0,
+        "p95": 196170216.0
+      },
+      "US_PRE": {
+        "n": 1000,
+        "mean": 3198.2669029999997,
+        "median": 3198.8464999999997,
+        "std": 7.339410070419338,
+        "min": 3157.665,
+        "max": 3232.26,
+        "p95": 3206.082
+      },
+      "US_INF": {
+        "n": 1000,
+        "mean": 487019.994215,
+        "median": 487027.0785,
+        "std": 134.77798869249682,
+        "min": 486485.406,
+        "max": 487433.063,
+        "p95": 487221.75
+      },
+      "US_POST": {
+        "n": 1000,
+        "mean": 0.73523,
+        "median": 0.723,
+        "std": 0.3054070407841976,
+        "min": 0.482,
+        "max": 3.862,
+        "p95": 1.028
+      },
+      "US_TOTAL": {
+        "n": 1000,
+        "mean": 490218.998013,
+        "median": 490226.219,
+        "std": 134.56724041377055,
+        "min": 489686.531,
+        "max": 490624.969,
+        "p95": 490425.531
+      }
+    }
+  },
+  "prediction_counts": {
+    "0": 505,
+    "1": 495
+  },
+  "artifacts": {
+    "confusion_matrix_png": "results\\pil\\confusion_matrix_MobileNetV3Small_COCO+32+20+0.0001+160+120_int8.png",
+    "latency_csv": "results\\pil\\latency_metrics_MobileNetV3Small_COCO+32+20+0.0001+160+120_int8.csv",
+    "predictions_csv": "results\\pil\\predictions_MobileNetV3Small_COCO+32+20+0.0001+160+120_int8.csv"
+  }
+}

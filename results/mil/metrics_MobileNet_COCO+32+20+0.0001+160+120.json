@@ -1,0 +1,77 @@
+{
+  "level": "MIL",
+  "generated_utc": "2026-11-03T12:43:21.144304+00:00",
+  "model": {
+    "path": "models/checkpoints/MobileNet_COCO+32+20+0.0001+160+120.keras",
+    "name": "MobileNet_COCO+32+20+0.0001+160+120",
+    "sha256": "7cfb6ec9d8118dc4877c15551e2e6f82aa77d15049acbdcdd43ca665b452ec0a",
+    "bytes": 1222483
+  },
+  "dataset": {
+    "data_dir": "data\\splits_coco\\test",
+    "n_samples": 1000,
+    "class_names": [
+      "non_person",
+      "person"
+    ],
+    "image_size": {
+      "width": 160,
+      "height": 120
+    }
+  },
+  "global_metrics": {
+    "accuracy": 0.746,
+    "precision_weighted": 0.7460984393757504,
+    "recall_weighted": 0.746,
+    "f1_weighted": 0.7459745974597459,
+    "f1_macro": 0.745974597459746
+  },
+  "per_class_metrics": {
+    "non_person": {
+      "precision": 0.7411764705882353,
+      "recall": 0.756,
+      "f1-score": 0.7485148514851485,
+      "support": 500.0
+    },
+    "person": {
+      "precision": 0.7510204081632653,
+      "recall": 0.736,
+      "f1-score": 0.7434343434343434,
+      "support": 500.0
+    },
+    "accuracy": 0.746,
+    "macro avg": {
+      "precision": 0.7460984393757504,
+      "recall": 0.746,
+      "f1-score": 0.745974597459746,
+      "support": 1000.0
+    },
+    "weighted avg": {
+      "precision": 0.7460984393757504,
+      "recall": 0.746,
+      "f1-score": 0.7459745974597459,
+      "support": 1000.0
+    }
+  },
+  "confusion_matrix": {
+    "labels": [
+      "non_person",
+      "person"
+    ],
+    "matrix": [
+      [
+        378,
+        122
+      ],
+      [
+        132,
+        368
+      ]
+    ],
+    "order": "rows = true label, columns = predicted label"
+  },
+  "artifacts": {
+    "confusion_matrix_png": "results\\mil\\confusion_matrix_MobileNet_COCO+32+20+0.0001+160+120.png",
+    "predictions_csv": "results\\mil\\predictions_MobileNet_COCO+32+20+0.0001+160+120.csv"
+  }
+}
