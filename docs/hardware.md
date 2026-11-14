@@ -62,6 +62,14 @@ larger model: regenerate it for the model you actually mean to deploy with
 `Invalid DFU suffix signature` warning that `dfu-util` prints alongside it is
 unrelated and harmless.
 
+**`No DFU capable USB device available`.** `arduino-cli upload` failing with
+`exit status 74` and this message means the board did not enter its bootloader
+when the upload asked it to. Put it there by hand: press the reset button twice
+in quick succession (the green LED fades in and out), then run the same command
+again. While in the bootloader the board appears on a different serial port; it
+returns to its usual port once the firmware is running, and that one is the port
+to give the benches.
+
 ## Portability
 
 Both host benches (`pil_benchmark.py` and `hil_benchmark.py`) and the wire protocols (`#...@` byte-escaped framing for PIL; `READY_HIL` / `MODEL_FNV1A:<hex>` / `'T'` / `'F1'` for HIL) do not assume a specific MCU or camera peripheral: they communicate over standard USB CDC serial. A port must keep the end-of-inference lines that the benches search for (see [Serial Protocol](#serial-protocol-pil-bench)). In the firmware sketches (`pil_firmware.ino` and `hil_firmware.ino`), the Cortex-M7 DWT cycle counter (`DWT->CYCCNT` / `SystemCoreClock`), the `FNV-1a` model hash, and the TFLite-Micro `Invoke()` loop are portable across ARM Cortex-M4/M7 targets. What is board-specific sits in the `BOARD SUPPORT` block of each sketch, and the Nicla Vision is the worked example of a second board:

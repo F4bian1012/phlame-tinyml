@@ -293,7 +293,7 @@ python src/tflite_to_c.py models/tflite/{model_name}_int8.tflite
 ```
 The two `model.h` files in the repository carry the published `MobileNetV2`; this command replaces them, so `git status` reports them as modified.
 
-The board runs one firmware at a time: steps 6 and 7 each flash their own and then run their bench. `compile_upload_arduino.py` finds the board by itself; the benches take its port with `--port`, which `arduino-cli board list` shows once the firmware is running (it is not the port of the bootloader).
+The board runs one firmware at a time: steps 6 and 7 each flash their own and then run their bench. `compile_upload_arduino.py` finds the board by itself; the benches take its port with `--port`, which `arduino-cli board list` shows once the firmware is running (it is not the port of the bootloader). If an upload fails, see [Upload Troubleshooting](docs/hardware.md#upload-troubleshooting).
 
 ### 6. Processor-in-the-Loop (PIL) Evaluation
 The real chip runs inference on test images sent over USB serial; the camera is not part of the loop.
