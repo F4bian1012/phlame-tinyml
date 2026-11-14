@@ -52,6 +52,10 @@ Usage
 
     # Inspect the per-class breakdown without writing anything
     python src/reshape_images.py --width 160 --height 120 --balance undersample --dry_run
+
+    # Store the resized images without loss (PNG), so that the pixels do not
+    # depend on which JPEG decoder reads them later
+    python src/reshape_images.py --width 160 --height 120 --format png
 """
 
 import argparse
@@ -156,7 +160,8 @@ def print_breakdown(detail, total_found, total_selected):
     print()
 
 
-def reshape_images(width, height, input_dir, balance, max_per_class, seed, dry_run, output_dir=None):
+def reshape_images(width, height, input_dir, balance, max_per_class, seed, dry_run, output_dir=None,
+                   image_format="same"):
     if not output_dir:
         output_dir = os.path.join(PROCESSED_BASE_DIR, "%dx%d" % (width, height))
 
@@ -197,7 +202,12 @@ def reshape_images(width, height, input_dir, balance, max_per_class, seed, dry_r
 
     for file_path in selected:
         try:
-            img = cv2.imread(file_path)
+            if image_format == "png":
+                # Keep the channels the file has (one for a grayscale image), so the
+                # PNG holds exactly the pixels that were resized and nothing else.
+                img = cv2.imread(file_path, cv2.IMREAD_UNCHANGED)
+            else:
+                img = cv2.imread(file_path)
             if img is None:
                 print("Failed to load: %s" % file_path)
                 failed += 1
@@ -206,6 +216,8 @@ def reshape_images(width, height, input_dir, balance, max_per_class, seed, dry_r
             resized = cv2.resize(img, (width, height))
 
             rel_path = os.path.relpath(file_path, input_dir)
+            if image_format == "png":
+                rel_path = os.path.splitext(rel_path)[0] + ".png"
             output_path = os.path.join(output_dir, rel_path)
             dest_dir = os.path.dirname(output_path)
             if dest_dir:
@@ -223,6 +235,7 @@ def reshape_images(width, height, input_dir, balance, max_per_class, seed, dry_r
         "input_dir": input_dir,
         "output_dir": output_dir,
         "target_size": {"width": width, "height": height},
+        "image_format": image_format,
         "balance": {
             "mode": balance,
             "max_per_class": max_per_class,
@@ -274,6 +287,10 @@ if __name__ == "__main__":
                         help="Hard cap on images per class; combines with --balance")
     parser.add_argument("--seed", type=int, default=42,
                         help="Undersampling random seed (same convention as split_dataset.py)")
+    parser.add_argument("--format", dest="image_format", choices=["same", "png"], default="same",
+                        help="File format of the resized images. 'same' keeps the format of each "
+                             "input file. 'png' stores them without loss, so every decoder gives "
+                             "the same pixels on any machine, which a JPEG file does not guarantee")
     parser.add_argument("--dry_run", dest="dry_run", action="store_true",
                         help="Show the per-class breakdown without writing anything")
 
@@ -284,4 +301,5 @@ if __name__ == "__main__":
 
     raise SystemExit(reshape_images(args.width, args.height, args.input_dir,
                                     args.balance, args.max_per_class,
-                                    args.seed, args.dry_run, args.output_dir))
+                                    args.seed, args.dry_run, args.output_dir,
+                                    args.image_format))
