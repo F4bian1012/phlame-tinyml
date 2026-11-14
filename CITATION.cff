@@ -21,7 +21,8 @@ repository-code: "https://github.com/F4bian1012/phlame-tinyml"
 url: "https://github.com/F4bian1012/phlame-tinyml"
 license: MIT
 # Version this tree is being prepared as. It has not been tagged or archived
-# yet: "date-released" and "doi" are added on the day of the release.
+# yet: "date-released" is written on the day of the release, and "doi" once
+# Zenodo has archived it.
 version: "1.0.0"
 keywords:
   - PHLAME
