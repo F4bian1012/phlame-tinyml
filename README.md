@@ -399,6 +399,7 @@ Evaluated on `data/splits_coco/test` (n = 1,000 images of COCO `val2017`, 500 pe
 | `ResNet18` | 11057.3 KiB | 0.6230 / 0.6230 | 0.6230 / 0.6229 | *Flash OOM* | — | — | — |
 
 - **Three levels so far.** HIL has not been measured on this partition, so the four-level comparison, the paired decomposition and the statistical tables below still come from the vehicle benchmark. Its 200-image HIL subset is already flagged in `data/splits_coco/test_manifest.csv`.
+- **Independent test split.** The training and validation images come from COCO `train2017` and the test images from COCO `val2017`, so no file is on both sides. `src/find_near_duplicates.py` also looks for different files that show the same photo or scene: after checking every flagged pair by eye, 4 of the 1,000 test images share their scene with a train/val image (none of them in the `hil_subset`), and removing them changes macro-F1 by at most 0.0016 in any run. Method, per-run figures and limits are in [`docs/data_independence.md`](docs/data_independence.md).
 - **Not tuned for the task.** The models follow the framework's standard recipe (MobileNets: a classification head on a frozen ImageNet backbone; ResNet and SqueezeNet from scratch; 20 epochs). The numbers show the pipeline on public data, not the best accuracy attainable on it.
 - **SIL = PIL** counts the test images that get the same prediction at both levels. It is not the effect of the chip alone, because the two levels do not read the files in the same way: SIL decodes each JPEG with TensorFlow and the PIL bench with Pillow, and none of the 1,000 test images has the same pixels after both (up to 19 grey levels apart in a sample of 200). Running the same `.tflite` on the PC with one decoder and then with the other changes 33, 32, 153 and 26 predictions (in table order), and with the same Pillow pixels the PC and the chip still differ in 36, 34, 218 and 12 images. `MobileNetV3Small` stands out at every step. Its INT8 file loses 10 points of accuracy against the float model, and its predictions depend on the arithmetic of each implementation: on the PC, the default and the reference kernels of the TFLite interpreter disagree on 130 of the 1,000 images. Its agreement figures therefore say more about that file than about the chip.
 - ‡ **`SqueezeNet` did not learn** with these hyper-parameters: at MIL and SIL it answers `non_person` for every image. Its INT8 file does not execute on the board: the firmware stops inside `AllocateTensors()` and never answers. The likely cause, inferred from the quantization parameters and not traced on the chip, is the scale of 7.8e-9 that the converter assigned to the near-constant input of the final softmax, which TFLite-Micro rejects while the desktop interpreter accepts it. It is reported as a failed case, not as a memory limit.
@@ -409,7 +410,9 @@ Evaluated on `data/splits_coco/test` (n = 1,000 images of COCO `val2017`, 500 pe
 
 These are the results with the camera in the loop published so far. They come from the benchmark the framework was developed on: vehicle images whose photographs cannot be redistributed (see [Data Availability](#data-availability)), so its partition and per-image results are in git and its images are not.
 
-Evaluated on the balanced binary partition (`data/splits_plates/test`, n = 940 held-out images for MIL/SIL/PIL; n = 200 `hil_subset == 1` stimuli at 10 lux, 24 cm, 24 °C for HIL). All metrics are **F1-macro** (which equals weighted F1 and accuracy to within ≤ 0.002 on this 50/50 split); latencies are measured on-chip via the Cortex-M7 `DWT->CYCCNT` cycle counter at `SystemCoreClock = 400.0 MHz`:
+> **The test split of this benchmark is not independent of its training data.** 726 of its 940 test images are near-duplicates of a train/val image (12 of them exact copies), so the accuracies below are measured largely on photos seen in training (see [`docs/data_independence.md`](docs/data_independence.md)). The comparison between levels still holds, because every level is evaluated on the same images.
+
+Evaluated on the balanced binary partition (`data/splits_plates/test`, n = 940 test images for MIL/SIL/PIL; n = 200 `hil_subset == 1` stimuli at 10 lux, 24 cm, 24 °C for HIL). All metrics are **F1-macro** (which equals weighted F1 and accuracy to within ≤ 0.002 on this 50/50 split); latencies are measured on-chip via the Cortex-M7 `DWT->CYCCNT` cycle counter at `SystemCoreClock = 400.0 MHz`:
 
 | Architecture | `.tflite` (INT8) | Arena used | **MIL** (n=940) | **SIL** (n=940) | **PIL** (n=940 / n=200) | **HIL** (n=200) | HIL `INF` (ms) | HIL `TOTAL` (ms) |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -446,7 +449,7 @@ Cross-running the exact same 200 test stimuli as **digital files** (MIL₂₀₀
 
 ### 4. A Four-Level Run on Public Images: Visual Wake Words (`MobileNetV2_VWW`)
 
-This smaller run predates the COCO benchmark of section 1 and is, so far, the only one on public images measured with the camera in the loop. To demonstrate dataset-agnostic pipeline reuse on a standard *MLPerf Tiny* task (`person` vs. `non_person` from MS-COCO `val2017`, 2,000 balanced images prepared via `src/download_vww_subset.py` after excluding 226 ambiguous images with `< 0.5%` person area or `iscrowd == 1`; `data/splits_vww/test` n = 300, `hil_subset == 1` n = 200 at 14 lux, 24 cm, 24 °C; linear classification head trained for 20 epochs over the frozen ImageNet `MobileNetV2` α = 0.35 backbone on 1,400 grayscale 160×120 images as a pipeline-reuse demonstration rather than a leaderboard-tuned VWW model):
+This smaller run predates the COCO benchmark of section 1 and is, so far, the only one on public images measured with the camera in the loop. Its 2,000 images were drawn from the same `val2017` pool as the COCO test split of section 1 (719 of those 1,000 test images are in this partition), so a `_VWW` model must not be evaluated on the COCO test. To demonstrate dataset-agnostic pipeline reuse on a standard *MLPerf Tiny* task (`person` vs. `non_person` from MS-COCO `val2017`, 2,000 balanced images prepared via `src/download_vww_subset.py` after excluding 226 ambiguous images with `< 0.5%` person area or `iscrowd == 1`; `data/splits_vww/test` n = 300, `hil_subset == 1` n = 200 at 14 lux, 24 cm, 24 °C; linear classification head trained for 20 epochs over the frozen ImageNet `MobileNetV2` α = 0.35 backbone on 1,400 grayscale 160×120 images as a pipeline-reuse demonstration rather than a leaderboard-tuned VWW model):
 
 | Scope | Level / Domain | Accuracy | F1-macro | Latency `INF` / `TOTAL` (ms) | Notes |
 |---|---|---:|---:|---:|---|
@@ -594,7 +597,8 @@ Memory configuration, upload troubleshooting, the serial protocol and porting to
 |---|---|
 | [`docs/scripts.md`](docs/scripts.md) | Detailed description, output artifacts and usage notes of every script |
 | [`docs/results_schema.md`](docs/results_schema.md) | Every key of the `metrics_*.json` and `conditions_*.json` files |
-| [`docs/hardware.md`](docs/hardware.md) | Memory configuration, upload troubleshooting, serial protocol and porting |
+| [`docs/hardware.md`](docs/hardware.md) | Boards and memory, upload troubleshooting, serial protocol and porting |
+| [`docs/data_independence.md`](docs/data_independence.md) | How the independence of a test split is checked, and what the check found on each published partition |
 
 ### Scripts
 
@@ -619,6 +623,8 @@ All scripts live in `src/`. Detailed descriptions, output artifacts and usage no
 | Deployment | `compile_upload_arduino.py` | Compile and upload a firmware with `arduino-cli` (`--board portenta` or `nicla`). |
 | Analysis | `build_ladder_tables.py` | Rebuild the eight statistical tables of the paper in `results/tables/`. |
 | Analysis | `compare_results.py` | Check a reproduced run against the published result, image by image. |
+| Analysis | `find_near_duplicates.py` | Look for test images that are copies or near-copies of train/val images. |
+| Analysis | `independence_report.py` | Recompute the published results without the test images shared with train/val. |
 | Models | `verify_models.py` | Check the model files against `models/checksums.sha256`, or fetch them from a release. |
 | Shared | `artifacts.py` | Helper module, not run directly: run names (`--tag`), overwrite protection and the per-model label order. |
 | Shared | `cli.py` | Helper module, not run directly: lets every option be written with `_` or `-`. |
@@ -629,12 +635,12 @@ All scripts live in `src/`. Detailed descriptions, output artifacts and usage no
 phlame-tinyml/
 ├── data/                  # Datasets (git-ignored); manifests and sample/ are tracked
 ├── deployment/            # Firmware source code: pil_firmware/, hil_firmware/
-├── docs/                  # scripts.md, hardware.md, results_schema.md
+├── docs/                  # scripts.md, hardware.md, results_schema.md, data_independence.md
 ├── models/                # checkpoints/ (.keras), tflite/ (.tflite), class names, checksums.sha256
 ├── results/               # mil/, sil/, pil/, hil/, tables/, training_curves/
 ├── src/                   # Python source code (see Scripts)
 ├── tensorboard_logs/      # TensorBoard event logs from training
-├── tests/                 # test_results_schema.py, test_own_dataset.py, test_cli.py, test_boards.py, test_release.py, test_compare_results.py
+├── tests/                 # test_results_schema.py, test_own_dataset.py, test_cli.py, test_boards.py, test_release.py, test_compare_results.py, test_near_duplicates.py
 ├── CITATION.cff
 ├── LICENSE.txt
 ├── README.md
