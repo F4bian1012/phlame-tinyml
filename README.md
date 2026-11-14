@@ -634,7 +634,7 @@ phlame-tinyml/
 ├── results/               # mil/, sil/, pil/, hil/, tables/, training_curves/
 ├── src/                   # Python source code (see Scripts)
 ├── tensorboard_logs/      # TensorBoard event logs from training
-├── tests/                 # test_results_schema.py, test_own_dataset.py, test_cli.py, test_boards.py, test_release.py
+├── tests/                 # test_results_schema.py, test_own_dataset.py, test_cli.py, test_boards.py, test_release.py, test_compare_results.py
 ├── CITATION.cff
 ├── LICENSE.txt
 ├── README.md
@@ -668,6 +668,7 @@ phlame-tinyml/
   ```bash
   python src/sil_benchmark.py --model_path models/tflite/MobileNetV2_VWW+32+20+0.0001+160+120_int8.tflite --data_dir data/sample --class_names_path models/class_names_vww.txt --output_dir results/smoke_test
   ```
+- **COCO benchmark images (MS-COCO):** not redistributed, for the same reason as the Visual Wake Words images below. The 13,000 images of the public benchmark (`6,000 person` + `6,000 non_person` from `train2017`, `500` + `500` from `val2017`, `seed=42`) are fetched from the MS-COCO servers; the partition they give is published in `data/splits_coco/`, with the selection hash of each download in `subset_report_train2017.json` and `subset_report_val2017.json`. The commands are in [Reproduce the Public Benchmark (COCO)](#reproduce-the-public-benchmark-coco).
 - **Visual Wake Words images (MS-COCO):** not redistributed. Each photograph keeps the licence its author chose, so the images are fetched from the MS-COCO servers instead of being copied into this repository or its releases. The 2,000-image balanced subset (`1,000 person` + `1,000 non_person` from `val2017`, `seed=42`, `selection_sha256: b3ab289abd4a`) is rebuilt in about a minute:
   ```bash
   python src/download_vww_subset.py --per_class 1000 --seed 42
