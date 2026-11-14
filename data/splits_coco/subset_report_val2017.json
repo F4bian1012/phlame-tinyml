@@ -1,19 +1,25 @@
 {
-  "generated_utc": "2026-11-03T12:11:30.102183+00:00",
+  "generated_utc": "2026-11-14T21:21:23.753805+00:00",
   "coco_split": "val2017",
   "min_area_fraction": 0.005,
-  "include_small_person_as_negative": false,
-  "seed": 42,
-  "per_class_target": 500,
-  "selection_sha256": "9db263a13b9059ed242f19c93263df28a2909c178d37c7da3e813da85d1b526b",
+  "include_small_person_as_negative": true,
+  "seed": null,
+  "per_class_target": null,
+  "selection_sha256": "a0ed2d0b8236ee10e9e86f3f59e592924572d102736f19c6ec70d45f811f9280",
   "available_in_split": {
-    "person": 2467,
-    "non_person": 2307,
-    "ambiguous_excluded": 226
+    "person": 2363,
+    "non_person": 2637,
+    "ambiguous_excluded": 0
   },
   "download_summary": {
-    "downloaded": 1000,
+    "downloaded": 5000,
     "cached": 0,
     "failed": 0
+  },
+  "full_split": true,
+  "label_rule": "original Visual Wake Words script: person when a person annotation, crowd included, has annotation area / image area > min_area_fraction",
+  "selected": {
+    "person": 2363,
+    "non_person": 2637
   }
 }

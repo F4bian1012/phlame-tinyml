@@ -275,7 +275,7 @@ class PublishedPartitionsTest(unittest.TestCase):
     def test_coco_test_images_come_from_another_coco_split_than_training(self):
         folder = REPO / "data" / "splits_coco"
         rows = {sp: read_manifest(folder / ("%s_manifest.csv" % sp)) for sp in ("train", "val", "test")}
-        self.assertEqual({sp: len(r) for sp, r in rows.items()}, {"train": 10200, "val": 1800, "test": 1000})
+        self.assertEqual({sp: len(r) for sp, r in rows.items()}, {"train": 100544, "val": 17743, "test": 5000})   # all of train2017 and all of val2017
         for sp in ("train", "val"):
             self.assertTrue(all(r_["src_path"].startswith("data/processed/coco_train_160x120/") for r_ in rows[sp]))
         self.assertTrue(all(r_["src_path"].startswith("data/processed/coco_test_160x120/") for r_ in rows["test"]))
@@ -286,11 +286,17 @@ class PublishedPartitionsTest(unittest.TestCase):
         report = read_report(str(folder))
         self.assertEqual(report["test_input_dir"], "data/processed/coco_test_160x120")
         self.assertEqual(report["label_map"], {"non_person": 0, "person": 1})
-        for coco_split, per_class in (("train2017", 6000), ("val2017", 500)):
+        # Both downloads take the whole COCO split with the rule of the original
+        # Visual Wake Words script, so the partition has every image of both.
+        for coco_split, person, non_person in (("train2017", 56670, 61617), ("val2017", 2363, 2637)):
             with open(folder / ("subset_report_%s.json" % coco_split), encoding="utf-8") as fh:
                 subset = json.load(fh)
-            self.assertEqual((subset["coco_split"], subset["per_class_target"], subset["seed"]),
-                             (coco_split, per_class, 42))
+            self.assertEqual((subset["coco_split"], subset["full_split"]), (coco_split, True))
+            self.assertEqual(subset["selected"], {"person": person, "non_person": non_person})
+        counts = report["counts_per_class"]
+        self.assertEqual((counts["person"]["train"] + counts["person"]["val"],
+                          counts["non_person"]["train"] + counts["non_person"]["val"]), (56670, 61617))
+        self.assertEqual((counts["person"]["test"], counts["non_person"]["test"]), (2363, 2637))
 
 
 if __name__ == "__main__":

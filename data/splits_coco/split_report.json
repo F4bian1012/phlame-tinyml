@@ -1,5 +1,5 @@
 {
-  "created_utc": "2026-11-14T19:30:38+00:00",
+  "created_utc": "2026-11-14T22:37:43+00:00",
   "script": "split_dataset.py",
   "input_dir": "data/processed/coco_train_160x120",
   "test_input_dir": "data/processed/coco_test_160x120",
@@ -21,34 +21,34 @@
   },
   "counts_per_class": {
     "non_person": {
-      "total": 6500,
-      "train": 5100,
-      "val": 900,
-      "test": 500
+      "total": 64254,
+      "train": 52374,
+      "val": 9243,
+      "test": 2637
     },
     "person": {
-      "total": 6500,
-      "train": 5100,
-      "val": 900,
-      "test": 500
+      "total": 59033,
+      "train": 48170,
+      "val": 8500,
+      "test": 2363
     }
   },
   "totals": {
-    "train": 10200,
-    "val": 1800,
-    "test": 1000,
-    "dataset": 13000
+    "train": 100544,
+    "val": 17743,
+    "test": 5000,
+    "dataset": 123287
   },
   "class_balance_pct": {
-    "non_person": 50.0,
-    "person": 50.0
+    "non_person": 52.12,
+    "person": 47.88
   },
   "hil_subset": {
     "requested": 200,
     "selected": 200,
     "per_class": {
-      "non_person": 100,
-      "person": 100
+      "non_person": 105,
+      "person": 95
     },
     "seed": 43
   },
