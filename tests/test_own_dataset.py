@@ -62,7 +62,7 @@ class SplitOwnDatasetTest(unittest.TestCase):
         make_dataset(os.path.join(self.cwd, "in"), ["zebra", "apple"])
 
     def test_classes_come_from_the_folders_in_alphabetical_order(self):
-        r = run_split(self.cwd, "--input_dir", "in", "--output_dir", "out", "--hil-subset", "4")
+        r = run_split(self.cwd, "--input_dir", "in", "--output_dir", "out", "--hil_subset", "4")
         self.assertEqual(r.returncode, 0, r.stdout)
         report = read_report(os.path.join(self.cwd, "out"))
         self.assertEqual(report["class_names"], ["apple", "zebra"])

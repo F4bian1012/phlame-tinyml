@@ -19,9 +19,9 @@ An open-source framework to train, quantize, deploy and measure CNN image classi
 - [Usage (Full Pipeline)](#usage-full-pipeline)
   - [1. Data Preparation](#1-data-preparation)
   - [2. Model Training](#2-model-training)
-  - [3. Model Evaluation](#3-model-evaluation)
-  - [4. INT8 Quantization](#4-int8-quantization)
-  - [5. Embedded Deployment](#5-embedded-deployment)
+  - [3. Model-in-the-Loop (MIL) Evaluation](#3-model-in-the-loop-mil-evaluation)
+  - [4. INT8 Quantization and Software-in-the-Loop (SIL) Evaluation](#4-int8-quantization-and-software-in-the-loop-sil-evaluation)
+  - [5. Model Header for the Firmware](#5-model-header-for-the-firmware)
   - [6. Processor-in-the-Loop (PIL) Evaluation](#6-processor-in-the-loop-pil-evaluation)
   - [7. Hardware-in-the-Loop (HIL) Evaluation](#7-hardware-in-the-loop-hil-evaluation)
 - [Results](#results)
@@ -226,7 +226,7 @@ flowchart TD
 
 ## Usage (Full Pipeline)
 
-Every step needs your own dataset in `data/raw/`; steps 5 to 7 also need the board. Extra options and details are in the [usage notes](docs/scripts.md#usage-notes).
+Every step needs your own dataset in `data/raw/`; steps 6 and 7 also need the board. The four levels share their options (`--model_path`, `--splits_dir`, `--output_dir`, `--overwrite`), and every multi-word option can be written with `_` or `-`. Extra options and details are in the [usage notes](docs/scripts.md#usage-notes).
 
 No dataset at hand? The public Visual Wake Words subset can stand in for it. This downloads 2,000 images into `data/raw/person` and `data/raw/non_person` in about a minute, and every command below then works unchanged:
 ```bash
@@ -269,43 +269,55 @@ For ResNet or SqueezeNet, run `src/train_resnet.py` or `src/train_squeezenet.py`
 
 `--tag` names the run: the checkpoint is `MobileNetV2_demo+32+20+0.0001+160+120.keras`, and the `.tflite` and every result file of that model inherit the name. Use a different tag for each dataset. Without a tag the run takes the names of the published models, and the scripts stop instead of replacing an existing checkpoint, `.tflite` or result file; `--overwrite` allows it. The label order is saved next to the checkpoint (`.classes.txt`).
 
-### 3. Model Evaluation
-Evaluate the `.keras` model at the **MIL** level. Outputs go to `results/mil/`:
+### 3. Model-in-the-Loop (MIL) Evaluation
+The floating-point `.keras` model runs on the PC over the held-out test partition. Outputs go to `results/mil/`:
 ```bash
 python src/mil_benchmark.py --width 160 --height 120 --model_path models/checkpoints/MobileNetV2_demo+32+20+0.0001+160+120.keras
 ```
 
-### 4. INT8 Quantization
+### 4. INT8 Quantization and Software-in-the-Loop (SIL) Evaluation
 Convert the model to integer-only TFLite. Calibration samples come from `data/splits/train` only, so the evaluation partition stays untouched:
 ```bash
 python src/quantize_int8_basic.py --model_path models/checkpoints/{model_name}.keras --calib_samples 100 --calib_seed 42
 ```
-Validate it at the **SIL** level. Outputs go to `results/sil/`:
+The INT8 `.tflite` model runs on the PC over the same test partition. Outputs go to `results/sil/`:
 ```bash
 python src/sil_benchmark.py --model_path models/tflite/{model_name}_int8.tflite
 ```
 
-### 5. Embedded Deployment
-Convert the `.tflite` into a C header (written into both firmware sketches by default), then compile and upload one firmware; the board runs one at a time:
+### 5. Model Header for the Firmware
+Convert the `.tflite` into a C header. It is written into both firmware sketches (`deployment/pil_firmware/` and `deployment/hil_firmware/`), so PIL and HIL run the same model:
 ```bash
 python src/tflite_to_c.py models/tflite/{model_name}_int8.tflite
-python src/compile_upload_arduino.py --target pil
 ```
+The two `model.h` files in the repository carry the published `MobileNetV2`; this command replaces them, so `git status` reports them as modified.
+
+The board runs one firmware at a time: steps 6 and 7 each flash their own and then run their bench. `compile_upload_arduino.py` finds the board by itself; the benches take its port with `--port`, which `arduino-cli board list` shows once the firmware is running (it is not the port of the bootloader).
 
 ### 6. Processor-in-the-Loop (PIL) Evaluation
-The bench streams the held-out test partition over USB Serial. The real chip runs inference, but the camera is not part of the loop. Outputs go to `results/pil/`:
+The real chip runs inference on test images sent over USB serial; the camera is not part of the loop.
+
+Flash the PIL firmware:
 ```bash
-python src/pil_benchmark.py --model_path models/tflite/{model_name}_int8.tflite --width 160 --height 120 --port COM9 --baud 115200
+python src/compile_upload_arduino.py --target pil
+```
+Run the bench. It streams the held-out test partition and writes to `results/pil/`:
+```bash
+python src/pil_benchmark.py --port COM9 --model_path models/tflite/{model_name}_int8.tflite --width 160 --height 120
 ```
 
 ### 7. Hardware-in-the-Loop (HIL) Evaluation
-Flash the camera firmware with `python src/compile_upload_arduino.py --target hil`. The host displays each stimulus full-screen, the HM01B0 camera captures it, and the on-device prediction is matched with the known label. The bench aborts if the model fingerprint does not match or if a rig condition is missing. Outputs go to `results/hil/`:
+The real chip runs inference on frames from its own HM01B0 camera, which looks at each test image displayed full-screen on a monitor.
+
+Flash the HIL firmware:
 ```bash
-python src/hil_benchmark.py --port COM9 \
-    --settle 1.0 --lux 10 --distance-cm 24 --ambient-temp 24 \
-    --sil-model models/tflite/{model_name}_int8.tflite \
-    --mil-model models/checkpoints/{model_name}.keras
+python src/compile_upload_arduino.py --target hil
 ```
+Run the bench. It displays the `hil_subset` of the test partition and writes to `results/hil/`:
+```bash
+python src/hil_benchmark.py --port COM9 --model_path models/tflite/{model_name}_int8.tflite --lux 10 --distance_cm 24 --ambient_temp 24
+```
+The bench aborts if the fingerprint of the model on the board does not match `--model_path`, or if a rig condition (`--lux`, `--distance_cm`, `--ambient_temp`) is missing. It waits for ENTER before the first stimulus, so the camera can be placed in front of the monitor; `--no_confirm` skips the wait. Adding `--sil_model models/tflite/{model_name}_int8.tflite --mil_model models/checkpoints/{model_name}.keras` also classifies every captured frame on the PC, which separates the effect of the camera from the effect of the chip.
 
 ---
 
@@ -364,14 +376,17 @@ To demonstrate dataset-agnostic pipeline reuse on a standard *MLPerf Tiny* task 
 
 ## Results Format
 
-Every level writes a confusion-matrix PNG for visual inspection and standardized machine-readable files for cross-level comparison:
+Every level writes into its own folder, `results/{mil,sil,pil,hil}/`, with the same file names. `{model}` is the model name, which ends in `_int8` from SIL onwards:
 
-| Level | Metrics JSON | Per-image Table | Hardware Latency |
-|---|---|---|---|
-| MIL | `results/mil/metrics_{model}.json` | `predictions_{model}.csv` | — |
-| SIL | `results/sil/metrics_{model}_int8.json` | `predictions_{model}_int8.csv` | — |
-| PIL | `results/pil/metrics_{model}_int8.json` | `predictions_{model}_int8.csv` | `latency_metrics_{model}_int8.csv` |
-| HIL | `results/hil/metrics_{model}_int8.json` | `latency_metrics_{model}_int8.csv` | same file |
+| File | Content | MIL | SIL | PIL | HIL |
+|---|---|:-:|:-:|:-:|:-:|
+| `confusion_matrix_{model}.png` | Confusion matrix, for visual inspection | ✓ | ✓ | ✓ | ✓ |
+| `metrics_{model}.json` | Global and per-class metrics, model hash, run settings | ✓ | ✓ | ✓ | ✓ |
+| `predictions_{model}.csv` | True and predicted class of every test image | ✓ | ✓ | ✓ | — |
+| `latency_metrics_{model}.csv` | Per-image latency by phase, measured on the chip | — | — | ✓ | ✓ |
+| `conditions_{model}.json` | Rig conditions and the model fingerprint reported by the board | — | — | — | ✓ |
+
+In HIL the per-image predictions are columns of `latency_metrics_{model}.csv`, next to the latencies of the same capture.
 
 - **Same `sha256` across SIL, PIL and HIL:** Verifies that the same `.tflite` file was evaluated on the host. MIL records the hash of the `.keras` file, so it never matches the other levels. Only HIL also verifies the model flashed on the board (FNV-1a fingerprint); PIL does not, so a stale `model.h` is detected only indirectly (per-architecture cycle signature, Table 7 attribution check).
 - **`f1_weighted` vs `f1_macro`:** On balanced splits both values coincide; any divergence indicates that minority-class degradation is being obscured by majority-class accuracy.
@@ -520,6 +535,7 @@ All scripts live in `src/`. Detailed descriptions, output artifacts and usage no
 | Deployment | `compile_upload_arduino.py` | Compile and upload a firmware with `arduino-cli`. |
 | Analysis | `build_ladder_tables.py` | Rebuild the eight statistical tables of the paper in `results/tables/`. |
 | Shared | `artifacts.py` | Helper module, not run directly: run names (`--tag`), overwrite protection and the per-model label order. |
+| Shared | `cli.py` | Helper module, not run directly: lets every option be written with `_` or `-`. |
 
 ### Repository Structure
 ```text
@@ -531,7 +547,7 @@ phlame-tinyml/
 ├── results/               # mil/, sil/, pil/, hil/, tables/, training_curves/
 ├── src/                   # Python source code (see Scripts)
 ├── tensorboard_logs/      # TensorBoard event logs from training
-├── tests/                 # test_results_schema.py, test_own_dataset.py
+├── tests/                 # test_results_schema.py, test_own_dataset.py, test_cli.py
 ├── CITATION.cff
 ├── LICENSE.txt
 ├── README.md

@@ -24,7 +24,7 @@ construction:
     9. pairs prediction <-> label
        of the displayed stimulus
 
-Outputs (in --output-dir, default results/hil/):
+Outputs (in --output_dir, default results/hil/):
   - confusion_matrix_<tag>.png : sensor->prediction confusion matrix
   - latency_metrics_<tag>.csv        : one row per inference with per-phase
                                      latencies (CAPTURE/PRE/INF/POST/TOTAL),
@@ -43,11 +43,11 @@ Serial protocol:
   'T'         -> triggers one capture + inference cycle
   'F1' / 'F0' -> enables / disables raw frame-dump (SIL/MIL cross-validation)
 
-Cross-validation (optional, --sil-model / --mil-model): the firmware sends back
+Cross-validation (optional, --sil_model / --mil_model): the firmware sends back
 each captured camera frame (command F1) and the host evaluates the lower levels
 of the fidelity ladder on THAT EXACT SAME captured frame:
-  MIL  (--mil-model, .keras float on PC)   <- mil_benchmark.py equivalent
-  SIL  (--sil-model, .tflite INT8 on PC)   <- sil_benchmark.py equivalent
+  MIL  (--mil_model, .keras float on PC)   <- mil_benchmark.py equivalent
+  SIL  (--sil_model, .tflite INT8 on PC)   <- sil_benchmark.py equivalent
   HIL  (TFLM INT8 on the Cortex-M7)        <- this benchmark
 Evaluating all three levels on identical sensor bytes decomposes the end-to-end
 gap into attributable components:
@@ -57,9 +57,9 @@ gap into attributable components:
 
 Typical usage (full fidelity ladder on live camera frames, manifest hil_subset):
   python src/hil_benchmark.py --port COM9 \
-      --settle 1.0 --lux 10 --distance-cm 24 --ambient-temp 24 \
-      --sil-model models/tflite/{model_name}_int8.tflite \
-      --mil-model models/checkpoints/{model_name}.keras
+      --settle 1.0 --lux 10 --distance_cm 24 --ambient_temp 24 \
+      --sil_model models/tflite/{model_name}_int8.tflite \
+      --mil_model models/checkpoints/{model_name}.keras
 
 Requirements: pyserial, opencv-python, numpy (+ scikit-learn, seaborn,
 matplotlib for the confusion matrix and JSON metrics).
@@ -206,9 +206,9 @@ def verify_model_identity(fw, expected, model_tag, output_dir, allow_mismatch=Fa
               "fingerprinting. This run's label is NOT verified against the "
               "board. Reflash the updated hil_firmware.ino sketch.")
     elif expected is None:
-        print("[WARN] No --tflite provided: cannot compare on-chip fingerprint "
+        print("[WARN] No --model_path provided: cannot compare on-chip fingerprint "
               f"({fw['model_fnv1a']}, {fw['model_bytes']} B) against a reference file. "
-              "Pass --tflite <path> to verify model identity.")
+              "Pass --model_path <path> to verify model identity.")
     else:
         same = (fw['model_fnv1a'] == expected['fnv1a']
                 and fw['model_bytes'] == expected['bytes'])
@@ -225,7 +225,7 @@ def verify_model_identity(fw, expected, model_tag, output_dir, allow_mismatch=Fa
                   "tflite_to_c.py, recompile, reflash, and try again.")
             if not allow_mismatch:
                 sys.exit(2)
-            print("[WARN] --allow-model-mismatch set: proceeding at your own risk.")
+            print("[WARN] --allow_model_mismatch set: proceeding at your own risk.")
 
     # 3) Check for fingerprint collision with previous runs under a different tag
     if fw['model_fnv1a'] is not None:
@@ -242,14 +242,14 @@ def verify_model_identity(fw, expected, model_tag, output_dir, allow_mismatch=Fa
 def check_required_conditions(args):
     """Physical rig conditions are mandatory for a reportable HIL run."""
     missing = [n for n, v in (("--lux", args.lux),
-                              ("--distance-cm", args.distance_cm),
-                              ("--ambient-temp", args.ambient_temp)) if v is None]
+                              ("--distance_cm", args.distance_cm),
+                              ("--ambient_temp", args.ambient_temp)) if v is None]
     if missing and not args.allow_missing_conditions:
         print("[ERROR] Missing physical rig conditions: " + ", ".join(missing) + ".")
         print("        Two runs of the same model differed by 0.074 F1-macro "
               "when environmental variables went unrecorded: without them, an "
               "HIL run is not reportable. Provide them, or pass "
-              "--allow-missing-conditions for a quick smoke test.")
+              "--allow_missing_conditions for a quick smoke test.")
         sys.exit(2)
     if missing:
         print("[WARN] Incomplete conditions (" + ", ".join(missing) +
@@ -283,8 +283,8 @@ def warn_condition_drift(args, output_dir: str):
 
     checks = [
         ("--lux", "illuminance_lux", args.lux, "lux"),
-        ("--distance-cm", "camera_to_screen_distance_cm", args.distance_cm, "cm"),
-        ("--ambient-temp", "ambient_temp_c", args.ambient_temp, "°C"),
+        ("--distance_cm", "camera_to_screen_distance_cm", args.distance_cm, "cm"),
+        ("--ambient_temp", "ambient_temp_c", args.ambient_temp, "°C"),
     ]
     for flag, key, cur_val, unit in checks:
         if cur_val is None:
@@ -416,17 +416,17 @@ def collect_from_manifest(manifest_path: str, use_all_test=False, seed=42):
     # Filter rows flagged for the physical HIL rig
     if use_all_test:
         sel = rows
-        print(f"[INFO] --all-test: using all {len(sel)} test images.")
+        print(f"[INFO] --all_test: using all {len(sel)} test images.")
     else:
         if 'hil_subset' not in rows[0]:
             print("[ERROR] Manifest has no 'hil_subset' column.")
-            print("        Regenerate the split or pass --all-test.")
+            print("        Regenerate the split or pass --all_test.")
             sys.exit(1)
         sel = [r for r in rows
                if str(r['hil_subset']).strip() in ('1', 'True', 'true')]
         if not sel:
             print("[ERROR] No manifest rows have hil_subset == 1.")
-            print("        Regenerate the split or pass --all-test.")
+            print("        Regenerate the split or pass --all_test.")
             sys.exit(1)
         print(f"[INFO] HIL subset: {len(sel)} of {len(rows)} test images "
               f"(hil_subset == 1).")
@@ -683,7 +683,7 @@ class SilModel:
                 self._interp = tflite_rt.Interpreter(model_path=model_path)
             except ImportError:
                 print("ERROR: tensorflow or tflite-runtime is required for "
-                      "--sil-model. Run: pip install tensorflow")
+                      "--sil_model. Run: pip install tensorflow")
                 sys.exit(1)
         self._interp.allocate_tensors()
         self._in = self._interp.get_input_details()[0]
@@ -728,7 +728,7 @@ class MilModel:
         try:
             import tensorflow as tf
         except ImportError:
-            print("ERROR: tensorflow is required for --mil-model. "
+            print("ERROR: tensorflow is required for --mil_model. "
                   "Run: pip install tensorflow")
             sys.exit(1)
         self._model = tf.keras.models.load_model(model_path, compile=False)
@@ -1093,7 +1093,7 @@ def run_benchmark(args):
     else:
         print("[ERROR] Cannot determine which model is on the board to name output "
               "artifacts: pass --model_path <path to flashed .tflite> (recommended; "
-              "also verifies the on-chip FNV-1a hash) or at least --model-tag <name>.")
+              "also verifies the on-chip FNV-1a hash) or at least --model_tag <name>.")
         sys.exit(2)
     expected = expected_model_fingerprint(tflite_path)
     if tflite_path and expected is None:
@@ -1322,7 +1322,7 @@ def parse_args():
                         help="Test split manifest CSV "
                              "(default: <splits_dir>/test_manifest.csv). "
                              "Default stimulus source.")
-    parser.add_argument('--all-test', action='store_true',
+    parser.add_argument('--all_test', action='store_true',
                         help="Use every image in the test manifest instead of "
                              "only rows flagged with hil_subset == 1 (~200). "
                              "Increases lab session duration proportionally.")
@@ -1342,20 +1342,20 @@ def parse_args():
                         help="Seconds to wait between consecutive stimuli (default: 0.5)")
     parser.add_argument('--delay', type=float, default=2.0,
                         help="Initial wait in seconds after opening the serial port (default: 2.0)")
-    parser.add_argument('--output-dir', default=os.path.join('results', 'hil'),
+    parser.add_argument('--output_dir', default=os.path.join('results', 'hil'),
                         help="Output directory (default: results/hil)")
     parser.add_argument('--overwrite', action='store_true',
                         help="Replace the matrix, JSON and CSV files if they already exist")
     parser.add_argument('--windowed', action='store_true',
                         help="Open a normal resizable window instead of fullscreen")
-    parser.add_argument('--no-confirm', action='store_true',
+    parser.add_argument('--no_confirm', action='store_true',
                         help="Start the stimulus sweep immediately without waiting for ENTER")
     # Environmental rig conditions
     parser.add_argument('--lux', type=float, default=None,
                         help="Illuminance measured at the screen plane [lux]")
-    parser.add_argument('--distance-cm', type=float, default=None,
+    parser.add_argument('--distance_cm', type=float, default=None,
                         help="Camera-to-screen distance [cm]")
-    parser.add_argument('--ambient-temp', type=float, default=None,
+    parser.add_argument('--ambient_temp', type=float, default=None,
                         help="Ambient room temperature [°C]")
     # Model identity verification and output tagging
     parser.add_argument('--model_path', '--tflite', dest='tflite', default=None,
@@ -1363,35 +1363,35 @@ def parse_args():
                         help="Path to the INT8 .tflite file used to generate "
                              "the flashed model.h. Its FNV-1a hash is verified "
                              "against the hash printed by the firmware at boot, "
-                             "aborting on mismatch. Falls back to --sil-model "
+                             "aborting on mismatch. Falls back to --sil_model "
                              "when omitted.")
-    parser.add_argument('--model-tag', default=None, metavar='NAME',
+    parser.add_argument('--model_tag', default=None, metavar='NAME',
                         help="Tag used to name output files (default: .tflite "
                              "basename without extension).")
-    parser.add_argument('--allow-model-mismatch', action='store_true',
+    parser.add_argument('--allow_model_mismatch', action='store_true',
                         help="Do NOT abort on on-chip FNV-1a mismatch or "
                              "previous-run tag collision (debugging only; "
                              "recorded in output JSON).")
-    parser.add_argument('--allow-missing-conditions', action='store_true',
-                        help="Do NOT abort when --lux/--distance-cm/"
-                             "--ambient-temp are omitted (smoke tests only).")
+    parser.add_argument('--allow_missing_conditions', action='store_true',
+                        help="Do NOT abort when --lux/--distance_cm/"
+                             "--ambient_temp are omitted (smoke tests only).")
     parser.add_argument('--notes', default="",
                         help="Free-form setup notes (framing, mount, monitor "
                              "model, brightness setting, etc.)")
     # Cross-validation: HIL (MCU) vs SIL/MIL (PC) on the exact same frame
-    parser.add_argument('--dump-frames', action='store_true',
+    parser.add_argument('--dump_frames', action='store_true',
                         help="Retrieve and save every raw frame captured by "
                              "the HM01B0 camera (traceability)")
-    parser.add_argument('--sil-model', default=None, metavar='TFLITE',
+    parser.add_argument('--sil_model', default=None, metavar='TFLITE',
                         help="Path to the SAME INT8 .tflite flashed on the MCU: "
                              "runs on the PC over each captured frame (implies "
-                             "--dump-frames). Isolates MCU vs PC execution divergence.")
-    parser.add_argument('--mil-model', default=None, metavar='KERAS',
+                             "--dump_frames). Isolates MCU vs PC execution divergence.")
+    parser.add_argument('--mil_model', default=None, metavar='KERAS',
                         help="Path to the original float .keras model: runs on "
                              "the PC over each captured frame (implies "
-                             "--dump-frames). Combined with --sil-model, "
+                             "--dump_frames). Combined with --sil_model, "
                              "isolates INT8 quantization loss.")
-    parser.add_argument('--frames-dir', default=os.path.join('data',
+    parser.add_argument('--frames_dir', default=os.path.join('data',
                                                              'hil_frames'),
                         help="Directory for saved captured frames, git-ignored "
                              "(default: data/hil_frames)")

@@ -57,7 +57,7 @@ Every evaluation script writes a `metrics_{model}[_int8].json` file capturing cl
 | `dataset.folder` | PIL | `string` | Path to the directory containing the evaluated images. |
 | `dataset.splits_dir` | SIL | `string` | Root folder holding the reproducible dataset partitions (`data/splits`). |
 | `dataset.stimulus_source` | HIL | `string` | Origin of the stimuli: `"manifest:<path>"` (default, test manifest) or `"folder:<path>"` (when `--folder` is used). |
-| `dataset.manifest_subset` | HIL | `string\|null` | Filter applied to the manifest (default: `"hil_subset==1"`, selecting the 200 fixed test images; `"all-test"` with `--all-test`; `null` with `--folder`). |
+| `dataset.manifest_subset` | HIL | `string\|null` | Filter applied to the manifest (default: `"hil_subset==1"`, selecting the 200 fixed test images; `"all-test"` with `--all_test`; `null` with `--folder`). |
 | `dataset.class_names` | All | `array[string]` | List of class labels in canonical argmax index order matching firmware output. |
 | `dataset.image_size` | MIL, SIL | `object` | Tensor input geometry. |
 | `dataset.image_size.width` | MIL, SIL | `integer` | Input width in pixels. |
@@ -174,7 +174,7 @@ Alongside `metrics_*.json`, the HIL benchmark generates a standalone `conditions
 | `class_names` | `array[string]` | Class names in label order (the list index is the integer label returned by the firmware). |
 | `n_stimuli` | `integer` | Number of stimuli presented in the run. |
 | `notes` | `string` | User-provided laboratory notes (monitor model, lighting fixtures, etc.). |
-| `frame_dump` | `boolean` | `true` when the captured frames were sent back and saved (`--dump-frames`, also implied by `--sil-model` / `--mil-model`). |
+| `frame_dump` | `boolean` | `true` when the captured frames were sent back and saved (`--dump_frames`, also implied by `--sil_model` / `--mil_model`). |
 | `frames_dir` | `string\|null` | Folder where the dumped frames were written; `null` when `frame_dump` is `false`. |
 | `sil_model` | `string\|null` | Path to the companion INT8 model executed on the host for paired cross-validation. |
 | `mil_model` | `string\|null` | Path to the companion float model executed on the host for paired cross-validation. |
@@ -196,4 +196,4 @@ Alongside `metrics_*.json`, the HIL benchmark generates a standalone `conditions
 | `expected_model.fnv1a` | `string` | 8-character hex 32-bit FNV-1a hash calculated from the host `.tflite` file. |
 | `model_identity_verified` | `boolean` | `true` if `firmware_model.model_fnv1a == expected_model.fnv1a` and `firmware_model.model_bytes == expected_model.bytes`. Validates that the flashed firmware contains the exact intended model. |
 
-Some CLI options are recorded indirectly or not at all: `--all-test` is recorded as `manifest_subset = "all-test"` (otherwise `"hil_subset==1"`); `--folder` as `stimulus_source = "folder:<path>"` plus `dataset_folder` (and `manifest` / `manifest_subset` become `null`); `--dump-frames` as `frame_dump`. `--windowed`, `--delay`, `--allow-model-mismatch` and `--allow-missing-conditions` are not recorded; the outcome of the two safety checks is recorded in `model_identity_verified` and `conditions_complete`.
+Some CLI options are recorded indirectly or not at all: `--all_test` is recorded as `manifest_subset = "all-test"` (otherwise `"hil_subset==1"`); `--folder` as `stimulus_source = "folder:<path>"` plus `dataset_folder` (and `manifest` / `manifest_subset` become `null`); `--dump_frames` as `frame_dump`. `--windowed`, `--delay`, `--allow_model_mismatch` and `--allow_missing_conditions` are not recorded; the outcome of the two safety checks is recorded in `model_identity_verified` and `conditions_complete`.

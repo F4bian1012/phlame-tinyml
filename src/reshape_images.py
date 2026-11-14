@@ -51,7 +51,7 @@ Usage
     python src/reshape_images.py --width 160 --height 120 --balance undersample --max_per_class 2000
 
     # Inspect the per-class breakdown without writing anything
-    python src/reshape_images.py --width 160 --height 120 --balance undersample --dry-run
+    python src/reshape_images.py --width 160 --height 120 --balance undersample --dry_run
 """
 
 import argparse
@@ -187,7 +187,7 @@ def reshape_images(width, height, input_dir, balance, max_per_class, seed, dry_r
         print()
 
     if dry_run:
-        print("--dry-run: nothing was written to %s" % output_dir)
+        print("--dry_run: nothing was written to %s" % output_dir)
         return 0
 
     os.makedirs(output_dir, exist_ok=True)
@@ -275,7 +275,7 @@ if __name__ == "__main__":
                         help="Hard cap on images per class; combines with --balance")
     parser.add_argument("--seed", type=int, default=42,
                         help="Undersampling random seed (same convention as split_dataset.py)")
-    parser.add_argument("--dry-run", dest="dry_run", action="store_true",
+    parser.add_argument("--dry_run", dest="dry_run", action="store_true",
                         help="Show the per-class breakdown without writing anything")
 
     args = parser.parse_args()

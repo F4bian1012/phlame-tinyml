@@ -15,7 +15,7 @@ Official VWW labeling rule (arXiv:1906.05721)
   - 'non_person' : the image contains no 'person' annotations (by default,
                    ambiguous images with tiny persons < 0.5% of the area are
                    excluded to avoid label noise; pass
-                   --include-small-person-as-negative to include them as
+                   --include_small_person_as_negative to include them as
                    'non_person' following strict VWW conventions).
 
 Download efficiency
@@ -254,7 +254,7 @@ def main():
         help="Minimum relative 'person' area threshold per VWW (0.005 = 0.5%% of image area)",
     )
     parser.add_argument(
-        "--include-small-person-as-negative",
+        "--include_small_person_as_negative",
         dest="include_small_as_neg",
         action="store_true",
         help="Include non-crowd images with persons below --min_area_fraction (default 0.5%%) inside non_person (excluded by default for label cleanliness)",
@@ -272,7 +272,7 @@ def main():
         help="Number of parallel HTTP download threads",
     )
     parser.add_argument(
-        "--dry-run",
+        "--dry_run",
         dest="dry_run",
         action="store_true",
         help="Download/read annotations only, print per-class counts, and exit without downloading images",
@@ -321,7 +321,7 @@ def main():
     print("============================================================")
 
     if args.dry_run:
-        print("\n[--dry-run] No images were downloaded.")
+        print("\n[--dry_run] No images were downloaded.")
         return 0
 
     person_dir = os.path.join(args.output_dir, "person")

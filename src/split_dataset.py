@@ -41,7 +41,7 @@ Typical usage
         --input_dir data/processed/160x120 \
         --output_dir data/splits \
         --train 0.70 --val 0.15 --test 0.15 \
-        --seed 42 --hil-subset 200
+        --seed 42 --hil_subset 200
 
 How the four levels consume the splits
 --------------------------------------
@@ -234,7 +234,7 @@ def main():
     ap.add_argument("--test", type=float, default=0.15, help="Test fraction")
     ap.add_argument("--seed", type=int, default=42,
                     help="Random seed fixing a reproducible split")
-    ap.add_argument("--hil-subset", dest="hil_subset", type=int, default=200,
+    ap.add_argument("--hil_subset", dest="hil_subset", type=int, default=200,
                     help="Number of test images flagged for the HIL benchmark (0 = none)")
     ap.add_argument("--class_names_path", default=None,
                     help="Optional file imposing the label order, one class per line; "
@@ -242,7 +242,7 @@ def main():
                          "in alphabetical order")
     ap.add_argument("--force", action="store_true",
                     help="Overwrite output_dir if it already exists")
-    ap.add_argument("--dry-run", dest="dry_run", action="store_true",
+    ap.add_argument("--dry_run", dest="dry_run", action="store_true",
                     help="Do not copy files; only report what would be done")
     args = ap.parse_args()
 
@@ -256,7 +256,7 @@ def main():
     if os.path.isdir(args.output_dir) and os.listdir(args.output_dir):
         if not (args.force or args.dry_run):
             sys.exit("ERROR: %s already exists and is not empty. Use --force to "
-                     "overwrite (or --dry-run to inspect only)."
+                     "overwrite (or --dry_run to inspect only)."
                      % args.output_dir)
         if args.force and not args.dry_run:
             for sp in SPLITS:
