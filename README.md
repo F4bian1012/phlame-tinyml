@@ -600,50 +600,52 @@ phlame-tinyml/
 
 ## Data Availability
 
-- **Partition Manifests & Per-Image Results (in Git):** Complete stratified partition manifests (`data/splits_plates/{train,val,test}_manifest.csv`, `data/splits_plates/split_report.json`, and `data/splits_vww/{train,val,test}_manifest.csv`) and all per-image prediction and latency tables (`results/{mil,sil,pil,hil}/`) are version-controlled directly in this repository, allowing full statistical and paired 2×3 reproduction without hardware (see [Reproduce the Paper's Results](#reproduce-the-papers-results-without-hardware)). The generated tables are in `results/tables/`.
-- **Immediate Smoke-Test Sample (`data/sample/`):** A lightweight, personal-data-free 8-image sample (`data/sample/non_person/` and `data/sample/person/`, 4 `160×120` grayscale images per class from the held-out *Visual Wake Words* test split, individually licensed under **CC BY 2.0** with MS-COCO **CC BY 4.0** annotations; full provenance and SHA-256 checksums in `data/sample/ATTRIBUTION.md`) is tracked in git so users can immediately smoke-test data preprocessing right after cloning (see [Reproduce the Paper's Results](#reproduce-the-papers-results-without-hardware)), or evaluate a downloaded release model without overwriting `results/sil/`:
+- **In this repository:** the partition manifests and reports (`data/splits_*/`), every per-image prediction and latency table (`results/{mil,sil,pil,hil}/`) and the generated tables (`results/tables/`). They are enough to rebuild the statistical tables without hardware (see [Reproduce the Paper's Results](#reproduce-the-papers-results-without-hardware)).
+- **Smoke-test sample (`data/sample/`):** eight `160×120` grayscale images (4 `person`, 4 `non_person`) from the held-out *Visual Wake Words* test split, with no personal data. Each photograph is under **CC BY 2.0** and the MS-COCO annotations under **CC BY 4.0**; provenance and SHA-256 checksums are in `data/sample/ATTRIBUTION.md`. The sample exercises the preprocessing right after cloning and, once a model file is in `models/` (see *Model files* below), evaluates it without touching `results/sil/`:
   ```bash
   python src/sil_benchmark.py --model_path models/tflite/MobileNetV2_VWW+32+20+0.0001+160+120_int8.tflite --data_dir data/sample --class_names_path models/class_names_vww.txt --output_dir results/smoke_test
   ```
-- **Automated Visual Wake Words Benchmark (`src/download_vww_subset.py`):** The complete 2,000-image balanced *Visual Wake Words* dataset (`1,000 person` + `1,000 non_person` from MS-COCO `val2017`, `seed=42`, `selection_sha256: b3ab289abd4a`) can be rebuilt automatically in ~60 seconds via HTTP `Range` extraction:
+- **Visual Wake Words images (MS-COCO):** not redistributed. Each photograph keeps the licence its author chose, so the images are fetched from the MS-COCO servers instead of being copied into this repository or its releases. The 2,000-image balanced subset (`1,000 person` + `1,000 non_person` from `val2017`, `seed=42`, `selection_sha256: b3ab289abd4a`) is rebuilt in about a minute:
   ```bash
   python src/download_vww_subset.py --per_class 1000 --seed 42
   ```
-- **Trained Checkpoints (`.keras`), Quantized Models (`.tflite`), and Primary Dataset Privacy Policy:** Because binary weights (`*.keras`, `*.tflite`) exceed GitHub's recommended source tree size, all trained checkpoints and INT8 quantized models (7 primary architectures plus `MobileNetV2_VWW`) are published as release assets in the versioned **GitHub Release (`v1.0.0`)** and archived on **Zenodo** with a permanent DOI, where every `.keras` and `.tflite` file is verifiable against the `sha256` digest recorded in `results/*/metrics_*.json` (the `fnv1a` fingerprint is recorded only in the HIL files, `results/hil/`). Raw photographs from the primary vehicle benchmark are withheld from public redistribution because they contain identifiable vehicle license plates protected as personal data under Colombian data-protection law (**Law 1581 of 2012**); they are available from the author upon reasonable academic request subject to data-protection compliance, while all partition manifests, model weights, per-image predictions/latencies, and the 2,000-image VWW benchmark are openly accessible.
+- **Model files (`.keras`, `.tflite`):** too large for the git tree, so they are not in it. They will be attached to the `v1.0.0` release as one archive per set of models (`phlame-models-<set>-v1.0.0.zip`). **That release has not been published yet**; until it is, the model files can be requested from the author. What is already here is [`models/checksums.sha256`](models/checksums.sha256): the SHA-256 of every model file behind a published result, the same digest each `metrics_*.json` records in `model.sha256` (the `fnv1a` fingerprint is recorded only in the HIL files). With the files in `models/`, check them with:
+  ```bash
+  python src/verify_models.py
+  ```
+  From the release on, `python src/verify_models.py --download v1.0.0` fetches the archives, unpacks them and checks them. Training is not reproducible bit for bit, so a retrained model is a different file: the checksums identify the published files, not a retrained copy.
+- **Licence-plate photographs:** withheld. The photographs of the vehicle benchmark show identifiable licence plates, which are personal data under Colombian data-protection law (**Law 1581 of 2012**), so they are neither in this repository nor in its releases. They are available from the author upon reasonable academic request, subject to data-protection compliance. The partition manifests, the per-image predictions and the latencies of that benchmark are public.
 
 ---
 
 ## License
 
-Released under the [MIT License](LICENSE.txt).
+The software is released under the [MIT License](LICENSE.txt).
+
+Two parts of the repository carry other terms:
+
+- **Firmware sketches** (`deployment/pil_firmware/pil_firmware.ino`, `deployment/hil_firmware/hil_firmware.ino`): they keep the copyright notice of the TensorFlow Lite Micro example code they were derived from, which is under the Apache License 2.0. A copy of that licence is in [`deployment/LICENSE-Apache-2.0.txt`](deployment/LICENSE-Apache-2.0.txt).
+- **Sample images** (`data/sample/`): MS-COCO photographs under CC BY 2.0; see [`data/sample/ATTRIBUTION.md`](data/sample/ATTRIBUTION.md).
 
 ---
 
 ## Citation
 
-If you use this software, please cite it. The citation metadata is in [`CITATION.cff`](CITATION.cff); the permanent DOI will be added with the `v1.0.0` release.
+If you use this software, please cite it. The citation metadata is in [`CITATION.cff`](CITATION.cff); GitHub shows it under *Cite this repository*.
+
+PHLAME has no tagged release and no DOI yet: both come with `v1.0.0`, and this section will give the DOI from then on. Until then, cite the repository together with the commit you used:
 
 ```bibtex
 @software{phlame_software_2026,
   title={PHLAME: A Phase-Level Hardware-in-the-Loop Framework for Reproducible Fidelity-Ladder Evaluation of TinyML Image Classifiers on ARM Cortex-M Microcontrollers},
   author={Villavisan, Jheyson Fabian},
-  version={1.0.0},
   year={2026},
-  url={https://github.com/F4bian1012/phlame-tinyml}
+  url={https://github.com/F4bian1012/phlame-tinyml},
+  note={Commit <hash of the commit you used>}
 }
 ```
 
-Please also cite the *SoftwareX* paper once it is published:
-
-```bibtex
-@article{phlame_2026,
-  title={PHLAME: A Phase-Level Hardware-in-the-Loop Framework for Reproducible Fidelity-Ladder Evaluation of TinyML Image Classifiers on ARM Cortex-M Microcontrollers},
-  author={Villavisan, Jheyson Fabian},
-  journal={SoftwareX},
-  year={2026},
-  publisher={Elsevier}
-}
-```
+A journal article describing PHLAME is in preparation; its reference will be added here when it is published.
 
 Repository: [github.com/F4bian1012/phlame-tinyml](https://github.com/F4bian1012/phlame-tinyml)
 
