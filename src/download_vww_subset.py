@@ -41,6 +41,7 @@ import time
 import urllib.request
 import zlib
 from datetime import datetime, timezone
+import cli
 
 ANNOTATIONS_ZIP_URL = "http://images.cocodataset.org/annotations/annotations_trainval2017.zip"
 IMAGE_BASE_URL = "http://images.cocodataset.org/{split}/{file_name}"
@@ -224,7 +225,7 @@ def _download_one(task):
 
 
 def main():
-    parser = argparse.ArgumentParser(
+    parser = cli.ArgumentParser(
         description="Download a balanced Visual Wake Words (VWW) subset from MS-COCO 2017",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )

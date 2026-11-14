@@ -10,6 +10,7 @@ import os
 from datetime import datetime, timezone
 
 import artifacts
+import cli
 
 # Additional dependencies required for the metrics and the confusion matrix:
 # pip install scikit-learn seaborn
@@ -70,7 +71,7 @@ def _json_safe(o):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="MIL level: evaluate a .keras model on the test split and compute its metrics")
+    parser = cli.ArgumentParser(description="MIL level: evaluate a .keras model on the test split and compute its metrics")
     parser.add_argument('--width', type=int, default=160, help="Image width")
     parser.add_argument('--height', type=int, default=120, help="Image height")
     parser.add_argument('--model_path', type=str, required=True, help="Path to the .keras model to evaluate (required)")

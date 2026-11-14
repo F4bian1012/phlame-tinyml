@@ -9,6 +9,7 @@ import datetime
 import argparse
 
 import artifacts
+import cli
 
 LOG_DIR = "tensorboard_logs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
@@ -397,7 +398,7 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, dropout_rate,
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
+    parser = cli.ArgumentParser(
         description="ResNet training for TinyML (grayscale images)"
     )
     parser.add_argument(

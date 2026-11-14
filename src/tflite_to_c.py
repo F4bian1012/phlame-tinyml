@@ -1,5 +1,6 @@
 import argparse
 import os
+import cli
 
 # Firmware sketch folders that consume the generated model.h.
 # Arduino sketches are self-contained folders, so each one needs its own copy.
@@ -59,7 +60,7 @@ def resolve_outputs(target, output_path):
     return [os.path.join(REPO_ROOT, FIRMWARE_DIRS[k], 'model.h') for k in keys]
 
 def main():
-    parser = argparse.ArgumentParser(description='Convert a .tflite model to a C array compatible with TFLite for Microcontrollers (e.g., Arduino Portenta H7).')
+    parser = cli.ArgumentParser(description='Convert a .tflite model to a C array compatible with TFLite for Microcontrollers (e.g., Arduino Portenta H7).')
     parser.add_argument('tflite_path', type=str, help='Path to the input .tflite model file.')
     parser.add_argument('output_path', type=str, nargs='?', default=None, help='Optional explicit output .h/.cpp path. If omitted, the header is written to the firmware folders selected by --target.')
     parser.add_argument('--target', type=str, default='both', choices=['pil', 'hil', 'both'], help='Firmware sketch(es) to write deployment/<sketch>/model.h into. Default is "both", keeping the PIL and HIL firmwares on the same model. Ignored when output_path is given.')

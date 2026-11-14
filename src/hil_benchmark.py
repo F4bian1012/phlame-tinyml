@@ -76,6 +76,8 @@ import time
 from collections import Counter
 from datetime import datetime, timezone
 import hashlib
+import artifacts
+import cli
 
 
 # ---------------------------------------------------------------------------
@@ -1090,13 +1092,21 @@ def run_benchmark(args):
         model_tag = os.path.splitext(os.path.basename(tflite_path))[0]
     else:
         print("[ERROR] Cannot determine which model is on the board to name output "
-              "artifacts: pass --tflite <path to flashed .tflite> (recommended; "
+              "artifacts: pass --model_path <path to flashed .tflite> (recommended; "
               "also verifies the on-chip FNV-1a hash) or at least --model-tag <name>.")
         sys.exit(2)
     expected = expected_model_fingerprint(tflite_path)
     if tflite_path and expected is None:
         print(f"[ERROR] Specified .tflite file does not exist: {tflite_path}")
         sys.exit(2)
+    # Checked before opening the port or the stimulus window: a session must not
+    # replace the results of another one (the published ones are tracked in results/).
+    artifacts.refuse_to_overwrite(
+        [os.path.join(args.output_dir, name) for name in
+         (f"confusion_matrix_{model_tag}.png", f"metrics_{model_tag}.json",
+          f"latency_metrics_{model_tag}.csv", f"conditions_{model_tag}.json")],
+        args.overwrite,
+        hint="give the session its own folder and name with --output_dir and --model_tag")
     if args.folder:
         print(f"[WARN] Explicit --folder provided: reading from {args.folder} "
               f"and bypassing the manifest hil_subset filter.")
@@ -1296,7 +1306,7 @@ def run_benchmark(args):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
+    parser = cli.ArgumentParser(
         description="Real Camera-in-the-Loop HIL benchmark: the HM01B0 captures "
                     "stimuli displayed on a monitor, pairs predictions against "
                     "ground truth, and measures per-phase sensor->prediction latency.")
@@ -1304,11 +1314,13 @@ def parse_args():
                         help="Serial port (e.g. COM9 or /dev/ttyUSB0)")
     parser.add_argument('--baud', type=int, default=115200,
                         help="Baud rate (default: 115200)")
-    parser.add_argument('--manifest',
-                        default=os.path.join('data', 'splits',
-                                             'test_manifest.csv'),
+    parser.add_argument('--splits_dir', default=os.path.join('data', 'splits'),
+                        help="Directory holding the splits produced by "
+                             "split_dataset.py (default: data/splits); the "
+                             "stimuli come from its test_manifest.csv")
+    parser.add_argument('--manifest', default=None,
                         help="Test split manifest CSV "
-                             "(default: data/splits/test_manifest.csv). "
+                             "(default: <splits_dir>/test_manifest.csv). "
                              "Default stimulus source.")
     parser.add_argument('--all-test', action='store_true',
                         help="Use every image in the test manifest instead of "
@@ -1332,6 +1344,8 @@ def parse_args():
                         help="Initial wait in seconds after opening the serial port (default: 2.0)")
     parser.add_argument('--output-dir', default=os.path.join('results', 'hil'),
                         help="Output directory (default: results/hil)")
+    parser.add_argument('--overwrite', action='store_true',
+                        help="Replace the matrix, JSON and CSV files if they already exist")
     parser.add_argument('--windowed', action='store_true',
                         help="Open a normal resizable window instead of fullscreen")
     parser.add_argument('--no-confirm', action='store_true',
@@ -1344,7 +1358,8 @@ def parse_args():
     parser.add_argument('--ambient-temp', type=float, default=None,
                         help="Ambient room temperature [°C]")
     # Model identity verification and output tagging
-    parser.add_argument('--tflite', default=None, metavar='TFLITE',
+    parser.add_argument('--model_path', '--tflite', dest='tflite', default=None,
+                        metavar='TFLITE',
                         help="Path to the INT8 .tflite file used to generate "
                              "the flashed model.h. Its FNV-1a hash is verified "
                              "against the hash printed by the firmware at boot, "
@@ -1380,7 +1395,10 @@ def parse_args():
                                                              'hil_frames'),
                         help="Directory for saved captured frames, git-ignored "
                              "(default: data/hil_frames)")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.manifest is None:
+        args.manifest = os.path.join(args.splits_dir, 'test_manifest.csv')
+    return args
 
 
 if __name__ == '__main__':

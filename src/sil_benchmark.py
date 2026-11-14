@@ -9,6 +9,7 @@ import os
 from datetime import datetime, timezone
 
 import artifacts
+import cli
 
 try:
     import seaborn as sns
@@ -65,7 +66,7 @@ def _json_safe(o):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="SIL level: evaluate an INT8 .tflite model on the test split, with the same metrics as mil_benchmark.py")
+    parser = cli.ArgumentParser(description="SIL level: evaluate an INT8 .tflite model on the test split, with the same metrics as mil_benchmark.py")
     parser.add_argument('--width', type=int, default=160, help="Image width")
     parser.add_argument('--height', type=int, default=120, help="Image height")
     parser.add_argument('--model_path', type=str, required=True, help="Path to the .tflite model to evaluate (required)")

@@ -3,6 +3,7 @@ import subprocess
 import json
 import sys
 import os
+import cli
 
 try:
     if sys.stdout.encoding != 'utf-8':
@@ -101,7 +102,7 @@ def resolver_proyecto(parser, target, path_proyecto):
     return os.path.join(REPO_ROOT, FIRMWARE_DIRS[target])
 
 def main():
-    parser = argparse.ArgumentParser(description="Compile and upload one of the framework firmwares to the Arduino Portenta M7.")
+    parser = cli.ArgumentParser(description="Compile and upload one of the framework firmwares to the Arduino Portenta M7.")
     parser.add_argument("--target",
                         choices=["pil", "hil"],
                         default=None,

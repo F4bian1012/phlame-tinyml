@@ -48,6 +48,8 @@ import hashlib
 import json
 import statistics
 from datetime import datetime, timezone
+import artifacts
+import cli
 
 try:
     import serial
@@ -202,7 +204,8 @@ def build_packet(payload_raw: bytes) -> bytes:
 
 def send_image(port: str, baud: int, image_path: str,
                width: int, height: int, grayscale: bool,
-               pre_delay: float, model_tag: str):
+               pre_delay: float, model_tag: str,
+               output_dir: str = os.path.join("results", "pil")):
     """
     Opens the serial port and sends the image with the #...@ protocol
     """
@@ -231,7 +234,7 @@ def send_image(port: str, baud: int, image_path: str,
     # Read the response until the "Listo" (ready) line is received
     timeout = time.time() + 30  # at most 30 seconds waiting for a response
 
-    csv_path = os.path.join("results", "pil",
+    csv_path = os.path.join(output_dir,
                             f"latency_metrics_single_{model_tag}.csv")
     os.makedirs(os.path.dirname(csv_path), exist_ok=True)
     # Check if file exists to write header or not
@@ -281,7 +284,8 @@ def send_folder(port: str, baud: int, folder: str,
                 pre_delay: float, gap: float,
                 model_tag: str,
                 model_path: str = None,
-                n_samples: int = None):
+                n_samples: int = None,
+                output_dir: str = os.path.join("results", "pil")):
     """
     Sends the images in `folder` to the Arduino in sequence.
 
@@ -291,7 +295,7 @@ def send_folder(port: str, baud: int, folder: str,
 
     The Arduino returns the predicted class index along with on-device telemetry
     lines (TEMP_C, CYC_*, US_*). On completion, a prediction summary is printed
-    and artifacts are saved under results/pil/ (latency_metrics_*.csv,
+    and artifacts are saved under `output_dir` (latency_metrics_*.csv,
     predictions_*.csv, confusion_matrix_*.png, and metrics_*.json).
 
     Parameters
@@ -304,7 +308,8 @@ def send_folder(port: str, baud: int, folder: str,
     grayscale  : True -> grayscale, False -> RGB
     pre_delay  : Seconds to wait before sending the first image
     gap        : Seconds to wait between consecutive images
-    model_tag  : Model stem used to name output files under results/pil/
+    model_tag  : Model stem used to name the output files
+    output_dir : Folder for the output files (default: results/pil)
     model_path : Optional path to the flashed .tflite file (hashed in metrics JSON)
     n_samples  : Number of images to select at random.
                  If None (or >= total available), all of them are sent.
@@ -358,7 +363,7 @@ def send_folder(port: str, baud: int, folder: str,
 
     total = len(image_data)
 
-    csv_path = os.path.join("results", "pil",
+    csv_path = os.path.join(output_dir,
                             f"latency_metrics_{model_tag}.csv")
     os.makedirs(os.path.dirname(csv_path), exist_ok=True)
     csv_file = open(csv_path, "w", newline="")
@@ -370,7 +375,7 @@ def send_folder(port: str, baud: int, folder: str,
     # one so as not to alter that file's schema, which already has finished
     # runs; both share the Image column and can be joined by name.
     # RelPath disambiguates: two classes may have files with the same name.
-    pred_csv_path = os.path.join("results", "pil",
+    pred_csv_path = os.path.join(output_dir,
                                  f"predictions_{model_tag}.csv")
     pred_file = open(pred_csv_path, "w", newline="", encoding="utf-8")
     pred_writer = csv.writer(pred_file, delimiter=";")
@@ -551,7 +556,6 @@ def send_folder(port: str, baud: int, folder: str,
             # Same criterion as mil_benchmark.py (MIL): the name is derived from the
             # evaluated model, so that two runs with different models do not
             # overwrite each other's matrix.
-            output_dir = os.path.join("results", "pil")
             os.makedirs(output_dir, exist_ok=True)
             cm_plot_name = f"confusion_matrix_{model_tag}.png"
             cm_plot_path = os.path.join(output_dir, cm_plot_name)
@@ -591,7 +595,7 @@ def send_folder(port: str, baud: int, folder: str,
     # fields are left as null when they could not be computed, which is
     # also information.
     # ------------------------------------------------------------------
-    json_dir = os.path.join("results", "pil")
+    json_dir = output_dir
     os.makedirs(json_dir, exist_ok=True)
     metrics_path = os.path.join(json_dir, f"metrics_{model_tag}.json")
 
@@ -649,7 +653,7 @@ def send_folder(port: str, baud: int, folder: str,
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
+    parser = cli.ArgumentParser(
         description="Sends image(s) to the Arduino over serial (#...@ protocol)"
     )
     parser.add_argument('--port',   default="COM9", required=False,
@@ -687,6 +691,11 @@ def parse_args():
     parser.add_argument('--count',  type=int, default=None, metavar='N',
                         help="Number of random images to send from the folder. "
                              "If not specified, all of them are sent.")
+    parser.add_argument('--output_dir', default=os.path.join("results", "pil"),
+                        help="Output directory for the matrix, JSON and CSV files "
+                             "(default: results/pil)")
+    parser.add_argument('--overwrite', action='store_true',
+                        help="Replace the matrix, JSON and CSV files if they already exist")
     return parser.parse_args()
 
 
@@ -758,9 +767,18 @@ if __name__ == '__main__':
             grayscale=not args.color,
             pre_delay=args.delay,
             model_tag=model_tag,
+            output_dir=args.output_dir,
         )
     else:
         folder = resolve_folder(args)
+        # Checked before opening the port: a run must not replace the results of
+        # another one (the published ones are tracked in results/).
+        artifacts.refuse_to_overwrite(
+            [os.path.join(args.output_dir, name) for name in
+             (f"confusion_matrix_{model_tag}.png", f"predictions_{model_tag}.csv",
+              f"metrics_{model_tag}.json", f"latency_metrics_{model_tag}.csv")],
+            args.overwrite,
+            hint="write somewhere else with --output_dir")
         send_folder(
             port=port,
             baud=args.baud,
@@ -773,4 +791,5 @@ if __name__ == '__main__':
             model_tag=model_tag,
             model_path=args.model_path,
             n_samples=args.count,
+            output_dir=args.output_dir,
         )

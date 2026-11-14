@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import argparse
 import os
+import cli
 
 def calculate_sparsity(model):
     """Calculates the fraction [0.0, 1.0] of zero kernel weights across top-level Conv2D and Dense layers."""
@@ -91,7 +92,7 @@ def apply_layer_unstructured_pruning(model, sparsity):
     return model
 
 def main():
-    parser = argparse.ArgumentParser(description="Manual Model Pruning for TensorFlow/Keras Models")
+    parser = cli.ArgumentParser(description="Manual Model Pruning for TensorFlow/Keras Models")
     parser.add_argument("--model_path", type=str, required=True, 
                         help="Path to the original model (e.g., models/checkpoints/model.keras)")
     parser.add_argument("--sparsity", type=float, required=True, 

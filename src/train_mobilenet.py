@@ -9,6 +9,7 @@ import datetime
 import argparse
 
 import artifacts
+import cli
 
 LOG_DIR = "tensorboard_logs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
@@ -250,7 +251,7 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, base_model_na
         print("Tip: Ensure you have enough images per class (at least 10-20 to start).")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train model for TinyML")
+    parser = cli.ArgumentParser(description="Train model for TinyML")
     parser.add_argument("--base_model", type=str, default="MobileNetV2", choices=["MobileNet", "MobileNetV2", "MobileNetV3Large", "MobileNetV3Small"], help="Base model architecture")
     parser.add_argument("--width", type=int, default=160, help="Image width")
     parser.add_argument("--height", type=int, default=120, help="Image height")

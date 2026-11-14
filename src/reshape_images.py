@@ -61,6 +61,7 @@ import random
 from datetime import datetime, timezone
 
 import cv2
+import cli
 
 PROCESSED_BASE_DIR = "data/processed"
 # Accepted extensions, compared in lowercase (including .JPG, .Png, etc.)
@@ -256,7 +257,7 @@ def reshape_images(width, height, input_dir, balance, max_per_class, seed, dry_r
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
+    parser = cli.ArgumentParser(
         description="Resize (and optionally balance) the dataset for TinyML",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--width", type=int, default=28, help="Target width")

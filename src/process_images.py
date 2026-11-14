@@ -1,6 +1,7 @@
 import cv2
 import os
 import argparse
+import cli
 
 def process_images(raw_dir, processed_dir):
     """
@@ -67,7 +68,7 @@ def process_images(raw_dir, processed_dir):
     print("="*40)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Converts images to grayscale.")
+    parser = cli.ArgumentParser(description="Converts images to grayscale.")
     parser.add_argument("--raw_path", type=str, default="data/raw", help="Path to the original images")
     parser.add_argument("--path_processed", type=str, default="data/processed/grayscale", help="Destination path for the processed images")
     args = parser.parse_args()

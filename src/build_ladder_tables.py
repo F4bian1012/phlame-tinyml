@@ -62,6 +62,7 @@ import numpy as np
 import scipy
 from scipy.stats import binomtest, fisher_exact
 from scipy.stats import t as t_dist
+import cli
 
 DEFAULT_ARCHS = "MobileNetV2,MobileNetV3Large,ResNet18,MobileNet,MobileNetV3Small,SqueezeNet,ResNet8"
 DEFAULT_DEPLOYABLE = "MobileNetV2,MobileNet,MobileNetV3Small,SqueezeNet,ResNet8"
@@ -72,7 +73,7 @@ FLASH_BYTES = 2 * 1024 * 1024  # STM32H747XI internal flash: 2 MiB
 # Command line
 # ----------------------------------------------------------------------------
 def parse_args():
-    p = argparse.ArgumentParser(
+    p = cli.ArgumentParser(
         description="Rebuild the fidelity-ladder tables (paired bootstrap CIs, exact McNemar, "
                     "Holm) from the per-image result files in results/.")
     p.add_argument("--root", default=".",

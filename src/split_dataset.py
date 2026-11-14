@@ -72,6 +72,7 @@ import random
 import shutil
 import sys
 from datetime import datetime, timezone
+import cli
 
 IMG_EXT = (".jpg", ".jpeg", ".png", ".bmp")
 SPLITS = ("train", "val", "test")
@@ -221,7 +222,7 @@ def write_manifest(path, rows):
 # Main
 # --------------------------------------------------------------------------- #
 def main():
-    ap = argparse.ArgumentParser(
+    ap = cli.ArgumentParser(
         description="Reproducible train/val/test dataset split for PHLAME.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     ap.add_argument("--input_dir", default="data/processed/160x120",
