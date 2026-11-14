@@ -2,27 +2,32 @@
    Licensed under the Apache License, Version 2.0 (the "License") */
 
 // ============================================================================
-// PHLAME - HIL (camera-in-the-loop) firmware for the Portenta H7 + Vision Shield
+// PHLAME - HIL (camera-in-the-loop) firmware
 // ----------------------------------------------------------------------------
-// Firmware DEDICATED to the HIL bench: the HM01B0 camera captures the physical
-// scene and the whole system runs on the MCU. It is INDEPENDENT of the PIL
-// bench: the PIL firmware deployment/pil_firmware/pil_firmware.ino (image over
-// serial, #...@ protocol) is a separate sketch and is left untouched.
+// Firmware DEDICATED to the HIL bench: the camera of the board captures the
+// physical scene and the whole system runs on the MCU. One sketch serves two
+// boards (see BOARD SUPPORT below). It is INDEPENDENT of the PIL bench: the
+// PIL firmware deployment/pil_firmware/pil_firmware.ino (image over serial,
+// #...@ protocol) is a separate sketch.
 //
 // Host companion: src/hil_benchmark.py
 //
 // Serial commands:
-//   'T'      -> capture one frame from the HM01B0 and run the inference
-//   'F' '1'  -> enable frame-dump: after each inference the raw sensor frame
-//               is sent back (FRAME_BEGIN/END lines + #...@ packet with
-//               ESC/XOR 0x20 escaping, the same scheme as the PIL bench) for
-//               SIL-on-PC cross-validation on the real frame
+//   'T'      -> capture one frame from the camera and run the inference
+//   'F' '1'  -> enable frame-dump: after each inference the captured frame
+//               (160x120, 8 bits) is sent back (FRAME_BEGIN/END lines +
+//               #...@ packet with ESC/XOR 0x20 escaping, the same scheme as
+//               the PIL bench) for SIL-on-PC cross-validation on the real
+//               frame
 //   'F' '0'  -> disable frame-dump   (answers "FRAME_DUMP:ON|OFF")
 //
 // Boot handshake (parseable lines):
+//   BOARD:<name>              PORTENTA_H7 | NICLA_VISION
 //   CAM_INIT:OK | CAM_INIT:FAIL   the camera is initialized FIRST, before
-//                                 SDRAM and TFLite (see the note in setup())
+//                                 the memory and TFLite (see the note in
+//                                 setup())
 //   INPUT_SHAPE:<H>x<W>x<C>   geometry of the input tensor
+//   MODEL_BYTES / MODEL_FNV1A / ARENA_USED   identity of the flashed model
 //   READY_HIL                 ready to receive triggers
 //
 // Telemetry per inference:
@@ -31,18 +36,92 @@
 //   <int>                     predicted class (integer ALONE on its line)
 //   CYC_CAPTURE / CYC_PRE / CYC_INF / CYC_POST / CYC_TOTAL   DWT->CYCCNT cycles
 //   US_CAPTURE  / US_PRE  / US_INF  / US_POST  / US_TOTAL    microseconds
-//   (PRE includes the camera->model-geometry resize and the quantization;
+//   (PRE includes the color->luminance conversion where the sensor is a color
+//    one, the camera->model-geometry resize and the quantization;
 //    TOTAL = CAPTURE + PRE + INF + POST = sensor->prediction latency)
+//   --- Done. Waiting for the next trigger... ---   end-of-inference marker
 // ============================================================================
+
+// ============================================================================
+// BOARD SUPPORT
+// ----------------------------------------------------------------------------
+// Everything that depends on the board is decided here: its name, its camera
+// and where the tensor arena and the image buffer live.
+//
+//   Portenta H7 + Vision Shield    arduino:mbed_portenta:envie_m7
+//       HM01B0 camera: monochrome sensor, delivers the 8-bit grayscale frame
+//       directly. 8 MB of external SDRAM: the arena (4 MB) and the image
+//       buffer (400 KB) are allocated there with ea_malloc().
+//   Nicla Vision                   arduino:mbed_nicla:nicla_vision
+//       GC2145 camera (built in): color sensor. It is read as RGB565 and
+//       converted to luminance on the MCU, because the grayscale mode of its
+//       driver does not deliver luminance (it falls back to raw Bayer data).
+//       No external RAM: the arena, the camera frame and the image buffer are
+//       static in the internal RAM, which offers 523,624 bytes for everything
+//       (the flash offers 1,966,080 bytes for the firmware plus model.h). The
+//       arena size decides which models fit; AllocateTensors() fails at boot
+//       when it is too small, and the linker fails ("region RAM overflowed")
+//       when it is too large.
+//
+// Both sizes can be set at build time without editing this file:
+//   arduino-cli compile ... --build-property
+//       "compiler.cpp.extra_flags=-DTENSOR_ARENA_KB=<n> -DIMAGE_BUFFER_BYTES=<n>"
+//   TENSOR_ARENA_KB     tensor arena, in KB
+//   IMAGE_BUFFER_BYTES  image buffer, in bytes (width * height * channels of
+//                       the model input)
+// ============================================================================
+
+// Capture geometry of the HIL bench on both boards: 160x120, 30 fps. After
+// the capture the pipeline always works on an 8-bit luminance frame of this
+// size.
+#define CAM_WIDTH 160
+#define CAM_HEIGHT 120
+#define CAM_FPS 30
+
+#if defined(ARDUINO_PORTENTA_H7_M7)
+#define BOARD_NAME "PORTENTA_H7"
+#define BOARD_HAS_SDRAM 1
+#define ARENA_MEMORY "SDRAM"
+#include <SDRAM.h>
+#define CAMERA_NAME "HM01B0"
+#define CAMERA_FAIL_TEXT "ERROR: HM01B0 camera not detected. Is the Vision Shield attached? System halted."
+#define CAMERA_PIXEL_FORMAT CAMERA_GRAYSCALE
+#define CAMERA_DELIVERS_RGB565 0
+#ifndef TENSOR_ARENA_KB
+#define TENSOR_ARENA_KB 4096 // 4 MB for the larger models
+#endif
+#ifndef IMAGE_BUFFER_BYTES
+#define IMAGE_BUFFER_BYTES (400 * 1024) // comfortably covers up to 320x320 RGB
+#endif
+#elif defined(ARDUINO_NICLA_VISION)
+#define BOARD_NAME "NICLA_VISION"
+#define BOARD_HAS_SDRAM 0
+#define ARENA_MEMORY "internal RAM"
+#define CAMERA_NAME "GC2145"
+#define CAMERA_FAIL_TEXT "ERROR: GC2145 camera did not respond. System halted."
+#define CAMERA_PIXEL_FORMAT CAMERA_RGB565
+#define CAMERA_DELIVERS_RGB565 1
+#ifndef TENSOR_ARENA_KB
+#define TENSOR_ARENA_KB 368 // sized for MobileNetV2 160x120x1 (uses 356,404 bytes)
+#endif
+#ifndef IMAGE_BUFFER_BYTES
+#define IMAGE_BUFFER_BYTES (160 * 120) // one 160x120 grayscale image
+#endif
+#else
+#error "Unsupported board. Build for arduino:mbed_portenta:envie_m7 or arduino:mbed_nicla:nicla_vision."
+#endif
 
 #include "mbed.h"
 #include "model.h"
 #include <Chirale_TensorFlowLite.h>
-#include <SDRAM.h>
 
-// --- HM01B0 camera (Portenta Vision Shield) ---
+// --- Camera ---
 #include "camera.h"
-#include "himax.h"
+#if defined(ARDUINO_PORTENTA_H7_M7)
+#include "himax.h" // HM01B0 (Portenta Vision Shield)
+#else
+#include "gc2145.h" // GC2145 (built into the Nicla Vision)
+#endif
 
 #include "tensorflow/lite/micro/all_ops_resolver.h"
 #include "tensorflow/lite/micro/micro_interpreter.h"
@@ -58,41 +137,61 @@ tflite::MicroInterpreter *interpreter = nullptr;
 TfLiteTensor *input = nullptr;
 TfLiteTensor *output = nullptr;
 
-// Tensor arena: declared as a POINTER so that it can live in SDRAM
-constexpr int kTensorArenaSize =
-    4 * 1024 * 1024; // 4 MB for the larger models
+// Tensor arena: reached through a POINTER so that it can live in SDRAM
+// (Portenta) or in a static array (Nicla Vision)
+constexpr int kTensorArenaSize = TENSOR_ARENA_KB * 1024;
 uint8_t *tensor_arena = nullptr;
 
-// AllOpsResolver is used because the Portenta H7 has plenty of flash (2 MB)
-// and it avoids AllocateTensors() errors caused by missing operations
+// AllOpsResolver keeps the firmware independent of the model: it avoids
+// AllocateTensors() errors caused by missing operations. It costs flash,
+// which both boards can afford (about 2 MB each).
 tflite::AllOpsResolver resolver;
 
-// ---- HM01B0 CAMERA ----
-// Native capture resolution of the HIL bench: 160x120 grayscale, 30 fps.
-#define CAM_WIDTH 160
-#define CAM_HEIGHT 120
-#define CAM_FPS 30
-
+// ---- CAMERA ----
+#if defined(ARDUINO_PORTENTA_H7_M7)
 HM01B0 himax;
 Camera cam(himax);
+#else
+GC2145 galaxyCore;
+Camera cam(galaxyCore);
+#endif
 FrameBuffer fb;
 bool frame_dump = false; // 'F1'/'F0': send the captured frame back to the host
 
 // Geometry of the input tensor (read from input->dims in setup())
 int model_h = 0, model_w = 0, model_c = 1;
 
-// Working buffer: the frame resized to the model geometry.
-// 400 KB in SDRAM comfortably covers up to 320x320 RGB.
-#define IMAGE_BUFFER_SIZE (400 * 1024)
+// Working buffer: the frame resized to the model geometry
+// (IMAGE_BUFFER_BYTES bytes).
 uint8_t *image_buffer = nullptr;
 int image_bytes_ready = 0;
+
+#if !BOARD_HAS_SDRAM
+// Static storage in the internal RAM. Being static, the linker accounts for
+// it: a combination of sizes that does not fit fails at build time instead of
+// at run time.
+alignas(16) static uint8_t tensor_arena_storage[TENSOR_ARENA_KB * 1024];
+
+// Camera frame, RGB565 (2 bytes per pixel). It is handed to the camera
+// library with fb.setBuffer() so that the library does not take it from the
+// heap; the library requires it aligned to the 32-byte cache line.
+alignas(32) static uint8_t camera_frame[CAM_WIDTH * CAM_HEIGHT * 2];
+
+// The luminance frame is computed in place over the first half of
+// camera_frame, which leaves its second half (CAM_WIDTH * CAM_HEIGHT bytes)
+// free: the image buffer lives there when it fits, at no RAM cost. A larger
+// image buffer gets its own array.
+#if IMAGE_BUFFER_BYTES > (CAM_WIDTH * CAM_HEIGHT)
+static uint8_t image_buffer_storage[IMAGE_BUFFER_BYTES];
+#endif
+#endif
 
 // ---- LATENCY MEASUREMENT: DWT->CYCCNT cycle counter ----
 // The Cortex-M7 has a Data Watchpoint & Trace (DWT) unit with a 32-bit core
 // cycle counter (CYCCNT). It counts 1 per clock cycle, so the resolution is
-// 1/SystemCoreClock (2.5 ns at 400 MHz, the measured value of
-// SystemCoreClock), far finer than millis()/micros(). It is enabled once in
-// setup().
+// 1/SystemCoreClock (2.5 ns at 400 MHz, the value of SystemCoreClock measured
+// on arduino:mbed_portenta; the boot lines print the actual value of the
+// board), far finer than millis()/micros(). It is enabled once in setup().
 // At 400 MHz the 32-bit counter wraps every ~10.74 s; since each phase lasts
 // far less than that, the unsigned subtraction (t_end - t_start) is correct
 // even across one wrap.
@@ -112,6 +211,62 @@ static inline float cycles_to_us(uint32_t cycles) {
   return (float)cycles * 1e6f / (float)SystemCoreClock;
 }
 
+// ---- Function: reserve the tensor arena and the image buffer ----
+// Returns false when the memory is not available (only possible with SDRAM).
+bool allocateBuffers() {
+#if BOARD_HAS_SDRAM
+  SDRAM.begin();
+
+  // Working buffer for the resized frame, in SDRAM
+  image_buffer = (uint8_t *)ea_malloc(IMAGE_BUFFER_BYTES);
+
+  // Memory with 16 extra bytes for alignment
+  uint8_t *raw_arena = (uint8_t *)ea_malloc(kTensorArenaSize + 16);
+
+  if (raw_arena == nullptr || image_buffer == nullptr) {
+    return false;
+  }
+
+  // Align to 16 bytes
+  tensor_arena = (uint8_t *)(((uintptr_t)raw_arena + 15) & ~15);
+#else
+  tensor_arena = tensor_arena_storage;
+#if IMAGE_BUFFER_BYTES > (CAM_WIDTH * CAM_HEIGHT)
+  image_buffer = image_buffer_storage;
+#else
+  image_buffer = camera_frame + CAM_WIDTH * CAM_HEIGHT;
+#endif
+#endif
+  return true;
+}
+
+#if CAMERA_DELIVERS_RGB565
+// ---- Function: RGB565 -> 8-bit luminance, in place ----
+// The camera library delivers RGB565 with the high byte first:
+//   byte 0 = RRRRRGGG, byte 1 = GGGBBBBB.
+// Each channel is expanded to 8 bits by bit replication and the three are
+// combined with the ITU-R BT.601 weights in 16-bit fixed point,
+//   Y = (19595 R + 38470 G + 7471 B + 32768) >> 16,
+// which is exactly what Pillow's convert('L') computes on the host (checked
+// against Pillow 12.3.0 for every RGB565 value), so "grayscale" means the same
+// thing on both sides. Pixel i reads bytes 2i and 2i+1 and writes byte i, so
+// a forward pass can overwrite the buffer: afterwards its first n_pixels
+// bytes hold the luminance frame.
+void rgb565ToLuminanceInPlace(uint8_t *buf, int n_pixels) {
+  for (int i = 0; i < n_pixels; ++i) {
+    const uint32_t hi = buf[2 * i];
+    const uint32_t lo = buf[2 * i + 1];
+    const uint32_t r5 = hi >> 3;
+    const uint32_t g6 = ((hi & 0x07) << 3) | (lo >> 5);
+    const uint32_t b5 = lo & 0x1F;
+    const uint32_t r = (r5 << 3) | (r5 >> 2);
+    const uint32_t g = (g6 << 2) | (g6 >> 4);
+    const uint32_t b = (b5 << 3) | (b5 >> 2);
+    buf[i] = (uint8_t)((19595u * r + 38470u * g + 7471u * b + 32768u) >> 16);
+  }
+}
+#endif
+
 // ---- Function: resize/crop the camera frame into the image buffer ----
 // Reproduces the SAME preprocessing contract as the training pipeline and the
 // PIL bench: RAW uint8 pixel [0,255], HWC row-major order. The interpolation
@@ -120,7 +275,7 @@ static inline float cycles_to_us(uint32_t cycles) {
 // 'L'->'RGB' in Pillow.
 // Known difference between levels: the PIL bench resizes with LANCZOS on the
 // host; nearest-neighbor is used here. When the model geometry is 160x120
-// (native to the HM01B0) there is no resize and both paths are identical.
+// (the capture geometry) there is no resize and both paths are identical.
 // This difference is part of the preprocessing contract and must be reported
 // with any result obtained at another geometry.
 void cameraFrameToImageBuffer(const uint8_t *frame) {
@@ -209,7 +364,8 @@ void loadImageToInputTensor() {
 // ---- Function: run the inference and report result + latencies ----
 // Phases measured with DWT->CYCCNT:
 //   capture    : camera acquisition -> framebuffer (passed in cyc_capture)
-//   preprocess : resize (extra_pre_cycles) + loading/quantizing into the tensor
+//   preprocess : color->luminance and resize (extra_pre_cycles) +
+//                loading/quantizing into the tensor
 //   inference  : interpreter->Invoke()
 //   postprocess: argmax of the output
 void runInference(uint32_t cyc_capture, uint32_t extra_pre_cycles) {
@@ -305,12 +461,13 @@ void printMcuTemperature() {
 }
 
 // ---- Function: send the captured frame back to the host (frame-dump) ----
-// Sends the RAW HM01B0 frame (160x120, exactly as it left the sensor, BEFORE
-// the resize to the model geometry) with the escape scheme of the PIL
-// protocol ('#'/'@'/ESC -> ESC, byte XOR 0x20). The host stores it and can run
-// the SAME .tflite on the PC (SIL) on this frame: the PIL->HIL gap is thus
-// split into (a) sensor/optics/display degradation and (b) chip-vs-PC
-// execution divergence.
+// Sends the captured 160x120 8-bit frame BEFORE the resize to the model
+// geometry: exactly as it left the sensor on the HM01B0, and the luminance
+// frame derived from the RGB565 capture on the GC2145. It uses the escape
+// scheme of the PIL protocol ('#'/'@'/ESC -> ESC, byte XOR 0x20). The host
+// stores it and can run the SAME .tflite on the PC (SIL) on this frame: the
+// PIL->HIL gap is thus split into (a) sensor/optics/display degradation and
+// (b) chip-vs-PC execution divergence.
 // It is sent OUTSIDE the timed region (after the latencies are reported): it
 // does not contaminate the measurement.
 void sendFrameToHost(const uint8_t *buf, size_t n) {
@@ -335,7 +492,7 @@ void sendFrameToHost(const uint8_t *buf, size_t n) {
 
 // ---- HIL cycle: capture a real frame + sensor->prediction inference ----
 void runHilCapture() {
-  Serial.println("\n--- HIL trigger. Capturing a frame from the HM01B0... ---");
+  Serial.println("\n--- HIL trigger. Capturing a frame from the " CAMERA_NAME "... ---");
 
   // Thermal telemetry BEFORE the measured region
   printMcuTemperature();
@@ -353,8 +510,12 @@ void runHilCapture() {
   }
   uint32_t cyc_capture = tc1 - tc0;
 
-  // --- Resize/crop camera -> model geometry (counted as PRE) ---
+  // --- Color -> luminance (color sensor only) and resize/crop camera ->
+  // model geometry; both count as PRE ---
   uint32_t tr0 = dwt_cycles();
+#if CAMERA_DELIVERS_RGB565
+  rgb565ToLuminanceInPlace(fb.getBuffer(), CAM_WIDTH * CAM_HEIGHT);
+#endif
   cameraFrameToImageBuffer(fb.getBuffer());
   uint32_t tr1 = dwt_cycles();
 
@@ -363,8 +524,8 @@ void runHilCapture() {
   Serial.println("--- Done. Waiting for the next trigger... ---\n");
   Serial.flush();
 
-  // Frame-dump (outside the measurement): send the raw frame back to the host
-  // for traceability and SIL-on-PC cross-validation.
+  // Frame-dump (outside the measurement): send the captured frame back to the
+  // host for traceability and SIL-on-PC cross-validation.
   if (frame_dump) {
     sendFrameToHost(fb.getBuffer(), (size_t)(CAM_WIDTH * CAM_HEIGHT));
   }
@@ -442,45 +603,45 @@ void setup() {
   // It must be done only once, here.
   dwt_enable_cycle_counter();
 
-  // --- Initialize the HM01B0 camera (160x120 grayscale, 30 fps) -------------
-  // It is initialized before SDRAM and TFLite so that a sensor failure is
-  // reported as early as possible.
+  // Board identity: the bench stores it with the results
+  Serial.print("BOARD:");
+  Serial.println(BOARD_NAME);
+
+  // --- Initialize the camera (160x120, 30 fps) -------------------------------
+  // It is initialized before the memory and TFLite so that a sensor failure
+  // is reported as early as possible.
   // MIND the return value: Camera::begin() returns bool (true = success),
   // unlike the rest of the library API (grabFrame, setFrameRate...), which
   // follows the C convention of 0 = success. Comparing it with == 0 inverts
   // the logic and reports CAM_INIT:FAIL exactly when the camera starts fine.
-  if (cam.begin(CAMERA_R160x120, CAMERA_GRAYSCALE, CAM_FPS)) {
+#if !BOARD_HAS_SDRAM
+  // The camera library captures into the static frame instead of the heap
+  fb.setBuffer(camera_frame);
+#endif
+  if (cam.begin(CAMERA_R160x120, CAMERA_PIXEL_FORMAT, CAM_FPS)) {
     Serial.println("CAM_INIT:OK");
   } else {
     Serial.println("CAM_INIT:FAIL");
-    Serial.println("ERROR: Vision Shield not detected. System halted.");
+    Serial.println(CAMERA_FAIL_TEXT);
     Serial.flush();
     while (1)
       ;
   }
 
-  // --- SDRAM: image buffer + tensor arena ------------------------------------
-  SDRAM.begin();
-
-  // Working buffer for the resized frame, in SDRAM
-  image_buffer = (uint8_t *)ea_malloc(IMAGE_BUFFER_SIZE);
-
-  // Memory with 16 extra bytes for alignment
-  uint8_t *raw_arena = (uint8_t *)ea_malloc(kTensorArenaSize + 16);
-
-  if (raw_arena == nullptr || image_buffer == nullptr) {
+  // --- Memory: image buffer + tensor arena -----------------------------------
+  // SDRAM on the Portenta, static arrays on the Nicla Vision
+  if (!allocateBuffers()) {
     Serial.println("ERROR: no SDRAM available for the tensor arena or the image buffer.");
     while (1)
       ;
   }
 
-  // Align to 16 bytes
-  tensor_arena = (uint8_t *)(((uintptr_t)raw_arena + 15) & ~15);
-
   tflite::InitializeTarget();
 
   Serial.println("\n--- STARTING DIAGNOSTICS (HIL/camera) ---");
-  Serial.print("Tensor arena address in SDRAM: 0x");
+  Serial.print("Tensor arena size (bytes): ");
+  Serial.println(kTensorArenaSize);
+  Serial.print("Tensor arena address (" ARENA_MEMORY "): 0x");
   Serial.println((uint32_t)tensor_arena, HEX);
   Serial.print("SystemCoreClock (Hz): ");
   Serial.println(SystemCoreClock);
@@ -514,6 +675,9 @@ void setup() {
 
   if (allocate_status != kTfLiteOk) {
     Serial.println("Failed to allocate tensors. Arena too small?");
+#if !BOARD_HAS_SDRAM
+    Serial.println("This board has no external RAM: rebuild with a larger -DTENSOR_ARENA_KB (until the linker reports that RAM overflowed) or use a smaller model.");
+#endif
     while (1)
       ;
   }
@@ -538,6 +702,20 @@ void setup() {
   Serial.print(model_w);
   Serial.print("x");
   Serial.println(model_c);
+
+  // The image buffer holds the frame at the model geometry, one byte per
+  // input element. An input larger than the buffer would overflow it, so it
+  // is refused here with a clear message.
+  const long input_elements = (long)model_h * model_w * model_c;
+  if (input_elements > (long)IMAGE_BUFFER_BYTES) {
+    Serial.print("ERROR: the model input needs ");
+    Serial.print(input_elements);
+    Serial.print(" bytes and the image buffer holds ");
+    Serial.print((long)IMAGE_BUFFER_BYTES);
+    Serial.println(". Rebuild with a larger -DIMAGE_BUFFER_BYTES or use a smaller input.");
+    while (1)
+      ;
+  }
 
   // Quantization diagnostics of the input tensor
   if (input->type == kTfLiteInt8) {

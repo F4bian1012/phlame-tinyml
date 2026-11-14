@@ -128,6 +128,10 @@ def main():
                         type=int,
                         default=None,
                         help="Size of the tensor arena compiled into the sketch, in KB. Default: the sketch's own value for the board (4096 on the Portenta H7, in external SDRAM; 368 on the Nicla Vision, which only has its 512 KB of internal RAM).")
+    parser.add_argument("--image_buffer_bytes",
+                        type=int,
+                        default=None,
+                        help="Size of the image buffer compiled into the sketch, in bytes (width * height * channels of the model input). Default: the sketch's own value for the board (409600 on the Portenta H7; 19200 on the Nicla Vision, one 160x120 grayscale image).")
     parser.add_argument("--compile_only",
                         action="store_true",
                         help="Compile and report the size without uploading; no board needs to be connected.")
@@ -156,8 +160,14 @@ def main():
 
     print(f"\n=== 1. Compiling project at: {sketch_path} ({board['label']}) ===")
     cmd_compile = f"arduino-cli compile --fqbn {board['fqbn']} --warnings none"
+    # Both sizes are macros of the sketch (see its BOARD SUPPORT block).
+    defines = []
     if args.arena_kb is not None:
-        cmd_compile += f" --build-property \"compiler.cpp.extra_flags=-DTENSOR_ARENA_KB={args.arena_kb}\""
+        defines.append(f"-DTENSOR_ARENA_KB={args.arena_kb}")
+    if args.image_buffer_bytes is not None:
+        defines.append(f"-DIMAGE_BUFFER_BYTES={args.image_buffer_bytes}")
+    if defines:
+        cmd_compile += f" --build-property \"compiler.cpp.extra_flags={' '.join(defines)}\""
     cmd_compile += f" \"{sketch_path}\""
     print(f"> {cmd_compile}")
     success, output = run_command(cmd_compile)

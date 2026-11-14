@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 """
 Checks the board table and the serial text shared by the PIL and HIL benches
-(src/boards.py), and the two benches against a simulated board: a stand-in
-for the serial port that answers like the firmware does. No hardware needed.
+(src/boards.py), that the two sketches print what the host expects, and the
+two benches against a simulated board: a stand-in for the serial port that
+answers like the firmware does. No hardware needed.
 
-The first two test classes use the standard library only. The simulated-board
-ones import the benches, so they are skipped when pyserial, Pillow, numpy or
-OpenCV are not installed.
+The first three test classes use the standard library only. The
+simulated-board ones import the benches, so they are skipped when pyserial,
+Pillow, numpy or OpenCV are not installed.
 
     python -m unittest discover -s tests -v
 """
@@ -16,6 +17,7 @@ import csv
 import io
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -91,6 +93,44 @@ class BoardTableTest(unittest.TestCase):
         self.assertIn("--board nicla", message)
         self.assertIn("NICLA_VISION", boards.mismatch("nicla", "SOMETHING_ELSE") or "")
         self.assertIsNotNone(boards.mismatch("nicla", "SOMETHING_ELSE"))
+
+
+SKETCHES = {
+    "pil": REPO / "deployment" / "pil_firmware" / "pil_firmware.ino",
+    "hil": REPO / "deployment" / "hil_firmware" / "hil_firmware.ino",
+}
+PRINTED = re.compile(r'Serial\.print(?:ln)?\(\s*"((?:[^"\\]|\\.)*)"')
+
+
+class SketchTextTest(unittest.TestCase):
+    """The sketches and the host scripts are compiled apart, so nothing but
+    these checks keeps the text they exchange in step."""
+
+    def source(self, level):
+        return SKETCHES[level].read_text(encoding="utf-8")
+
+    def test_each_sketch_closes_an_inference_with_the_banner_the_benches_wait_for(self):
+        for level in SKETCHES:
+            closing = [text for text in PRINTED.findall(self.source(level))
+                       if boards.is_end_of_inference(text)]
+            self.assertTrue(closing, "%s firmware prints no end-of-inference banner" % level)
+            for text in closing:
+                # only the banner may match: any other line with these words would
+                # make the bench stop reading before the answer is complete
+                self.assertIn(BANNER[level], text)
+
+    def test_each_sketch_announces_the_boards_of_the_table(self):
+        for level in SKETCHES:
+            source = self.source(level)
+            self.assertIn('Serial.print("%s");' % boards.BOARD_PREFIX, source, level)
+            for board in boards.BOARDS.values():
+                self.assertIn('#define BOARD_NAME "%s"' % board["announces"], source, level)
+
+    def test_default_arena_of_the_nicla_is_the_documented_one(self):
+        expected = "#define TENSOR_ARENA_KB %d" % boards.BOARDS["nicla"]["default_arena_kb"]
+        for level in SKETCHES:
+            nicla_block = self.source(level).split("#elif defined(ARDUINO_NICLA_VISION)")[1].split("#else")[0]
+            self.assertIn(expected, nicla_block, level)
 
 
 class SimulatedBoard:

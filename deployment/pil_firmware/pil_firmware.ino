@@ -1,10 +1,81 @@
 /* Copyright 2023 The TensorFlow Authors. All Rights Reserved.
    Licensed under the Apache License, Version 2.0 (the "License") */
 
+// ============================================================================
+// PHLAME - PIL (processor-in-the-loop) firmware
+// ----------------------------------------------------------------------------
+// The host sends a preprocessed image over serial, the MCU runs the INT8
+// model on it and answers with the predicted class and the latency of each
+// phase. One sketch serves two boards (see BOARD SUPPORT below).
+//
+// Host companion: src/pil_benchmark.py
+//
+// Boot lines (human readable, plus two parseable ones):
+//   BOARD:<name>              PORTENTA_H7 | NICLA_VISION
+//   ARENA_USED:<bytes>        interpreter->arena_used_bytes()
+//
+// Answer to each image (#...@ packet):
+//   BOARD:<name>              repeated here because the PIL bench opens the
+//                             port after the boot lines are gone
+//   TEMP_C:<int>              MCU temperature (outside the measured region)
+//   <int>                     predicted class (integer ALONE on its line)
+//   CYC_PRE / CYC_INF / CYC_POST / CYC_TOTAL   DWT->CYCCNT cycles
+//   US_PRE  / US_INF  / US_POST  / US_TOTAL    microseconds
+//   --- Done. Waiting for the next image... ---   end-of-inference marker
+// ============================================================================
+
+// ============================================================================
+// BOARD SUPPORT
+// ----------------------------------------------------------------------------
+// Everything that depends on the board is decided here: its name and where
+// the tensor arena and the image buffer live.
+//
+//   Portenta H7     arduino:mbed_portenta:envie_m7
+//       8 MB of external SDRAM: the arena (4 MB) and the image buffer
+//       (400 KB) are allocated there with ea_malloc().
+//   Nicla Vision    arduino:mbed_nicla:nicla_vision
+//       no external RAM: the arena and the image buffer are static arrays in
+//       the internal RAM, which offers 523,624 bytes for everything (the
+//       flash offers 1,966,080 bytes for the firmware plus model.h). The
+//       arena size decides which models fit; AllocateTensors() fails at boot
+//       when it is too small, and the linker fails ("region RAM overflowed")
+//       when it is too large.
+//
+// Both sizes can be set at build time without editing this file:
+//   arduino-cli compile ... --build-property
+//       "compiler.cpp.extra_flags=-DTENSOR_ARENA_KB=<n> -DIMAGE_BUFFER_BYTES=<n>"
+//   TENSOR_ARENA_KB     tensor arena, in KB
+//   IMAGE_BUFFER_BYTES  image buffer, in bytes (width * height * channels of
+//                       the largest model input to be received)
+// ============================================================================
+#if defined(ARDUINO_PORTENTA_H7_M7)
+#define BOARD_NAME "PORTENTA_H7"
+#define BOARD_HAS_SDRAM 1
+#define ARENA_MEMORY "SDRAM"
+#include <SDRAM.h>
+#ifndef TENSOR_ARENA_KB
+#define TENSOR_ARENA_KB 4096 // 4 MB for the larger models
+#endif
+#ifndef IMAGE_BUFFER_BYTES
+#define IMAGE_BUFFER_BYTES (400 * 1024) // holds up to 320x320 RGB (307,200 bytes)
+#endif
+#elif defined(ARDUINO_NICLA_VISION)
+#define BOARD_NAME "NICLA_VISION"
+#define BOARD_HAS_SDRAM 0
+#define ARENA_MEMORY "internal RAM"
+#ifndef TENSOR_ARENA_KB
+#define TENSOR_ARENA_KB 368 // sized for MobileNetV2 160x120x1 (uses 356,404 bytes)
+#endif
+#ifndef IMAGE_BUFFER_BYTES
+#define IMAGE_BUFFER_BYTES (160 * 120) // one 160x120 grayscale image
+#endif
+#else
+#error "Unsupported board. Build for arduino:mbed_portenta:envie_m7 or arduino:mbed_nicla:nicla_vision."
+#endif
+
 #include "mbed.h"
 #include "model.h"
 #include <Chirale_TensorFlowLite.h>
-#include <SDRAM.h>
 
 #include "tensorflow/lite/micro/all_ops_resolver.h"
 #include "tensorflow/lite/micro/micro_interpreter.h"
@@ -20,13 +91,14 @@ tflite::MicroInterpreter *interpreter = nullptr;
 TfLiteTensor *input = nullptr;
 TfLiteTensor *output = nullptr;
 
-// Tensor arena: declared as a POINTER so that it can live in SDRAM
-constexpr int kTensorArenaSize =
-    4 * 1024 * 1024; // 4 MB for the larger models
+// Tensor arena: reached through a POINTER so that it can live in SDRAM
+// (Portenta) or in a static array (Nicla Vision)
+constexpr int kTensorArenaSize = TENSOR_ARENA_KB * 1024;
 uint8_t *tensor_arena = nullptr;
 
-// AllOpsResolver is used because the Portenta H7 has plenty of flash (2 MB)
-// and it avoids AllocateTensors() errors caused by missing operations
+// AllOpsResolver keeps the firmware independent of the model: it avoids
+// AllocateTensors() errors caused by missing operations. It costs flash,
+// which both boards can afford (about 2 MB each).
 tflite::AllOpsResolver resolver;
 
 // ---- SERIAL PROTOCOL ----
@@ -36,21 +108,25 @@ tflite::AllOpsResolver resolver;
 // If a data byte is itself '#', '@' or ESC, the sender must escape it (see
 // the Python script). Escape: 0x1B (ESC) followed by the byte XOR 0x20.
 
-// Buffer that receives the image over serial
-// Raised to 400 KB to hold large images such as 320x320 RGB (307,200
-// bytes)
-#define IMAGE_BUFFER_SIZE (400 * 1024)
-
+// Buffer that receives the image over serial (IMAGE_BUFFER_BYTES bytes)
 uint8_t *image_buffer = nullptr;
 int image_bytes_received = 0;
 bool receiving = false;
+
+#if !BOARD_HAS_SDRAM
+// Static storage in the internal RAM. Being static, the linker accounts for
+// it: a combination of sizes that does not fit fails at build time instead of
+// at run time.
+alignas(16) static uint8_t tensor_arena_storage[TENSOR_ARENA_KB * 1024];
+static uint8_t image_buffer_storage[IMAGE_BUFFER_BYTES];
+#endif
 
 // ---- LATENCY MEASUREMENT: DWT->CYCCNT cycle counter ----
 // The Cortex-M7 has a Data Watchpoint & Trace (DWT) unit with a 32-bit core
 // cycle counter (CYCCNT). It counts 1 per clock cycle, so the resolution is
 // 1/SystemCoreClock (2.5 ns at 400 MHz, the value of SystemCoreClock measured
-// on arduino:mbed_portenta), far finer than millis()/micros(). It is enabled
-// once in setup().
+// on arduino:mbed_portenta; the boot lines print the actual value of the
+// board), far finer than millis()/micros(). It is enabled once in setup().
 // At 400 MHz the 32-bit counter wraps every ~10.74 s; since each phase lasts
 // far less than that, the unsigned subtraction (t_end - t_start) is correct
 // even across one wrap.
@@ -68,6 +144,31 @@ static inline uint32_t dwt_cycles() { return DWT->CYCCNT; }
 // Converts core cycles to microseconds using the actual clock of the MCU.
 static inline float cycles_to_us(uint32_t cycles) {
   return (float)cycles * 1e6f / (float)SystemCoreClock;
+}
+
+// ---- Function: reserve the tensor arena and the image buffer ----
+// Returns false when the memory is not available (only possible with SDRAM).
+bool allocateBuffers() {
+#if BOARD_HAS_SDRAM
+  SDRAM.begin();
+
+  // Allocate the image buffer in SDRAM
+  image_buffer = (uint8_t *)ea_malloc(IMAGE_BUFFER_BYTES);
+
+  // Memory with 16 extra bytes for alignment
+  uint8_t *raw_arena = (uint8_t *)ea_malloc(kTensorArenaSize + 16);
+
+  if (raw_arena == nullptr || image_buffer == nullptr) {
+    return false;
+  }
+
+  // Align to 16 bytes
+  tensor_arena = (uint8_t *)(((uintptr_t)raw_arena + 15) & ~15);
+#else
+  image_buffer = image_buffer_storage;
+  tensor_arena = tensor_arena_storage;
+#endif
+  return true;
 }
 
 // ---- Function: read an image from the serial port ----
@@ -101,12 +202,12 @@ bool readImageFromSerial() {
           }
         }
         uint8_t escaped = (uint8_t)Serial.read() ^ 0x20;
-        if (image_bytes_received < IMAGE_BUFFER_SIZE) {
+        if (image_bytes_received < IMAGE_BUFFER_BYTES) {
           image_buffer[image_bytes_received++] = escaped;
         }
       } else {
         // Ordinary byte
-        if (image_bytes_received < IMAGE_BUFFER_SIZE) {
+        if (image_bytes_received < IMAGE_BUFFER_BYTES) {
           image_buffer[image_bytes_received++] = byte_in;
         }
       }
@@ -247,13 +348,9 @@ void runInference() {
 }
 
 void setup() {
-  SDRAM.begin();
-
-  // Allocate the image buffer in SDRAM
-  image_buffer = (uint8_t *)ea_malloc(IMAGE_BUFFER_SIZE);
-
-  // Memory with 16 extra bytes for alignment
-  uint8_t *raw_arena = (uint8_t *)ea_malloc(kTensorArenaSize + 16);
+  // Tensor arena and image buffer: SDRAM on the Portenta, static arrays on
+  // the Nicla Vision
+  bool buffers_ok = allocateBuffers();
 
   Serial.begin(115200);
   while (!Serial) {
@@ -264,19 +361,20 @@ void setup() {
   // It must be done only once, here.
   dwt_enable_cycle_counter();
 
-  if (raw_arena == nullptr || image_buffer == nullptr) {
+  if (!buffers_ok) {
     Serial.println("ERROR: no SDRAM available for the tensor arena or the image buffer.");
     while (1)
       ;
   }
 
-  // Align to 16 bytes
-  tensor_arena = (uint8_t *)(((uintptr_t)raw_arena + 15) & ~15);
-
   tflite::InitializeTarget();
 
   Serial.println("\n--- STARTING DIAGNOSTICS ---");
-  Serial.print("Tensor arena address in SDRAM: 0x");
+  Serial.print("BOARD:");
+  Serial.println(BOARD_NAME);
+  Serial.print("Tensor arena size (bytes): ");
+  Serial.println(kTensorArenaSize);
+  Serial.print("Tensor arena address (" ARENA_MEMORY "): 0x");
   Serial.println((uint32_t)tensor_arena, HEX);
   Serial.print("SystemCoreClock (Hz): ");
   Serial.println(SystemCoreClock);
@@ -315,14 +413,37 @@ void setup() {
 
   if (allocate_status != kTfLiteOk) {
     Serial.println("Failed to allocate tensors. Arena too small?");
+#if !BOARD_HAS_SDRAM
+    Serial.println("This board has no external RAM: rebuild with a larger -DTENSOR_ARENA_KB (until the linker reports that RAM overflowed) or use a smaller model.");
+#endif
     while (1)
       ;
   }
 
   Serial.println("AllocateTensors() OK.");
+  // How much of the arena the model actually needs: the figure to size
+  // TENSOR_ARENA_KB with on a board without external RAM
+  Serial.print("ARENA_USED:");
+  Serial.println((unsigned long)interpreter->arena_used_bytes());
 
   input = interpreter->input(0);
   output = interpreter->output(0);
+
+  // The image buffer holds one byte per input element. An input larger than
+  // the buffer would be truncated and the model would predict on incomplete
+  // data, so it is refused here with a clear message.
+  const long input_elements = (input->type == kTfLiteFloat32)
+                                  ? (long)(input->bytes / 4)
+                                  : (long)input->bytes;
+  if (input_elements > (long)IMAGE_BUFFER_BYTES) {
+    Serial.print("ERROR: the model input needs ");
+    Serial.print(input_elements);
+    Serial.print(" bytes and the image buffer holds ");
+    Serial.print((long)IMAGE_BUFFER_BYTES);
+    Serial.println(". Rebuild with a larger -DIMAGE_BUFFER_BYTES or use a smaller input.");
+    while (1)
+      ;
+  }
 
   // Quantization diagnostics: prints scale/zero_point of the input tensor.
   // If you see scale~0.00392 (=1/255) and zp=-128, the old "pixel-128"
@@ -362,6 +483,12 @@ void loop() {
     // Final temperature using the factory calibration constants of the STM32H7
     int32_t mcuTemp =
         __HAL_ADC_CALC_TEMPERATURE(mcuVref, rawTemp, ADC_RESOLUTION_16B);
+
+    // Board identity, repeated with every image: the PIL bench opens the port
+    // after the boot lines are gone, so this is where it learns which board
+    // answered. Also outside the timed region.
+    Serial.print("BOARD:");
+    Serial.println(BOARD_NAME);
     Serial.print("TEMP_C:");
     Serial.println(mcuTemp);
 

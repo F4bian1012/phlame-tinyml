@@ -24,6 +24,7 @@ An open-source framework to train, quantize, deploy and measure CNN image classi
   - [5. Model Header for the Firmware](#5-model-header-for-the-firmware)
   - [6. Processor-in-the-Loop (PIL) Evaluation](#6-processor-in-the-loop-pil-evaluation)
   - [7. Hardware-in-the-Loop (HIL) Evaluation](#7-hardware-in-the-loop-hil-evaluation)
+  - [Running PIL and HIL on the Arduino Nicla Vision](#running-pil-and-hil-on-the-arduino-nicla-vision)
 - [Results](#results)
 - [Results Format](#results-format)
 - [Hardware Details](#hardware-details)
@@ -67,7 +68,7 @@ section of `requirements.txt`.
 | PIL | Arduino Portenta H7 |
 | HIL | Arduino Portenta H7, Vision Shield (HM01B0 camera) and a monitor for the stimuli |
 
-The firmware toolchain above is needed only for PIL and HIL. See [Hardware Details](#hardware-details).
+The firmware toolchain above is needed only for PIL and HIL. See [Hardware Details](#hardware-details). The two sketches also build for the Arduino Nicla Vision (`arduino:mbed_nicla` core, 4.6.0 used), which has not been validated on the board yet; see [Running PIL and HIL on the Arduino Nicla Vision](#running-pil-and-hil-on-the-arduino-nicla-vision).
 
 ---
 
@@ -317,7 +318,32 @@ Run the bench. It displays the `hil_subset` of the test partition and writes to 
 ```bash
 python src/hil_benchmark.py --port COM9 --model_path models/tflite/{model_name}_int8.tflite --lux 10 --distance_cm 24 --ambient_temp 24
 ```
-The bench aborts if the fingerprint of the model on the board does not match `--model_path`, or if a rig condition (`--lux`, `--distance_cm`, `--ambient_temp`) is missing. It waits for ENTER before the first stimulus, so the camera can be placed in front of the monitor; `--no_confirm` skips the wait. Adding `--sil_model models/tflite/{model_name}_int8.tflite --mil_model models/checkpoints/{model_name}.keras` also classifies every captured frame on the PC, which separates the effect of the camera from the effect of the chip.
+The bench aborts if the fingerprint of the model on the board does not match `--model_path`, or if a rig condition (`--lux`, `--distance_cm`, `--ambient_temp`) is missing. It waits for ENTER before the first stimulus, so the camera can be placed in front of the monitor; `--no_confirm` skips the wait. Adding `--sil_model models/tflite/{model_name}_int8.tflite `--mil_model models/checkpoints/{model_name}.keras` also classifies every captured frame on the PC, which separates the effect of the camera from the effect of the chip.
+
+### Running PIL and HIL on the Arduino Nicla Vision
+The same two sketches build for the Nicla Vision; `--board nicla` selects it in the three scripts that deal with the board. Steps 1 to 5 do not change.
+
+Flash the PIL firmware and run its bench:
+```bash
+python src/compile_upload_arduino.py --target pil --board nicla
+```
+```bash
+python src/pil_benchmark.py --board nicla --port COM9 --model_path models/tflite/{model_name}_int8.tflite --width 160 --height 120
+```
+Flash the HIL firmware and run its bench:
+```bash
+python src/compile_upload_arduino.py --target hil --board nicla
+```
+```bash
+python src/hil_benchmark.py --board nicla --port COM9 --model_path models/tflite/{model_name}_int8.tflite --lux 10 --distance_cm 24 --ambient_temp 24
+```
+The results go to `results/nicla/pil/` and `results/nicla/hil/`, and every file records the board it was measured on (`run.board`). The benches stop if the firmware announces a board other than the one given with `--board`.
+
+Two things differ from the Portenta H7 (details in [Hardware and Porting](docs/hardware.md#boards-and-memory)):
+- **Memory.** The Nicla Vision has no external SDRAM, so the tensor arena is a static array in its 511 KiB of internal RAM: 368 KiB by default, sized for `MobileNetV2`. `--arena_kb` changes it at compile time, and `--compile_only` reports the RAM use without a board.
+- **Camera.** Its GC2145 is a colour sensor: the firmware reads RGB565 and converts it to 8-bit luminance (BT.601 weights, as Pillow does) before the same preprocessing as on the Portenta H7.
+
+> **Status.** Both sketches compile for the Nicla Vision and the host side is tested against a simulated board (`tests/test_boards.py`), but they have not been run on a physical Nicla Vision yet, and no results for that board are published.
 
 ---
 
@@ -532,10 +558,11 @@ All scripts live in `src/`. Detailed descriptions, output artifacts and usage no
 | Evaluation | `pil_benchmark.py` | PIL level, image over serial. |
 | Evaluation | `hil_benchmark.py` | HIL level, camera in the loop. |
 | Deployment | `tflite_to_c.py` | `.tflite` to the `model.h` C header. |
-| Deployment | `compile_upload_arduino.py` | Compile and upload a firmware with `arduino-cli`. |
+| Deployment | `compile_upload_arduino.py` | Compile and upload a firmware with `arduino-cli` (`--board portenta` or `nicla`). |
 | Analysis | `build_ladder_tables.py` | Rebuild the eight statistical tables of the paper in `results/tables/`. |
 | Shared | `artifacts.py` | Helper module, not run directly: run names (`--tag`), overwrite protection and the per-model label order. |
 | Shared | `cli.py` | Helper module, not run directly: lets every option be written with `_` or `-`. |
+| Shared | `boards.py` | Helper module, not run directly: what changes with the board (`--board`) and the serial text the two board benches wait for. |
 
 ### Repository Structure
 ```text
@@ -547,7 +574,7 @@ phlame-tinyml/
 ├── results/               # mil/, sil/, pil/, hil/, tables/, training_curves/
 ├── src/                   # Python source code (see Scripts)
 ├── tensorboard_logs/      # TensorBoard event logs from training
-├── tests/                 # test_results_schema.py, test_own_dataset.py, test_cli.py
+├── tests/                 # test_results_schema.py, test_own_dataset.py, test_cli.py, test_boards.py
 ├── CITATION.cff
 ├── LICENSE.txt
 ├── README.md
@@ -560,13 +587,13 @@ phlame-tinyml/
 ## Known Limitations
 
 - **2 MiB internal flash ceiling with `AllOpsResolver`:** Linking all TFLite-Micro kernels (`~673 KiB`) leaves `~1,375 KiB` of internal flash for `model.h` on the STM32H747XI. Consequently, `MobileNetV3Large` (`2,181 KiB`) and `ResNet18` (`11,057 KiB`) serve as desktop MIL/SIL baselines: each `.tflite` alone exceeds the 2 MiB flash, so deploying them requires running from external memory (QSPI flash or SDRAM, not implemented in PHLAME) or a narrower variant, which is a different model. Unstructured pruning, a lower input resolution and `MicroMutableOpResolver` do not solve it.
-- **External SDRAM requirement for large activation arenas:** Three of the five deployed architectures (`MobileNetV2` `348.1 KiB`, `ResNet8` `388.8 KiB`, and `SqueezeNet` `404.7 KiB`) exceed the `~288 KiB` of contiguous internal SRAM measured on the Arduino Nicla Vision, a board without external SDRAM, making the Portenta H7's 8 MiB external SDRAM mandatory for uniform multi-architecture benchmarking.
-- **Single measured platform:** All PIL and HIL results come from one board: Arduino Portenta H7 (STM32H747XI Cortex-M7 at 400 MHz, 8 MiB external SDRAM) with the Vision Shield HM01B0 camera. The host benches and the serial protocols do not assume this board, and both firmwares compile for the Arduino Nicla Vision (same MCU, no external SDRAM), but they have not been run on it, and no results on other boards or MCU families are reported. On the Nicla Vision only MobileNet and MobileNetV3Small would fit their tensor arena in internal SRAM, and the HIL bench would need a driver for its GC2145 RGB camera (see [Portability](docs/hardware.md#portability-and-the-sdram-constraint)).
+- **Internal RAM limits what runs without external SDRAM:** The Portenta H7's 8 MiB of external SDRAM is what lets the five deployable architectures run under one 4 MiB arena. On a board without it, such as the Arduino Nicla Vision (511 KiB of internal RAM for everything), the default 368 KiB arena covers `MobileNet` (`177.2 KiB`), `MobileNetV3Small` (`220.5 KiB`) and `MobileNetV2` (`348.1 KiB`); `ResNet8` (`388.8 KiB`) and `SqueezeNet` (`404.7 KiB`) need a larger arena that leaves little RAM for the rest (see [Boards and Memory](docs/hardware.md#boards-and-memory)). These are build-time figures.
+- **Single measured platform:** All PIL and HIL results come from one board: Arduino Portenta H7 (STM32H747XI Cortex-M7 at 400 MHz, 8 MiB external SDRAM) with the Vision Shield HM01B0 camera. The host benches and the serial protocols do not assume this board, and both sketches build for the Arduino Nicla Vision (`--board nicla`: same MCU, static arena in internal RAM, GC2145 colour camera converted to luminance), but they have not been run on it, and no results on other boards or MCU families are reported (see [Portability](docs/hardware.md#portability)).
 - **Presentation-order variance in the stimulus rig:** While fixed-seed HIL sessions (`seed=42`) exhibit sd = 0.0030 F1-macro across replicas on the fixed 200-image subset, permuting the stimulus presentation order (`rep4`, `seed=7`) shifts the measured gap (−0.0664 vs. the −0.0544 mean of the fixed-seed sessions, 4-run sd = 0.0065); accounting for both 200-image sampling variance and bench repeatability yields the conservative frontend interval of −0.057 [−0.098, −0.017] (95% CI).
 - **Non-interchangeability of PIL and HIL inference cycle counts:** Across all evaluated models, `CYC_INF` in HIL is systematically 0.81%–2.77% lower than in PIL despite an identical `400.0 MHz` clock and SDRAM arena layout (cause not identified: arena and cache configuration are the same in both firmwares). PIL and HIL latency baselines should therefore be reported separately rather than mixed.
 - **No on-chip model verification in PIL:** `pil_benchmark.py` hashes the `.tflite` passed with `--model_path` on the host and never compares it with the board, so its `sha256` does not prove which model was flashed. The FNV-1a fingerprint check exists only in the HIL bench; in PIL a stale `model.h` is detected only indirectly (per-architecture cycle signature, Table 7 attribution check).
 - **FP32 firmware branch not validated:** Both firmwares divide the pixel by 255 when the model is floating point, while the INT8 branch and every published model use the raw pixel (0–255). All published results use INT8 models, so that branch never ran; do not deploy a floating-point `.tflite` without checking it.
-- **Spanish end-of-inference markers:** The benches depend on strings printed by the firmware (see [Serial Protocol](docs/hardware.md#serial-protocol-pil-bench)).
+- **Text end-of-inference markers:** The benches find the end of each inference by a line of text printed by the firmware, so a port must keep that line (see [Serial Protocol](docs/hardware.md#serial-protocol-pil-bench)).
 - **Argmax class output over serial:** The firmware reports the predicted class index (`argmax`) rather than full per-class logit vectors to keep post-processing deterministic (`< 1 µs`) and compatible with arbitrary class counts.
 
 ---
