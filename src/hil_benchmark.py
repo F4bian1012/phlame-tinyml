@@ -34,7 +34,7 @@ Outputs (in --output-dir, default results/hil/):
                                      — the environmental protocol required for
                                      reproducible reporting
 
-Companion firmware: deployment/hil_camera_firmware/hil_camera_firmware.ino
+Companion firmware: deployment/hil_firmware/hil_firmware.ino
 (dedicated HIL sketch; the PIL sketch pil_firmware.ino and its host benchmark
 pil_benchmark.py remain separate and untouched).
 
@@ -202,7 +202,7 @@ def verify_model_identity(fw, expected, model_tag, output_dir, allow_mismatch=Fa
     if fw['model_fnv1a'] is None:
         print("[WARN] Firmware did NOT report MODEL_FNV1A: legacy firmware without "
               "fingerprinting. This run's label is NOT verified against the "
-              "board. Reflash the updated hil_camera_firmware.ino sketch.")
+              "board. Reflash the updated hil_firmware.ino sketch.")
     elif expected is None:
         print("[WARN] No --tflite provided: cannot compare on-chip fingerprint "
               f"({fw['model_fnv1a']}, {fw['model_bytes']} B) against a reference file. "
@@ -310,7 +310,7 @@ except ImportError:
     sys.exit(1)
 
 
-# ---- Serial protocol commands (see hil_camera_firmware.ino) ----
+# ---- Serial protocol commands (see hil_firmware.ino) ----
 CMD_TRIGGER   = b'T'
 CMD_DUMP_ON   = b'F1'
 CMD_DUMP_OFF  = b'F0'
@@ -330,7 +330,7 @@ TELEMETRY_FIELDS = [
 ]
 # The firmware prints its end-of-inference banner in Spanish
 # ("--- Listo. Esperando siguiente trigger... ---"), so END_MARKERS must keep
-# the exact Spanish substrings emitted by hil_camera_firmware.ino.
+# the exact Spanish substrings emitted by hil_firmware.ino.
 END_MARKERS = ("siguiente trigger", "siguiente imagen", "Listo")
 
 WINDOW_NAME = "PHLAME HIL Stimulus"
@@ -538,7 +538,7 @@ def read_lines_until(ser, predicate, timeout_s=30.0, echo=True):
 def wait_ready(ser, timeout_s=30.0):
     """
     Waits for the boot handshake from the dedicated HIL firmware
-    (hil_camera_firmware.ino): CAM_INIT:OK ... READY_HIL.
+    (hil_firmware.ino): CAM_INIT:OK ... READY_HIL.
     Aborts if camera initialization fails or times out (e.g. PIL firmware flashed).
     """
     lines, hit = read_lines_until(
@@ -552,7 +552,7 @@ def wait_ready(ser, timeout_s=30.0):
               "Is the Portenta Vision Shield properly attached?")
     else:
         print("[ERROR] Timed out waiting for READY_HIL. Did you flash "
-              "deployment/hil_camera_firmware/hil_camera_firmware.ino? "
+              "deployment/hil_firmware/hil_firmware.ino? "
               "(the PIL firmware does not respond to this benchmark). If the "
               "HIL firmware was already running, press RESET on the board and retry.")
     ser.close()
@@ -1123,7 +1123,7 @@ def run_benchmark(args):
     print(f"[INFO] Port open. Waiting {args.delay}s (firmware setup)...")
     time.sleep(args.delay)
 
-    # Handshake with the dedicated HIL firmware (hil_camera_firmware.ino)
+    # Handshake with the dedicated HIL firmware (hil_firmware.ino)
     fw = wait_ready(ser)
     identity_ok = verify_model_identity(fw, expected, model_tag, args.output_dir,
                                         allow_mismatch=args.allow_model_mismatch)

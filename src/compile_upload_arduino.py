@@ -17,7 +17,7 @@ FQBN_FULL = f"{FQBN_BASE}:split=100_0"
 # picks which one gets uploaded (there is no "both" option).
 FIRMWARE_DIRS = {
     'pil': os.path.join('deployment', 'pil_firmware'),
-    'hil': os.path.join('deployment', 'hil_camera_firmware'),
+    'hil': os.path.join('deployment', 'hil_firmware'),
 }
 
 # Repo root, resolved from this file so as not to depend on the cwd.
@@ -105,7 +105,7 @@ def main():
     parser.add_argument("--target",
                         choices=["pil", "hil"],
                         default=None,
-                        help="Firmware to compile and upload: 'pil' (deployment/pil_firmware, image injected over serial) or 'hil' (deployment/hil_camera_firmware, camera in the loop). The board runs one at a time, which is why there is no 'both' option.")
+                        help="Firmware to compile and upload: 'pil' (deployment/pil_firmware, image injected over serial) or 'hil' (deployment/hil_firmware, camera in the loop). The board runs one at a time, which is why there is no 'both' option.")
     parser.add_argument("--path_proyecto",
                         default=None,
                         help="Path to an arbitrary Arduino project, as an alternative to --target.")

@@ -175,7 +175,7 @@ flowchart TD
         HEADER["tflite_to_c.py<br/><small>--target pil, hil, both</small>"]:::python
         MODEL_H("deployment/*/<br/>model.h"):::artifact
         FLASH["compile_upload_arduino.py<br/><small>--target pil or hil</small>"]:::python
-        BOARD{{"Portenta H7<br/><small>pil_firmware or<br/>hil_camera_firmware</small>"}}:::hardware
+        BOARD{{"Portenta H7<br/><small>pil_firmware or<br/>hil_firmware</small>"}}:::hardware
         HEADER --> MODEL_H --> FLASH --> BOARD
     end
 
@@ -525,7 +525,7 @@ All scripts live in `src/`. Detailed descriptions, output artifacts and usage no
 ```text
 phlame-tinyml/
 ├── data/                  # Datasets (git-ignored); manifests and sample/ are tracked
-├── deployment/            # Firmware source code: pil_firmware/, hil_camera_firmware/
+├── deployment/            # Firmware source code: pil_firmware/, hil_firmware/
 ├── docs/                  # scripts.md, hardware.md, results_schema.md
 ├── models/                # checkpoints/ (.keras), tflite/ (.tflite), class names
 ├── results/               # mil/, sil/, pil/, hil/, tables/, training_curves/

@@ -5,7 +5,7 @@ import os
 # Arduino sketches are self-contained folders, so each one needs its own copy.
 FIRMWARE_DIRS = {
     'pil': os.path.join('deployment', 'pil_firmware'),
-    'hil': os.path.join('deployment', 'hil_camera_firmware'),
+    'hil': os.path.join('deployment', 'hil_firmware'),
 }
 
 # Repo root, resolved from this file so the default targets work from any cwd.
