@@ -22,7 +22,7 @@
     "illuminance_lux": 10.0,
     "camera_to_screen_distance_cm": 24.0,
     "ambient_temp_c": 24.0,
-    "correction_note": "camera_to_screen_distance_cm corregido de 23.0 a 24.0 cm (error de digitacion en CLI; el tripode permanecio fijo a 24.0 cm como en el resto del protocolo)"
+    "correction_note": "camera_to_screen_distance_cm corrected from 23.0 to 24.0 cm (typing error on the CLI; the tripod stayed fixed at 24.0 cm as in the rest of the protocol)"
   },
   "dataset": {
     "stimulus_source": "manifest:data/splits/test_manifest.csv",

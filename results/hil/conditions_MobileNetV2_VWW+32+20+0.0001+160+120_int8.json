@@ -36,6 +36,6 @@
   "sil_model": "models/tflite/MobileNetV2_VWW+32+20+0.0001+160+120_int8.tflite",
   "mil_model": "models/checkpoints/MobileNetV2_VWW+32+20+0.0001+160+120.keras",
   "frames_dir": "data/hil_frames_vww",
-  "notes": "monitor samsung; tripode fijo; sin luz natural ; dataset vww;",
+  "notes": "samsung monitor; fixed tripod; no natural light ; vww dataset;",
   "utc_end": "2026-10-17T20:49:36.566671+00:00"
 }
