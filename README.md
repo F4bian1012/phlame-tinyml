@@ -15,6 +15,7 @@ An open-source framework to train, quantize, deploy and measure CNN image classi
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Reproduce the Paper's Results Without Hardware](#reproduce-the-papers-results-without-hardware)
+  - [Reproduce the Public Benchmark (COCO)](#reproduce-the-public-benchmark-coco)
 - [The Fidelity Ladder](#the-fidelity-ladder)
 - [Usage (Full Pipeline)](#usage-full-pipeline)
   - [1. Data Preparation](#1-data-preparation)
@@ -39,13 +40,13 @@ An open-source framework to train, quantize, deploy and measure CNN image classi
 
 ## Overview
 
-**PHLAME** (*Phase-Level And Microcontroller Evaluation*) is an open-source, reproducible software framework that covers the full cycle of training→INT8 quantization→deployment→phase-level measurement of CNN image classifiers on ARM Cortex-M microcontrollers. It organizes evaluation along a four-level fidelity ladder — **Model-in-the-Loop (MIL) → Software-in-the-Loop (SIL) → Processor-in-the-Loop (PIL) → Hardware-in-the-Loop (HIL)** — that makes the gap between desktop simulation and the physical device explicit and measurable at every step. Reuse beyond the framework's own application case is demonstrated on a standard TinyML benchmark (**Visual Wake Words**, one of the MLPerf Tiny tasks).
+**PHLAME** (*Phase-Level And Microcontroller Evaluation*) is an open-source, reproducible software framework that covers the full cycle of training→INT8 quantization→deployment→phase-level measurement of CNN image classifiers on ARM Cortex-M microcontrollers. It organizes evaluation along a four-level fidelity ladder — **Model-in-the-Loop (MIL) → Software-in-the-Loop (SIL) → Processor-in-the-Loop (PIL) → Hardware-in-the-Loop (HIL)** — that makes the gap between desktop simulation and the physical device explicit and measurable at every step. Its reference benchmark is public and can be rebuilt from a fresh clone: `person` / `non_person` on 13,000 MS-COCO 2017 images labelled with the **Visual Wake Words** rule (one of the MLPerf Tiny tasks), with the test images taken from a different COCO split than the training ones. That benchmark is measured at MIL, SIL and PIL; the four-level results published so far, with the camera in the loop, come from an earlier benchmark on vehicle images whose photographs cannot be redistributed.
 
 - **Fidelity-ladder evaluation:** Each level of realism — floating-point PC model, INT8-simulated PC model, real chip fed via serial, and real chip with a live camera in the loop — is a separately runnable, comparable artifact.
 - **Per-phase latency:** On-device timing decomposed into pre-processing / inference / post-processing using the ARM Cortex-M7 DWT cycle counter.
 - **Seven architectures, INT8 quantization:** `MobileNet`, `MobileNetV2`, `MobileNetV3Large`, `MobileNetV3Small` (ImageNet transfer learning, adapted to single-channel inputs), plus `ResNet8`, `ResNet18` and `SqueezeNet` trained from scratch, with full-integer quantization. Magnitude-based pruning is available as an optional step; no published result uses it.
 - **Model identity on the board:** The HIL firmware reports an FNV-1a fingerprint of the model it carries, and the bench refuses to measure if it does not match the expected `.tflite`, so a stale `model.h` cannot silently produce HIL results.
-- **Reproducibility:** A seeded, stratified `train`/`val`/`test` partition materialized on disk with CSV manifests, so all four levels evaluate the same held-out images. Every level writes a `metrics_*.json` with the SHA-256 of the evaluated model and a per-image table, so the ladder can be compared image by image (see [Results Format](#results-format)).
+- **Reproducibility:** A seeded, stratified `train`/`val`/`test` partition materialized on disk with CSV manifests, so all four levels evaluate the same held-out images. Training takes a `--seed` and leaves a record of the run (seed, per-epoch history, software versions) next to the checkpoint. Every level writes a `metrics_*.json` with the SHA-256 of the evaluated model and a per-image table, so the ladder can be compared image by image (see [Results Format](#results-format)).
 
 ---
 
@@ -124,6 +125,36 @@ Try the preprocessing on the 8 public sample images:
 python src/process_images.py --raw_path data/sample --path_processed data/processed/sample_gray
 ```
 
+### Reproduce the Public Benchmark (COCO)
+
+The reference benchmark needs no private data, and its PC levels need no board: the images come from MS-COCO 2017, the partition is published in `data/splits_coco/`, and the per-image results of every run are in `results/`. From a fresh clone:
+
+**1. Rebuild the dataset.** 12,000 images of COCO `train2017` feed `train` and `val`, and 1,000 images of `val2017` are the test partition, so no photograph is on both sides of the evaluation. The two downloads take about 2.5 GB of disk and, as measured here, about 7 minutes for the 12,000 training images and half a minute for the 1,000 test images.
+```bash
+python src/download_vww_subset.py --coco_split train2017 --per_class 6000 --seed 42 --output_dir data/raw_coco_train
+python src/download_vww_subset.py --coco_split val2017 --per_class 500 --seed 42 --output_dir data/raw_coco_test
+python src/process_images.py --raw_path data/raw_coco_train --path_processed data/processed/coco_train_gray
+python src/process_images.py --raw_path data/raw_coco_test --path_processed data/processed/coco_test_gray
+python src/reshape_images.py --width 160 --height 120 --input_dir data/processed/coco_train_gray --output_dir data/processed/coco_train_160x120
+python src/reshape_images.py --width 160 --height 120 --input_dir data/processed/coco_test_gray --output_dir data/processed/coco_test_160x120
+python src/split_dataset.py --input_dir data/processed/coco_train_160x120 --test_input_dir data/processed/coco_test_160x120 --train 0.85 --val 0.15 --test 0 --output_dir data/splits_coco --force
+```
+The two downloads print the selection hashes stored in `data/splits_coco/subset_report_train2017.json` and `subset_report_val2017.json` (`df1ea38282e1` and `9db263a13b90`). The last command ends with `same partition as the manifests already in data/splits_coco`, and `git status` shows no change: the rebuilt partition is the published one.
+
+**2. Get the published models.** The seven `.keras` checkpoints and their `_int8.tflite` files, named `{arch}_COCO+32+20+0.0001+160+120`, are distributed with the release (see [Data Availability](#data-availability)). Place them in `models/checkpoints/` and `models/tflite/`; each one can be checked against the `sha256` recorded in its `metrics_*.json`.
+
+**3. Run the PC levels and compare.** The runs write to a git-ignored folder, and `compare_results.py` checks them against the published files: same model file, same metrics, same confusion matrix and the same prediction for every image.
+```bash
+python src/mil_benchmark.py --width 160 --height 120 --model_path models/checkpoints/MobileNetV2_COCO+32+20+0.0001+160+120.keras --splits_dir data/splits_coco --output_dir results/smoke_test/mil
+python src/sil_benchmark.py --model_path models/tflite/MobileNetV2_COCO+32+20+0.0001+160+120_int8.tflite --splits_dir data/splits_coco --output_dir results/smoke_test/sil
+python src/compare_results.py results/smoke_test results
+```
+The INT8 file can be rebuilt from its checkpoint as well: `python src/quantize_int8_basic.py --model_path models/checkpoints/{model}.keras --calib_samples 100 --calib_seed 42 --splits_dir data/splits_coco --overwrite` writes a `.tflite` with the SHA-256 of the published one (checked for `MobileNetV2` and `ResNet8`).
+
+**Board levels.** PIL and HIL use the commands of steps 5 to 7 of [Usage](#usage-full-pipeline) with `--splits_dir data/splits_coco`. The published PIL files of these models are protected against replacement, so add `--output_dir` (or `--overwrite`). PIL on this benchmark is published for four architectures; HIL has not been measured on it yet (see [Results](#results)).
+
+**Training.** To train the models instead of downloading them, run step 2 of [Usage](#usage-full-pipeline) with `--splits_dir data/splits_coco` and a tag of your own. The published models were trained before `--seed` existed, so training again gives other weights and its numbers will not equal the published ones: those are reproduced with the published model files.
+
 ---
 
 ## The Fidelity Ladder
@@ -134,6 +165,8 @@ python src/process_images.py --raw_path data/sample --path_processed data/proces
 | **SIL** | INT8 `.tflite` | PC | Dataset file | `sil_benchmark.py` | 940 |
 | **PIL** | INT8 `.tflite` | Cortex-M7 | Dataset file, over serial | `pil_benchmark.py` | 940 |
 | **HIL** | INT8 `.tflite` | Cortex-M7 | Camera frame of the on-screen image | `hil_benchmark.py` | 200 |
+
+The image counts are those of the vehicle benchmark. The COCO benchmark has 1,000 test images at MIL, SIL and PIL, and 200 of them flagged for HIL, which has not been measured on it yet.
 
 The project separates the Python environment (`src/`) from the embedded firmware (`deployment/`):
 
@@ -227,7 +260,7 @@ flowchart TD
 
 ## Usage (Full Pipeline)
 
-Every step needs your own dataset in `data/raw/`; steps 6 and 7 also need the board. The four levels share their options (`--model_path`, `--splits_dir`, `--output_dir`, `--overwrite`), and every multi-word option can be written with `_` or `-`. Extra options and details are in the [usage notes](docs/scripts.md#usage-notes).
+Every step needs your own dataset in `data/raw/`; steps 6 and 7 also need the board. The four levels share their options (`--model_path`, `--splits_dir`, `--output_dir`, `--overwrite`), and every multi-word option can be written with `_` or `-`. Extra options and details are in the [usage notes](docs/scripts.md#usage-notes). The published COCO benchmark has its own recipe with the exact commands: see [Reproduce the Public Benchmark (COCO)](#reproduce-the-public-benchmark-coco).
 
 No dataset at hand? The public Visual Wake Words subset can stand in for it. This downloads 2,000 images into `data/raw/person` and `data/raw/non_person` in about a minute, and every command below then works unchanged:
 ```bash
@@ -259,7 +292,7 @@ Finally, partition the resized dataset. This step is **required** before trainin
 ```bash
 python src/split_dataset.py --input_dir data/processed/160x120 --output_dir data/splits --seed 42
 ```
-`data/splits/` is a git-ignored working folder for your own partition. The partitions behind the published results are versioned in separate folders (`data/splits_plates/`, `data/splits_vww/`) and these commands do not touch them.
+`data/splits/` is a git-ignored working folder for your own partition. The partitions behind the published results are versioned in separate folders (`data/splits_coco/`, `data/splits_plates/`, `data/splits_vww/`) and these commands do not touch them. If your test images come from a separate source, give that folder with `--test_input_dir`: all of it becomes the test partition and `--input_dir` only feeds `train` and `val`.
 
 ### 2. Model Training
 Train an architecture (e.g., MobileNetV2). Training reads `data/splits/train` and `data/splits/val`, and fails with instructions if the partition is missing.
@@ -269,6 +302,8 @@ python src/train_mobilenet.py --base_model MobileNetV2 --width 160 --height 120 
 For ResNet or SqueezeNet, run `src/train_resnet.py` or `src/train_squeezenet.py`.
 
 `--tag` names the run: the checkpoint is `MobileNetV2_demo+32+20+0.0001+160+120.keras`, and the `.tflite` and every result file of that model inherit the name. Use a different tag for each dataset. Without a tag the run takes the names of the published models, and the scripts stop instead of replacing an existing checkpoint, `.tflite` or result file; `--overwrite` allows it. The label order is saved next to the checkpoint (`.classes.txt`).
+
+`--seed` (default 42) fixes the initial weights, the shuffling and the augmentation, and every run leaves `{model}.training.json` next to its checkpoint with the seed, the per-epoch history and the software versions. With the same seed, on the same machine and software, two runs gave the same history and bit-identical weights (checked on a CPU); a GPU or another TensorFlow build can change the last digits, so compare the history in that record instead of assuming that two runs are equal.
 
 ### 3. Model-in-the-Loop (MIL) Evaluation
 The floating-point `.keras` model runs on the PC over the held-out test partition. Outputs go to `results/mil/`:
@@ -349,7 +384,30 @@ Two things differ from the Portenta H7 (details in [Hardware and Porting](docs/h
 
 ## Results
 
-### 1. Fidelity Ladder Across Seven Architectures (Primary Benchmark, 160×120)
+### 1. Public Benchmark: COCO `person` / `non_person` (MIL, SIL and PIL)
+
+Evaluated on `data/splits_coco/test` (n = 1,000 images of COCO `val2017`, 500 per class; models trained on 10,200 images of `train2017`, 160×120 grayscale, the same hyper-parameters for every architecture). Accuracy / F1-macro; latencies are the mean over the 1,000 images, measured on the Portenta H7 with the Cortex-M7 `DWT->CYCCNT` cycle counter:
+
+| Architecture | `.tflite` (INT8) | **MIL** (n=1000) | **SIL** (n=1000) | **PIL** (n=1000) | SIL = PIL (images) | PIL `INF` (ms) | PIL `TOTAL` (ms) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `MobileNet` (α=0.25) | 311.5 KiB | 0.7460 / 0.7460 | 0.7310 / 0.7309 | 0.7440 / 0.7438 | 959 / 1000 (95.9%) | 239.33 | 242.53 |
+| `MobileNetV2` (α=0.35) | 630.5 KiB | 0.7790 / 0.7777 | 0.7840 / 0.7825 | 0.7800 / 0.7778 | 956 / 1000 (95.6%) | 399.07 | 402.27 |
+| `MobileNetV3Small` (α=0.75) | 817.3 KiB | 0.7740 / 0.7723 | 0.6700 / 0.6604 | 0.6550 / 0.6550 | 781 / 1000 (78.1%) | 487.02 | 490.22 |
+| `ResNet8` | 1249.2 KiB | 0.6160 / 0.6083 | 0.6170 / 0.6105 | 0.6150 / 0.6112 | 970 / 1000 (97.0%) | 2894.09 | 2897.29 |
+| `SqueezeNet` | 808.2 KiB | 0.5000 / 0.3333 | 0.5000 / 0.3333 | *does not run*‡ | — | — | — |
+| `MobileNetV3Large` (α=0.75) | 2180.8 KiB | 0.8190 / 0.8188 | 0.7800 / 0.7800 | *Flash OOM* | — | — | — |
+| `ResNet18` | 11057.3 KiB | 0.6230 / 0.6230 | 0.6230 / 0.6229 | *Flash OOM* | — | — | — |
+
+- **Three levels so far.** HIL has not been measured on this partition, so the four-level comparison, the paired decomposition and the statistical tables below still come from the vehicle benchmark. Its 200-image HIL subset is already flagged in `data/splits_coco/test_manifest.csv`.
+- **Not tuned for the task.** The models follow the framework's standard recipe (MobileNets: a classification head on a frozen ImageNet backbone; ResNet and SqueezeNet from scratch; 20 epochs). The numbers show the pipeline on public data, not the best accuracy attainable on it.
+- **SIL = PIL** counts the test images that get the same prediction at both levels. It is not the effect of the chip alone, because the two levels do not read the files in the same way: SIL decodes each JPEG with TensorFlow and the PIL bench with Pillow, and none of the 1,000 test images has the same pixels after both (up to 19 grey levels apart in a sample of 200). Running the same `.tflite` on the PC with one decoder and then with the other changes 33, 32, 153 and 26 predictions (in table order), and with the same Pillow pixels the PC and the chip still differ in 36, 34, 218 and 12 images. `MobileNetV3Small` stands out at every step. Its INT8 file loses 10 points of accuracy against the float model, and its predictions depend on the arithmetic of each implementation: on the PC, the default and the reference kernels of the TFLite interpreter disagree on 130 of the 1,000 images. Its agreement figures therefore say more about that file than about the chip.
+- ‡ **`SqueezeNet` did not learn** with these hyper-parameters: at MIL and SIL it answers `non_person` for every image. Its INT8 file does not execute on the board: the firmware stops inside `AllocateTensors()` and never answers. The likely cause, inferred from the quantization parameters and not traced on the chip, is the scale of 7.8e-9 that the converter assigned to the near-constant input of the final softmax, which TFLite-Micro rejects while the desktop interpreter accepts it. It is reported as a failed case, not as a memory limit.
+
+---
+
+### 2. Four-Level Ladder on the Vehicle Benchmark (Seven Architectures, 160×120)
+
+These are the results with the camera in the loop published so far. They come from the benchmark the framework was developed on: vehicle images whose photographs cannot be redistributed (see [Data Availability](#data-availability)), so its partition and per-image results are in git and its images are not.
 
 Evaluated on the balanced binary partition (`data/splits_plates/test`, n = 940 held-out images for MIL/SIL/PIL; n = 200 `hil_subset == 1` stimuli at 10 lux, 24 cm, 24 °C for HIL). All metrics are **F1-macro** (which equals weighted F1 and accuracy to within ≤ 0.002 on this 50/50 split); latencies are measured on-chip via the Cortex-M7 `DWT->CYCCNT` cycle counter at `SystemCoreClock = 400.0 MHz`:
 
@@ -367,7 +425,7 @@ Evaluated on the balanced binary partition (`data/splits_plates/test`, n = 940 h
 
 ---
 
-### 2. Paired 2×3 Decomposition on the HIL Subset (n = 200, `hil_subset == 1`)
+### 3. Paired 2×3 Decomposition on the HIL Subset of the Vehicle Benchmark (n = 200, `hil_subset == 1`)
 
 Cross-running the exact same 200 test stimuli as **digital files** (MIL₂₀₀, SIL₂₀₀, PIL₂₀₀) and as **HM01B0 camera-captured frames** (MIL\*₂₀₀, SIL\*₂₀₀, HIL₂₀₀) isolates where degradation enters the pipeline (F1-macro shown; exact McNemar p-values with Holm–Bonferroni adjustment across the 5 architectures in parentheses):
 
@@ -386,9 +444,9 @@ Cross-running the exact same 200 test stimuli as **digital files** (MIL₂₀₀
 
 ---
 
-### 3. Reuse on a Standard TinyML Benchmark: Visual Wake Words (`MobileNetV2_VWW`)
+### 4. A Four-Level Run on Public Images: Visual Wake Words (`MobileNetV2_VWW`)
 
-To demonstrate dataset-agnostic pipeline reuse on a standard *MLPerf Tiny* task (`person` vs. `non_person` from MS-COCO `val2017`, 2,000 balanced images prepared via `src/download_vww_subset.py` after excluding 226 ambiguous images with `< 0.5%` person area or `iscrowd == 1`; `data/splits_vww/test` n = 300, `hil_subset == 1` n = 200 at 14 lux, 24 cm, 24 °C; linear classification head trained for 20 epochs over the frozen ImageNet `MobileNetV2` α = 0.35 backbone on 1,400 grayscale 160×120 images as a pipeline-reuse demonstration rather than a leaderboard-tuned VWW model):
+This smaller run predates the COCO benchmark of section 1 and is, so far, the only one on public images measured with the camera in the loop. To demonstrate dataset-agnostic pipeline reuse on a standard *MLPerf Tiny* task (`person` vs. `non_person` from MS-COCO `val2017`, 2,000 balanced images prepared via `src/download_vww_subset.py` after excluding 226 ambiguous images with `< 0.5%` person area or `iscrowd == 1`; `data/splits_vww/test` n = 300, `hil_subset == 1` n = 200 at 14 lux, 24 cm, 24 °C; linear classification head trained for 20 epochs over the frozen ImageNet `MobileNetV2` α = 0.35 backbone on 1,400 grayscale 160×120 images as a pipeline-reuse demonstration rather than a leaderboard-tuned VWW model):
 
 | Scope | Level / Domain | Accuracy | F1-macro | Latency `INF` / `TOTAL` (ms) | Notes |
 |---|---|---:|---:|---:|---|
@@ -546,8 +604,8 @@ All scripts live in `src/`. Detailed descriptions, output artifacts and usage no
 |---|---|---|
 | Data | `process_images.py` | Convert raw images to single-channel grayscale. |
 | Data | `reshape_images.py` | Resize to the target resolution; optional seeded class balancing. |
-| Data | `split_dataset.py` | Seeded, stratified `train`/`val`/`test` partition with manifests and the `hil_subset` flag. |
-| Data | `download_vww_subset.py` | Rebuild the Visual Wake Words benchmark subset from MS-COCO. |
+| Data | `split_dataset.py` | Seeded, stratified `train`/`val`/`test` partition with manifests and the `hil_subset` flag; the test images can come from a separate source. |
+| Data | `download_vww_subset.py` | Download a seeded `person` / `non_person` subset of MS-COCO (`train2017` or `val2017`), labelled with the Visual Wake Words rule. |
 | Training | `train_mobilenet.py` | MobileNet family, transfer learning from ImageNet. |
 | Training | `train_resnet.py` | `ResNet8` and `ResNet18`, trained from scratch. |
 | Training | `train_squeezenet.py` | `SqueezeNet`, trained from scratch. |
@@ -560,6 +618,7 @@ All scripts live in `src/`. Detailed descriptions, output artifacts and usage no
 | Deployment | `tflite_to_c.py` | `.tflite` to the `model.h` C header. |
 | Deployment | `compile_upload_arduino.py` | Compile and upload a firmware with `arduino-cli` (`--board portenta` or `nicla`). |
 | Analysis | `build_ladder_tables.py` | Rebuild the eight statistical tables of the paper in `results/tables/`. |
+| Analysis | `compare_results.py` | Check a reproduced run against the published result, image by image. |
 | Models | `verify_models.py` | Check the model files against `models/checksums.sha256`, or fetch them from a release. |
 | Shared | `artifacts.py` | Helper module, not run directly: run names (`--tag`), overwrite protection and the per-model label order. |
 | Shared | `cli.py` | Helper module, not run directly: lets every option be written with `_` or `-`. |
@@ -587,6 +646,9 @@ phlame-tinyml/
 
 ## Known Limitations
 
+- **Public benchmark measured at three levels:** The COCO benchmark has MIL, SIL and PIL results. HIL has not been measured on it, so every statement about the camera in the loop (four-level ladder, paired 2×3 decomposition, the eight statistical tables) comes from the vehicle benchmark, whose images are private, and from the small Visual Wake Words run.
+- **Published models are files, not recipes:** The models behind the published results were trained before the training scripts had a seed, so training again does not give the same weights. The published numbers of the PC levels are reproduced from the published model files (see [Reproduce the Public Benchmark (COCO)](#reproduce-the-public-benchmark-coco)). New trainings record their seed, which repeats a run on the same machine and software and is not a guarantee across machines.
+- **`SqueezeNet` on COCO:** The shared hyper-parameters did not train it (constant output, accuracy 0.500), and the resulting INT8 file does not execute on the board (see the note under the COCO table). Its results on the vehicle benchmark are unaffected.
 - **2 MiB internal flash ceiling with `AllOpsResolver`:** Linking all TFLite-Micro kernels (`~673 KiB`) leaves `~1,375 KiB` of internal flash for `model.h` on the STM32H747XI. Consequently, `MobileNetV3Large` (`2,181 KiB`) and `ResNet18` (`11,057 KiB`) serve as desktop MIL/SIL baselines: each `.tflite` alone exceeds the 2 MiB flash, so deploying them requires running from external memory (QSPI flash or SDRAM, not implemented in PHLAME) or a narrower variant, which is a different model. Unstructured pruning, a lower input resolution and `MicroMutableOpResolver` do not solve it.
 - **Internal RAM limits what runs without external SDRAM:** The Portenta H7's 8 MiB of external SDRAM is what lets the five deployable architectures run under one 4 MiB arena. On a board without it, such as the Arduino Nicla Vision (511 KiB of internal RAM for everything), the default 368 KiB arena covers `MobileNet` (`177.2 KiB`), `MobileNetV3Small` (`220.5 KiB`) and `MobileNetV2` (`348.1 KiB`); `ResNet8` (`388.8 KiB`) and `SqueezeNet` (`404.7 KiB`) need a larger arena that leaves little RAM for the rest (see [Boards and Memory](docs/hardware.md#boards-and-memory)). These are build-time figures.
 - **Single measured platform:** All PIL and HIL results come from one board: Arduino Portenta H7 (STM32H747XI Cortex-M7 at 400 MHz, 8 MiB external SDRAM) with the Vision Shield HM01B0 camera. The host benches and the serial protocols do not assume this board, and both sketches build for the Arduino Nicla Vision (`--board nicla`: same MCU, static arena in internal RAM, GC2145 colour camera converted to luminance), but they have not been run on it, and no results on other boards or MCU families are reported (see [Portability](docs/hardware.md#portability)).
