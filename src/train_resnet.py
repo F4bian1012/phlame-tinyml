@@ -473,7 +473,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--seed", type=int, default=42,
-        help="Seed of the initial weights, the shuffling and the augmentation (default: 42). It makes a run repeatable on the same machine and software; on another GPU or TensorFlow build the weights can still differ slightly"
+        help="Seed of the initial weights, the shuffling and the augmentation (default: 42). On a CPU it repeats a run bit for bit on the same machine and software; on a GPU two runs with the same seed still differ, because some GPU kernels are not deterministic"
     )
 
     args = parser.parse_args()

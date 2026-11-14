@@ -288,7 +288,7 @@ if __name__ == "__main__":
     parser.add_argument("--splits_dir", type=str, default="data/splits", help="Directory holding the train/val partitions produced by split_dataset.py")
     parser.add_argument("--tag", type=artifacts.valid_tag, default=None, help="Optional run name added after the architecture (e.g. the dataset: MobileNetV2_VWW+...), so runs on different datasets do not share file names")
     parser.add_argument("--overwrite", action="store_true", help="Replace the checkpoint and the training curve if they already exist")
-    parser.add_argument("--seed", type=int, default=42, help="Seed of the initial weights, the shuffling and the augmentation (default: 42). It makes a run repeatable on the same machine and software; on another GPU or TensorFlow build the weights can still differ slightly")
+    parser.add_argument("--seed", type=int, default=42, help="Seed of the initial weights, the shuffling and the augmentation (default: 42). On a CPU it repeats a run bit for bit on the same machine and software; on a GPU two runs with the same seed still differ, because some GPU kernels are not deterministic")
 
     args = parser.parse_args()
     main(args.width, args.height, args.batch_size, args.epochs, args.learning_rate, args.base_model, args.splits_dir,

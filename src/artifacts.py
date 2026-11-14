@@ -142,9 +142,10 @@ def write_training_record(model_path, script, architecture, tag, seed, settings,
     """Writes next to the checkpoint what produced it.
 
     The seed fixes the initial weights, the shuffling and the augmentation, but
-    two runs only match bit for bit on the same machine and software, so the
-    record also keeps the software versions and the per-epoch history: a later
-    run can be compared with this one instead of being assumed equal to it.
+    two runs only match bit for bit on a CPU with the same software (on a GPU
+    they do not), so the record also keeps the software versions and the
+    per-epoch history: a later run can be compared with this one instead of
+    being assumed equal to it.
     """
     record = {
         "generated_utc": datetime.now(timezone.utc).isoformat(),
