@@ -234,5 +234,91 @@ class DetectorPiecesTest(unittest.TestCase):
         self.assertLess(feats.score(*described, feats.describe(other)), 12)
 
 
+import independence_report as report  # noqa: E402
+
+
+@unittest.skipUnless(report.np is not None, "independence_report needs numpy")
+class IndependenceReportTest(unittest.TestCase):
+    TABLE = [("t1.jpg", "near_duplicate"), ("t2.jpg", "near_duplicate"), ("t3.jpg", "review"),
+             ("t4.jpg", "distinct"), ("t5.jpg", "distinct"), ("t6.jpg", "distinct"), ("t7.jpg", "distinct")]
+    # image, true, predicted: the two flagged images are right, one of the others is wrong
+    PREDICTIONS = [("t1.jpg", 0, 0), ("t2.jpg", 1, 1), ("t3.jpg", 0, 0), ("t4.jpg", 1, 1), ("t5.jpg", 0, 1),
+                   ("t6.jpg", 1, 1)]
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.splits = os.path.join(self.tmp.name, "splits_demo")
+        self.results = os.path.join(self.tmp.name, "results")
+        os.makedirs(self.splits)
+        with open(os.path.join(self.splits, "near_duplicates.csv"), "w", encoding="utf-8", newline="") as fh:
+            fh.write("test_file,match_file,verdict\n")
+            for name, verdict in self.TABLE:
+                fh.write("%s,train_%s,%s\n" % (name, name, verdict))
+        os.makedirs(os.path.join(self.results, "mil"))
+        with open(os.path.join(self.results, "mil", "predictions_Demo.csv"), "w", encoding="utf-8", newline="") as fh:
+            fh.write("Image;RelPath;TrueLabel;TrueClass;PredLabel;PredClass;Correct\n")
+            for name, true, pred in self.PREDICTIONS:
+                fh.write("%s;x/%s;%d;c%d;%d;c%d;%d\n" % (name, name, true, true, pred, pred, int(true == pred)))
+            fh.write("t7.jpg;x/t7.jpg;0;c0;;;\n")                # sent to the board, no answer: not counted
+        # a result file of another partition kept in the same folder: must be left out
+        with open(os.path.join(self.results, "mil", "predictions_Other.csv"), "w", encoding="utf-8", newline="") as fh:
+            fh.write("Image;RelPath;TrueLabel;TrueClass;PredLabel;PredClass;Correct\nelsewhere.jpg;x;0;c0;0;c0;1\n")
+        self.output = os.path.join(self.tmp.name, "independence.csv")
+
+    def run_report(self, *extra):
+        with contextlib.redirect_stdout(io.StringIO()) as log:
+            report.main(["--splits_dir", self.splits, "--results_dir", self.results, "--output", self.output,
+                         "--bootstrap", "300", *extra])
+        with open(self.output, encoding="utf-8", newline="") as fh:
+            return {r["cleaning"]: r for r in csv.DictReader(fh)}, log.getvalue()
+
+    def test_scores_match_a_hand_computed_case(self):
+        accuracy, macro = report.scores([[2, 1], [0, 3]])        # rows = true label
+        self.assertAlmostEqual(float(accuracy), 5 / 6)
+        self.assertAlmostEqual(float(macro), (2 * 2 / (3 + 2) + 2 * 3 / (3 + 4)) / 2)
+        _, collapsed = report.scores([[5, 0], [5, 0]])           # one class never predicted
+        self.assertAlmostEqual(float(collapsed), (2 * 5 / (5 + 10) + 0) / 2)
+
+    def test_both_cleanings_are_reported_and_other_partitions_left_out(self):
+        rows, log = self.run_report()
+        self.assertEqual(set(rows), {"confirmed", "strict"})
+        self.assertIn("1 result files used, 1 left out", log)
+        full = rows["confirmed"]
+        self.assertEqual((full["level"], full["model"], full["n_full"]), ("MIL", "Demo", "6"))
+        self.assertAlmostEqual(float(full["accuracy_full"]), 5 / 6, places=4)
+        self.assertEqual((rows["confirmed"]["n_removed"], rows["confirmed"]["n_kept"]), ("2", "4"))
+        self.assertAlmostEqual(float(rows["confirmed"]["accuracy_kept"]), 3 / 4, places=4)
+        self.assertEqual((rows["strict"]["n_removed"], rows["strict"]["n_kept"]), ("3", "3"))
+        self.assertAlmostEqual(float(rows["strict"]["accuracy_kept"]), 2 / 3, places=4)
+        self.assertLessEqual(float(rows["strict"]["delta_f1_macro_ci95_low"]), float(rows["strict"]["delta_f1_macro"]))
+        self.assertGreaterEqual(float(rows["strict"]["delta_f1_macro_ci95_high"]), float(rows["strict"]["delta_f1_macro"]))
+
+    def test_a_person_s_check_overrides_the_detector(self):
+        with open(os.path.join(self.splits, "near_duplicates_review.csv"), "w", encoding="utf-8", newline="") as fh:
+            fh.write("test_file,match_file,checked,note\n"
+                     "t1.jpg,train_t1.jpg,different,same layout only\n"
+                     "t3.jpg,train_t3.jpg,same_scene,taken seconds apart\n")
+        rows, _ = self.run_report()
+        self.assertEqual(rows["confirmed"]["n_removed"], "2")     # t2 (detector) and t3 (person); t1 is kept
+        self.assertEqual(rows["strict"]["n_removed"], "3")        # the strict cleaning never keeps a suspect
+        with open(os.path.join(self.splits, "near_duplicates_review.csv"), "a", encoding="utf-8", newline="") as fh:
+            fh.write("t5.jpg,train_t5.jpg,maybe,\n")
+        with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(SystemExit) as ctx:
+            report.main(["--splits_dir", self.splits, "--results_dir", self.results, "--output", self.output,
+                         "--overwrite"])
+        self.assertEqual(ctx.exception.code, 1)
+
+    def test_existing_report_is_not_replaced_without_overwrite(self):
+        self.run_report()
+        before = Path(self.output).read_bytes()
+        with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(SystemExit) as ctx:
+            report.main(["--splits_dir", self.splits, "--results_dir", self.results, "--output", self.output])
+        self.assertEqual(ctx.exception.code, 1)
+        self.assertEqual(Path(self.output).read_bytes(), before)
+        rows, _ = self.run_report("--overwrite")
+        self.assertEqual(Path(self.output).read_bytes(), before)  # same seed, same bytes
+
+
 if __name__ == "__main__":
     unittest.main()
