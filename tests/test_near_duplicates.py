@@ -273,6 +273,12 @@ class IndependenceReportTest(unittest.TestCase):
         with open(self.output, encoding="utf-8", newline="") as fh:
             return {r["cleaning"]: r for r in csv.DictReader(fh)}, log.getvalue()
 
+    def test_default_output_is_named_after_the_partition(self):
+        tables = os.path.join("results", "tables")
+        self.assertEqual(report.default_output(os.path.join("data", "splits_coco")),
+                         os.path.join(tables, "independence_coco.csv"))
+        self.assertEqual(report.default_output("data/splits/"), os.path.join(tables, "independence_splits.csv"))
+
     def test_scores_match_a_hand_computed_case(self):
         accuracy, macro = report.scores([[2, 1], [0, 3]])        # rows = true label
         self.assertAlmostEqual(float(accuracy), 5 / 6)

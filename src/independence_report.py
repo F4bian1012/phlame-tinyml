@@ -32,8 +32,10 @@ SIL, PIL) and hil/latency_metrics_*.csv (HIL). A file is used when all its
 images belong to the test split of --splits_dir, so the results of other
 partitions kept in the same folders are left out without naming them.
 
-Output: one CSV (default results/tables/independence_<splits folder>.csv)
-with one row per result file and cleaning. delta = cleaned - full; its 95 %
+Output: one CSV with one row per result file and cleaning (default
+results/tables/independence_<name>.csv; <name> is the splits folder without
+its "splits_" prefix: data/splits_coco gives independence_coco.csv).
+delta = cleaned - full; its 95 %
 interval comes from resampling the test images (--bootstrap times, seeded),
 computing both figures on each resample. The resamples of a result file
 depend on the seed and on its content only, not on its name or on which
@@ -149,13 +151,22 @@ def result_files(results_dir):
     return files
 
 
+def default_output(splits_dir):
+    """results/tables/independence_<name>.csv: data/splits_coco -> coco, data/splits -> splits."""
+    name = os.path.basename(os.path.normpath(splits_dir))
+    if name.startswith("splits_") and len(name) > len("splits_"):
+        name = name[len("splits_"):]
+    return os.path.join("results", "tables", "independence_%s.csv" % name)
+
+
 def parse_args(argv=None):
     p = cli.ArgumentParser(description="Recompute the results without the test images that also appear in train/val.")
     p.add_argument("--splits_dir", default=os.path.join("data", "splits"),
                    help="Folder with near_duplicates.csv, written by find_near_duplicates.py (default: data/splits)")
     p.add_argument("--results_dir", default="results", help="Folder with the result files (default: results)")
     p.add_argument("--output", default=None,
-                   help="CSV to write (default: results/tables/independence_<splits folder>.csv)")
+                   help="CSV to write (default: results/tables/independence_<name>.csv, where <name> is the "
+                        "splits folder without its 'splits_' prefix)")
     p.add_argument("--bootstrap", type=int, default=10000, help="Resamples of the test images (default: 10000)")
     p.add_argument("--seed", type=int, default=20261114, help="Seed of the resamples (default: 20261114)")
     p.add_argument("--overwrite", action="store_true", help="Replace the output file if it already exists")
@@ -171,8 +182,7 @@ def main(argv=None):
     if not os.path.isfile(table_path):
         print("ERROR: %s not found. Run find_near_duplicates.py --splits_dir %s first." % (table_path, args.splits_dir))
         sys.exit(1)
-    output = args.output or os.path.join("results", "tables", "independence_%s.csv"
-                                         % os.path.basename(os.path.normpath(args.splits_dir)))
+    output = args.output or default_output(args.splits_dir)
     artifacts.refuse_to_overwrite([output], args.overwrite, hint="write somewhere else with --output")
 
     table = read_csv(table_path)
