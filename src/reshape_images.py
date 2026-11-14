@@ -252,7 +252,7 @@ def reshape_images(width, height, input_dir, balance, max_per_class, seed, dry_r
         print("Failed: %d" % failed)
     print("Report: %s" % report_path)
     print("========================================")
-    return 0
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

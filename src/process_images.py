@@ -1,5 +1,6 @@
 import cv2
 import os
+import sys
 import argparse
 import cli
 
@@ -7,6 +8,7 @@ def process_images(raw_dir, processed_dir):
     """
     Converts images to grayscale while controlling the compression
     so that the file size does not grow.
+    Returns 0 when every image found was converted, 1 otherwise.
     """
     os.makedirs(processed_dir, exist_ok=True)
 
@@ -23,7 +25,7 @@ def process_images(raw_dir, processed_dir):
 
     if not files:
         print("No images found.")
-        return
+        return 1
 
     print(f"Found {len(files)} images. Starting processing...\n")
 
@@ -65,7 +67,10 @@ def process_images(raw_dir, processed_dir):
     print("Processing Completed")
     print(f"Total: {processed_count} images")
     print(f"Folder: {processed_dir}")
+    if processed_count != len(files):
+        print(f"Failed: {len(files) - processed_count} images (see the errors above)")
     print("="*40)
+    return 0 if processed_count == len(files) else 1
 
 if __name__ == "__main__":
     parser = cli.ArgumentParser(description="Converts images to grayscale.")
@@ -73,4 +78,4 @@ if __name__ == "__main__":
     parser.add_argument("--path_processed", type=str, default="data/processed/grayscale", help="Destination path for the processed images")
     args = parser.parse_args()
 
-    process_images(args.raw_path, args.path_processed)
+    sys.exit(process_images(args.raw_path, args.path_processed))

@@ -4,6 +4,7 @@ from tensorflow.keras import layers
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import platform
 import sys
 import datetime
 import argparse
@@ -17,7 +18,17 @@ os.makedirs("models/checkpoints", exist_ok=True)
 os.makedirs("tensorboard_logs", exist_ok=True)
 os.makedirs("results/training_curves", exist_ok=True)
 
-def load_custom_data(splits_dir, img_width, img_height, batch_size):
+def software_versions():
+    """Software behind a run, written to the training record."""
+    return {
+        "python": platform.python_version(),
+        "tensorflow": tf.__version__,
+        "keras": keras.__version__,
+        "platform": platform.platform(),
+        "gpus": [device.name for device in tf.config.list_physical_devices("GPU")],
+    }
+
+def load_custom_data(splits_dir, img_width, img_height, batch_size, seed=None):
     """
     Loads the train/val partitions written to disk by split_dataset.py.
     Expected structure:
@@ -51,7 +62,8 @@ def load_custom_data(splits_dir, img_width, img_height, batch_size):
             train_dir,
             color_mode='grayscale',
             image_size=(img_height, img_width),
-            batch_size=batch_size
+            batch_size=batch_size,
+            seed=seed
         )
 
         val_ds = tf.keras.utils.image_dataset_from_directory(
@@ -85,7 +97,7 @@ def load_custom_data(splits_dir, img_width, img_height, batch_size):
         print("   to teach the model what is NOT a '{}'.\n".format(class_names[0]))
 
     AUTOTUNE = tf.data.AUTOTUNE
-    train_ds = train_ds.cache().shuffle(1000).prefetch(buffer_size=AUTOTUNE)
+    train_ds = train_ds.cache().shuffle(1000, seed=seed).prefetch(buffer_size=AUTOTUNE)
     val_ds = val_ds.cache().prefetch(buffer_size=AUTOTUNE)
 
     return train_ds, val_ds, class_names
@@ -186,7 +198,7 @@ def plot_history(history, plot_path):
     print(f"Training plots saved to {plot_path}")
 
 def main(img_width, img_height, batch_size, epochs, learning_rate, base_model_name, splits_dir,
-         tag=None, overwrite=False):
+         tag=None, overwrite=False, seed=42):
     img_shape = (img_height, img_width, 1)
     plot_path = "results/training_curves/" + artifacts.training_curve_name(
         base_model_name, batch_size, epochs, learning_rate, img_width, img_height, tag)
@@ -199,10 +211,15 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, base_model_na
         [checkpoint_path, plot_path], overwrite,
         hint="pass --tag NAME to give this run its own name (e.g. the dataset)")
 
-    train_ds, val_ds, class_names = load_custom_data(splits_dir, img_width, img_height, batch_size)
+    # One seed for Python, NumPy and TensorFlow, set before the data pipeline and
+    # the model exist: same initial weights, same shuffling and same augmentation
+    # draws on every run.
+    keras.utils.set_random_seed(seed)
+
+    train_ds, val_ds, class_names = load_custom_data(splits_dir, img_width, img_height, batch_size, seed)
     
     if train_ds is None:
-        return
+        sys.exit(1)
 
     num_classes = len(class_names)
 
@@ -246,9 +263,19 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, base_model_na
         classes_path = artifacts.write_class_names(checkpoint_path, class_names)
         print(f"Class names saved to {classes_path}")
 
+        record_path = artifacts.write_training_record(
+            checkpoint_path, script=os.path.basename(__file__), architecture=base_model_name,
+            tag=tag, seed=seed,
+            settings={"width": img_width, "height": img_height, "batch_size": batch_size,
+                      "epochs": epochs, "learning_rate": learning_rate},
+            splits_dir=splits_dir, class_names=class_names,
+            history=history.history, software=software_versions())
+        print(f"Training record (seed {seed}) saved to {record_path}")
+
     except Exception as e:
         print(f"Training failed: {e}")
         print("Tip: Ensure you have enough images per class (at least 10-20 to start).")
+        sys.exit(1)
 
 if __name__ == "__main__":
     parser = cli.ArgumentParser(description="Train model for TinyML")
@@ -261,7 +288,8 @@ if __name__ == "__main__":
     parser.add_argument("--splits_dir", type=str, default="data/splits", help="Directory holding the train/val partitions produced by split_dataset.py")
     parser.add_argument("--tag", type=artifacts.valid_tag, default=None, help="Optional run name added after the architecture (e.g. the dataset: MobileNetV2_VWW+...), so runs on different datasets do not share file names")
     parser.add_argument("--overwrite", action="store_true", help="Replace the checkpoint and the training curve if they already exist")
+    parser.add_argument("--seed", type=int, default=42, help="Seed of the initial weights, the shuffling and the augmentation (default: 42). It makes a run repeatable on the same machine and software; on another GPU or TensorFlow build the weights can still differ slightly")
 
     args = parser.parse_args()
     main(args.width, args.height, args.batch_size, args.epochs, args.learning_rate, args.base_model, args.splits_dir,
-         tag=args.tag, overwrite=args.overwrite)
+         tag=args.tag, overwrite=args.overwrite, seed=args.seed)

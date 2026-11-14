@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 import cli
 
 # Firmware sketch folders that consume the generated model.h.
@@ -70,7 +71,7 @@ def main():
 
     if not os.path.exists(args.tflite_path):
         print(f"Error: The model file {args.tflite_path} does not exist.")
-        return
+        sys.exit(1)
 
     with open(args.tflite_path, 'rb') as f:
         tflite_content = f.read()

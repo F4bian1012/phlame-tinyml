@@ -1,6 +1,7 @@
 import os
 import glob
 import argparse
+import sys
 import tensorflow as tf
 
 import artifacts
@@ -38,13 +39,13 @@ def main():
         model_path = args.model_path
         if not os.path.exists(model_path):
             print(f"Error: Model not found at {model_path}.")
-            return
+            sys.exit(1)
     else:
         checkpoints = glob.glob("models/checkpoints/*.keras")
         if not checkpoints:
             print("Error: No (.keras) models found in models/checkpoints.")
             print("Make sure you have trained a model first.")
-            return
+            sys.exit(1)
 
         # Use the first checkpoint found when --model_path is omitted
         model_path = checkpoints[0]
@@ -88,7 +89,7 @@ def main():
         print("Generate the dataset splits first:")
         print(f"  python src/split_dataset.py --input_dir data/processed/{width}x{height}"
               f" --output_dir {args.splits_dir}")
-        return
+        sys.exit(1)
 
     print(f"\nCalibrating with {args.calib_samples} images from {data_dir} "
           f"(seed {args.calib_seed})...")
@@ -137,6 +138,7 @@ def main():
 
     except Exception as e:
         print(f"\nError during conversion (possible unsupported operations): {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

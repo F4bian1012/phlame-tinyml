@@ -11,7 +11,9 @@ Standard library only (no TensorFlow, no board).
 """
 import ast
 import io
+import subprocess
 import sys
+import tempfile
 import unittest
 from contextlib import redirect_stderr
 from pathlib import Path
@@ -92,6 +94,39 @@ class LadderOptionsTest(unittest.TestCase):
             options = declared_options(script)
             for common in ("port", "baud", "count", "delay", "gap", "folder"):
                 self.assertIn(common, options, "%s lacks --%s" % (script, common))
+
+
+class TrainingOptionsTest(unittest.TestCase):
+    def test_the_three_training_scripts_share_their_run_options(self):
+        for script in ("train_mobilenet.py", "train_resnet.py", "train_squeezenet.py"):
+            options = declared_options(script)
+            for common in ("seed", "tag", "overwrite", "splits_dir", "epochs", "learning_rate"):
+                self.assertIn(common, options, "%s lacks --%s" % (script, common))
+
+
+class FailureExitCodeTest(unittest.TestCase):
+    """A step that reports an error must not end with exit code 0, or a chained
+    pipeline would carry on with the files of an earlier run."""
+
+    def run_script(self, script, *args):
+        with tempfile.TemporaryDirectory() as cwd:
+            return subprocess.run([sys.executable, str(SRC / script), *args], cwd=cwd,
+                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+    def test_header_converter_fails_on_a_missing_model(self):
+        r = self.run_script("tflite_to_c.py", "no_such_model.tflite")
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("does not exist", r.stdout)
+
+    def test_scripts_that_report_an_error_exit_with_it(self):
+        # Read from the source, without importing TensorFlow: after printing an
+        # error these scripts used to return normally.
+        for script in ("quantize_int8_basic.py", "mil_benchmark.py", "sil_benchmark.py",
+                       "train_mobilenet.py", "train_resnet.py", "train_squeezenet.py"):
+            lines = (SRC / script).read_text(encoding="utf-8").splitlines()
+            for i, line in enumerate(lines[:-1]):
+                if "print(" in line and "rror" in line and lines[i + 1].strip() in ("return", "return None"):
+                    self.fail("%s:%d prints an error and returns normally" % (script, i + 1))
 
 
 if __name__ == "__main__":

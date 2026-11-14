@@ -21,17 +21,23 @@ Three rules live here:
    the checkpoint (<model>.classes.txt) and quantization copies it next to the
    .tflite, so the evaluators do not depend on a single global file.
 
+Training also leaves a record of what produced the checkpoint
+(<model>.training.json: seed, settings, per-epoch history, software versions).
+
 Standard library only: importing it must stay cheap for --help.
 """
 
 import argparse
+import json
 import os
 import re
 import shutil
 import sys
+from datetime import datetime, timezone
 
 LEGACY_CLASS_NAMES = os.path.join("models", "class_names.txt")
 CLASSES_SUFFIX = ".classes.txt"
+TRAINING_SUFFIX = ".training.json"
 _TAG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 
 
@@ -121,3 +127,39 @@ def resolve_class_names_path(model_path, explicit_path=None):
     if os.path.isfile(beside):
         return beside
     return LEGACY_CLASS_NAMES
+
+
+# --------------------------------------------------------------------------- #
+# Training record
+# --------------------------------------------------------------------------- #
+def training_record_path_for(model_path):
+    """Path of the training record that travels with a checkpoint."""
+    return os.path.splitext(model_path)[0] + TRAINING_SUFFIX
+
+
+def write_training_record(model_path, script, architecture, tag, seed, settings,
+                          splits_dir, class_names, history, software):
+    """Writes next to the checkpoint what produced it.
+
+    The seed fixes the initial weights, the shuffling and the augmentation, but
+    two runs only match bit for bit on the same machine and software, so the
+    record also keeps the software versions and the per-epoch history: a later
+    run can be compared with this one instead of being assumed equal to it.
+    """
+    record = {
+        "generated_utc": datetime.now(timezone.utc).isoformat(),
+        "script": script,
+        "architecture": architecture,
+        "tag": tag,
+        "seed": seed,
+        "settings": settings,
+        "splits_dir": splits_dir.replace(os.sep, "/"),
+        "class_names": list(class_names),
+        "epochs_run": len(next(iter(history.values()), [])),
+        "history": {name: [float(v) for v in values] for name, values in history.items()},
+        "software": software,
+    }
+    path = training_record_path_for(model_path)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(record, fh, indent=2, ensure_ascii=False)
+    return path

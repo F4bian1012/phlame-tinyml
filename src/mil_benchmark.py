@@ -7,6 +7,7 @@ import csv
 import hashlib
 import json
 import os
+import sys
 from datetime import datetime, timezone
 
 import artifacts
@@ -20,7 +21,7 @@ try:
 except ImportError:
     print("Please install scikit-learn and seaborn to compute the metrics.")
     print("Run: pip install scikit-learn seaborn")
-    exit(1)
+    sys.exit(1)
 
 BATCH_SIZE = 32
 
@@ -98,7 +99,7 @@ def main():
 
     if not os.path.exists(args.model_path):
         print(f"Error: model not found at {args.model_path}")
-        return
+        sys.exit(1)
 
     if not os.path.exists(args.data_dir):
         print(f"ERROR: test split not found at {args.data_dir}")
@@ -106,7 +107,7 @@ def main():
         print(f"  python src/split_dataset.py"
               f" --input_dir data/processed/{args.width}x{args.height}"
               f" --output_dir {args.splits_dir}")
-        exit(1)
+        sys.exit(1)
 
     # Checked before loading anything: a run must not replace the results of
     # another one (the published ones are tracked in results/).
