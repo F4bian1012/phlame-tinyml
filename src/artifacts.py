@@ -138,7 +138,7 @@ def training_record_path_for(model_path):
 
 
 def write_training_record(model_path, script, architecture, tag, seed, settings,
-                          splits_dir, class_names, history, software):
+                          splits_dir, class_names, history, software, data=None):
     """Writes next to the checkpoint what produced it.
 
     The seed fixes the initial weights, the shuffling and the augmentation, but
@@ -160,6 +160,9 @@ def write_training_record(model_path, script, architecture, tag, seed, settings,
         "history": {name: [float(v) for v in values] for name, values in history.items()},
         "software": software,
     }
+    if data is not None:
+        # How the images were read and how many there were (see train_common.py).
+        record["data"] = data
     path = training_record_path_for(model_path)
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(record, fh, indent=2, ensure_ascii=False)

@@ -4,13 +4,13 @@ from tensorflow.keras import layers
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-import platform
 import sys
 import datetime
 import argparse
 
 import artifacts
 import cli
+import train_common
 
 LOG_DIR = "tensorboard_logs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
@@ -18,97 +18,30 @@ os.makedirs("models/checkpoints", exist_ok=True)
 os.makedirs("tensorboard_logs", exist_ok=True)
 os.makedirs("results/training_curves", exist_ok=True)
 
-def software_versions():
-    """Software behind a run, written to the training record."""
-    return {
-        "python": platform.python_version(),
-        "tensorflow": tf.__version__,
-        "keras": keras.__version__,
-        "platform": platform.platform(),
-        "gpus": [device.name for device in tf.config.list_physical_devices("GPU")],
-    }
+# Augmentation of the default recipe, as recorded in the training record.
+STANDARD_AUGMENTATION = {"horizontal_flip": True, "rotation_fraction_of_turn": 0.2, "zoom_fraction": 0.1}
 
-def load_custom_data(splits_dir, img_width, img_height, batch_size, seed=None):
+
+def create_mobilenet_model(num_classes, img_shape, learning_rate, base_model_name,
+                           weights='imagenet', trainable_backbone=False, augmentation='standard',
+                           update_bn_statistics=None):
     """
-    Loads the train/val partitions written to disk by split_dataset.py.
-    Expected structure:
-    data/splits/
-        train/
-            class_a/
-                img1.jpg
-        val/
-            class_a/
-                img2.jpg
-    The partition is materialized on disk (instead of an in-memory
-    validation_split) so that every level of the fidelity ladder
-    MIL -> SIL -> PIL -> HIL evaluates exactly the same held-out images.
-    """
-    train_dir = os.path.join(splits_dir, "train")
-    val_dir = os.path.join(splits_dir, "val")
+    Creates a model based on the selected base_model.
 
-    for path in (train_dir, val_dir):
-        if not os.path.isdir(path) or not os.listdir(path):
-            print(f"ERROR: {path} does not exist or is empty.")
-            print("Run the dataset partition first:")
-            print(f"  python src/split_dataset.py"
-                  f" --input_dir data/processed/{img_width}x{img_height}"
-                  f" --output_dir {splits_dir}")
-            sys.exit(1)
+    Default: transfer learning, i.e. the ImageNet backbone is frozen and only
+    the new classifier is trained. With trainable_backbone every layer is
+    trained from the ImageNet weights, and with weights=None from random
+    weights (every layer is trained then, whatever trainable_backbone says).
 
-    print(f"Loading data from {splits_dir}...")
-    
-    try:
-        train_ds = tf.keras.utils.image_dataset_from_directory(
-            train_dir,
-            color_mode='grayscale',
-            image_size=(img_height, img_width),
-            batch_size=batch_size,
-            seed=seed
-        )
-
-        val_ds = tf.keras.utils.image_dataset_from_directory(
-            val_dir,
-            color_mode='grayscale',
-            image_size=(img_height, img_width),
-            batch_size=batch_size,
-            shuffle=False
-        )
-    except ValueError as e:
-        print(f"Data Loading Error: {e}")
-        print(f"Ensure each split has a subfolder per class, e.g., '{train_dir}/class_a/image.jpg'.")
-        return None, None, None
-
-    class_names = train_ds.class_names
-    print(f"Found classes: {class_names}")
-
-    # Both splits must expose the same label order, or the argmax the firmware
-    # returns would not mean the same thing in training and evaluation.
-    if val_ds.class_names != class_names:
-        print("ERROR: class order differs between the train and val splits.")
-        print(f"  train: {class_names}")
-        print(f"  val  : {val_ds.class_names}")
-        sys.exit(1)
-    
-    if len(class_names) == 1:
-        print("\nWARNING: Only 1 class found ('{}').".format(class_names[0]))
-        print("   Training a classifier with ONLY positive samples will result in a model")
-        print("   that predicts this class for EVERYTHING (Accuracy will be trivial).")
-        print("   You should add a 'background' or 'negative' class folder with random images")
-        print("   to teach the model what is NOT a '{}'.\n".format(class_names[0]))
-
-    AUTOTUNE = tf.data.AUTOTUNE
-    train_ds = train_ds.cache().shuffle(1000, seed=seed).prefetch(buffer_size=AUTOTUNE)
-    val_ds = val_ds.cache().prefetch(buffer_size=AUTOTUNE)
-
-    return train_ds, val_ds, class_names
-
-def create_mobilenet_model(num_classes, img_shape, learning_rate, base_model_name):
-    """
-    Creates a model using Transfer Learning based on the selected base_model.
+    update_bn_statistics says whether the batch-normalisation layers of the
+    backbone recompute their moving averages on the new data. None picks the
+    default of each case: no for a frozen backbone, yes otherwise.
     """
     print(f"Building {base_model_name} model for {num_classes} classes...")
 
-    data_augmentation = keras.Sequential([
+    # The 'light' augmentation is applied to the batches by train_common.py, so
+    # the model holds augmentation layers only with the standard one.
+    data_augmentation = None if augmentation == 'light' else keras.Sequential([
         layers.RandomFlip('horizontal'),
         layers.RandomRotation(0.2),
         layers.RandomZoom(0.1),
@@ -141,22 +74,29 @@ def create_mobilenet_model(num_classes, img_shape, learning_rate, base_model_nam
     base_model = base_model_class(
         input_shape=base_input_shape,
         include_top=False,
-        weights='imagenet',
+        weights=weights,
         alpha=alpha
     )
-    base_model.trainable = False
+    train_all = bool(trainable_backbone) or weights is None
+    base_model.trainable = train_all
+    if update_bn_statistics is None:
+        update_bn_statistics = train_all
+    print(f"  Backbone: weights={weights}, trainable={train_all}, "
+          f"batch-norm statistics {'updated' if update_bn_statistics else 'frozen'}")
 
     inputs = tf.keras.Input(shape=img_shape)
-    x = data_augmentation(inputs)
-    
+    x = data_augmentation(inputs) if data_augmentation is not None else inputs
+
     if img_shape[-1] == 1:
         x = layers.Concatenate(axis=-1)([x, x, x])
-        
+
     x = preprocess_fn(x)
-    x = base_model(x, training=False)
+    # training=False keeps the batch-normalisation layers on their ImageNet
+    # statistics; leaving the argument out lets them follow the new data.
+    x = base_model(x) if update_bn_statistics else base_model(x, training=False)
     x = layers.GlobalAveragePooling2D()(x)
     x = layers.Dropout(0.2)(x)
-    
+
     if num_classes == 1:
         print("Using Binary classification configuration (Sigmoid) for single class.")
         outputs = layers.Dense(1, activation='sigmoid')(x)
@@ -164,7 +104,7 @@ def create_mobilenet_model(num_classes, img_shape, learning_rate, base_model_nam
     else:
         outputs = layers.Dense(num_classes, activation='softmax')(x)
         loss_fn = 'sparse_categorical_crossentropy'
-    
+
     model = tf.keras.Model(inputs, outputs)
 
     model.compile(
@@ -172,7 +112,7 @@ def create_mobilenet_model(num_classes, img_shape, learning_rate, base_model_nam
         loss=loss_fn,
         metrics=['accuracy']
     )
-    
+
     return model
 
 def plot_history(history, plot_path):
@@ -198,7 +138,8 @@ def plot_history(history, plot_path):
     print(f"Training plots saved to {plot_path}")
 
 def main(img_width, img_height, batch_size, epochs, learning_rate, base_model_name, splits_dir,
-         tag=None, overwrite=False, seed=42):
+         tag=None, overwrite=False, seed=42, lr_schedule="constant", augmentation="standard",
+         weights="imagenet", trainable_backbone=False):
     img_shape = (img_height, img_width, 1)
     plot_path = "results/training_curves/" + artifacts.training_curve_name(
         base_model_name, batch_size, epochs, learning_rate, img_width, img_height, tag)
@@ -216,14 +157,14 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, base_model_na
     # draws on every run.
     keras.utils.set_random_seed(seed)
 
-    train_ds, val_ds, class_names = load_custom_data(splits_dir, img_width, img_height, batch_size, seed)
-    
-    if train_ds is None:
-        sys.exit(1)
+    train_ds, val_ds, class_names, data_info = train_common.load_splits(
+        splits_dir, img_width, img_height, batch_size, seed, augmentation)
 
     num_classes = len(class_names)
 
-    model = create_mobilenet_model(num_classes, img_shape, learning_rate, base_model_name)
+    model = create_mobilenet_model(num_classes, img_shape, learning_rate, base_model_name,
+                                   weights=weights, trainable_backbone=trainable_backbone,
+                                   augmentation=augmentation)
     model.summary()
 
     callbacks = [
@@ -234,17 +175,11 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, base_model_na
             mode="max",
             verbose=1
         ),
-        keras.callbacks.EarlyStopping(
-            monitor="val_loss",
-            patience=5,
-            restore_best_weights=True,
-            verbose=1
-        ),
         keras.callbacks.TensorBoard(
             log_dir=LOG_DIR,
             histogram_freq=1
         )
-    ]
+    ] + train_common.schedule_callbacks(lr_schedule, learning_rate, epochs)
 
     print("Starting training...")
     try:
@@ -252,12 +187,13 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, base_model_na
             train_ds,
             epochs=epochs,
             validation_data=val_ds,
-            callbacks=callbacks
+            callbacks=callbacks,
+            verbose=train_common.fit_verbosity()
         )
 
         plot_history(history, plot_path)
         print(f"Model saved to {checkpoint_path}")
-        
+
         # The label order travels with the checkpoint, so runs on different
         # datasets do not share (and overwrite) a single class-name file.
         classes_path = artifacts.write_class_names(checkpoint_path, class_names)
@@ -267,9 +203,15 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, base_model_na
             checkpoint_path, script=os.path.basename(__file__), architecture=base_model_name,
             tag=tag, seed=seed,
             settings={"width": img_width, "height": img_height, "batch_size": batch_size,
-                      "epochs": epochs, "learning_rate": learning_rate},
+                      "epochs": epochs, "learning_rate": learning_rate,
+                      "weights": weights,
+                      "trainable_backbone": bool(trainable_backbone) or weights is None,
+                      "backbone_batch_norm_statistics": (
+                          "updated" if (bool(trainable_backbone) or weights is None) else "frozen (ImageNet)"),
+                      **train_common.recipe_settings(lr_schedule, learning_rate, epochs, augmentation,
+                                                     STANDARD_AUGMENTATION)},
             splits_dir=splits_dir, class_names=class_names,
-            history=history.history, software=software_versions())
+            history=history.history, software=train_common.software_versions(), data=data_info)
         print(f"Training record (seed {seed}) saved to {record_path}")
 
     except Exception as e:
@@ -290,6 +232,13 @@ if __name__ == "__main__":
     parser.add_argument("--overwrite", action="store_true", help="Replace the checkpoint and the training curve if they already exist")
     parser.add_argument("--seed", type=int, default=42, help="Seed of the initial weights, the shuffling and the augmentation (default: 42). On a CPU it repeats a run bit for bit on the same machine and software; on a GPU two runs with the same seed still differ, because some GPU kernels are not deterministic")
 
+    train_common.add_recipe_arguments(parser)
+    parser.add_argument("--trainable_backbone", action="store_true", help="Train every layer, with the ImageNet weights as the starting point (default: the backbone is frozen and only the new classifier is trained)")
+    parser.add_argument("--weights", choices=["imagenet", "none"], default="imagenet", help="Starting weights of the backbone: imagenet (default) or none, which trains every layer from random weights")
+
     args = parser.parse_args()
     main(args.width, args.height, args.batch_size, args.epochs, args.learning_rate, args.base_model, args.splits_dir,
-         tag=args.tag, overwrite=args.overwrite, seed=args.seed)
+         tag=args.tag, overwrite=args.overwrite, seed=args.seed,
+         lr_schedule=args.lr_schedule, augmentation=args.augmentation,
+         weights=None if args.weights == "none" else args.weights,
+         trainable_backbone=args.trainable_backbone)

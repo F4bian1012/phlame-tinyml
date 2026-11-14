@@ -4,13 +4,13 @@ from tensorflow.keras import layers
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-import platform
 import sys
 import datetime
 import argparse
 
 import artifacts
 import cli
+import train_common
 
 LOG_DIR = "tensorboard_logs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
@@ -19,99 +19,28 @@ os.makedirs("tensorboard_logs", exist_ok=True)
 os.makedirs("results/training_curves", exist_ok=True)
 
 
-def software_versions():
-    """Software behind a run, written to the training record."""
-    return {
-        "python": platform.python_version(),
-        "tensorflow": tf.__version__,
-        "keras": keras.__version__,
-        "platform": platform.platform(),
-        "gpus": [device.name for device in tf.config.list_physical_devices("GPU")],
-    }
+# Augmentation of the default recipe, as recorded in the training record.
+STANDARD_AUGMENTATION = {"horizontal_flip": True, "rotation_fraction_of_turn": 0.15, "zoom_fraction": 0.1}
 
 
-def load_custom_data(splits_dir, img_width, img_height, batch_size, seed=None):
-    """
-    Loads the train/val partitions written to disk by split_dataset.py.
-    Expected structure:
-        data/splits/
-            train/
-                class_a/
-                    img1.jpg
-            val/
-                class_a/
-                    img2.jpg
-    The partition lives on disk (instead of an in-memory validation_split) so
-    that the four levels of the MIL -> SIL -> PIL -> HIL ladder evaluate
-    exactly the same held-out images.
-    Supports grayscale images (color_mode='grayscale').
-    """
-    train_dir = os.path.join(splits_dir, "train")
-    val_dir = os.path.join(splits_dir, "val")
-
-    for path in (train_dir, val_dir):
-        if not os.path.isdir(path) or not os.listdir(path):
-            print(f"ERROR: {path} does not exist or is empty.")
-            print("Run the dataset partition first:")
-            print(f"  python src/split_dataset.py"
-                  f" --input_dir data/processed/{img_width}x{img_height}"
-                  f" --output_dir {splits_dir}")
-            sys.exit(1)
-
-    print(f"Loading data from {splits_dir}...")
-
-    try:
-        train_ds = tf.keras.utils.image_dataset_from_directory(
-            train_dir,
-            color_mode='grayscale',
-            image_size=(img_height, img_width),
-            batch_size=batch_size,
-            seed=seed
-        )
-
-        val_ds = tf.keras.utils.image_dataset_from_directory(
-            val_dir,
-            color_mode='grayscale',
-            image_size=(img_height, img_width),
-            batch_size=batch_size,
-            shuffle=False
-        )
-    except ValueError as e:
-        print(f"Error loading data: {e}")
-        print(f"Make sure you have one subfolder per class, e.g. '{train_dir}/class_a/image.jpg'.")
-        return None, None, None
-
-    class_names = train_ds.class_names
-    print(f"Classes found: {class_names}")
-
-    # Both splits must expose the same label order: otherwise the argmax
-    # returned by the firmware would not mean the same thing in training and
-    # in evaluation.
-    if val_ds.class_names != class_names:
-        print("ERROR: class order differs between the splits.")
-        print(f"  train: {class_names}")
-        print(f"  val  : {val_ds.class_names}")
-        sys.exit(1)
-
-    if len(class_names) == 1:
-        print(f"\nWARNING: Only 1 class found ('{class_names[0]}').")
-        print("   Training a classifier with only positive samples will result in a model")
-        print("   that predicts this class for ALL inputs (trivial accuracy).")
-        print("   Add a 'background' or 'negative' class folder with random images\n")
-
-    AUTOTUNE = tf.data.AUTOTUNE
-    train_ds = train_ds.cache().shuffle(1000, seed=seed).prefetch(buffer_size=AUTOTUNE)
-    val_ds = val_ds.cache().prefetch(buffer_size=AUTOTUNE)
-
-    return train_ds, val_ds, class_names
+def conv_relu(x, filters, kernel, name, kernel_initializer="glorot_uniform", batch_norm=False, **kwargs):
+    """Convolution followed by ReLU; with batch_norm, Conv -> BatchNormalization -> ReLU."""
+    if not batch_norm:
+        return layers.Conv2D(filters, kernel, activation='relu', padding='same',
+                             kernel_initializer=kernel_initializer, name=name, **kwargs)(x)
+    x = layers.Conv2D(filters, kernel, padding='same', use_bias=False,
+                      kernel_initializer=kernel_initializer, name=name, **kwargs)(x)
+    x = layers.BatchNormalization(name=name + "_bn")(x)
+    return layers.ReLU(name=name + "_relu")(x)
 
 
-def fire_module(x, squeeze_filters, expand_filters, name_prefix):
+def fire_module(x, squeeze_filters, expand_filters, name_prefix,
+                kernel_initializer="glorot_uniform", batch_norm=False):
     """
     SqueezeNet Fire module:
       - Squeeze layer: Conv 1x1 (reduces channels)
       - Expand layer: Conv 1x1 + Conv 3x3 concatenated (increases representation)
-    
+
     Args:
         x: input tensor
         squeeze_filters: number of 1x1 filters in the squeeze layer
@@ -120,47 +49,46 @@ def fire_module(x, squeeze_filters, expand_filters, name_prefix):
     Returns:
         output tensor of the fire module
     """
-    x = layers.Conv2D(
-        squeeze_filters, (1, 1),
-        activation='relu',
-        padding='same',
-        name=f"{name_prefix}_squeeze"
-    )(x)
-
-    expand_1x1 = layers.Conv2D(
-        expand_filters, (1, 1),
-        activation='relu',
-        padding='same',
-        name=f"{name_prefix}_expand1x1"
-    )(x)
-
-    expand_3x3 = layers.Conv2D(
-        expand_filters, (3, 3),
-        activation='relu',
-        padding='same',
-        name=f"{name_prefix}_expand3x3"
-    )(x)
+    x = conv_relu(x, squeeze_filters, (1, 1), f"{name_prefix}_squeeze", kernel_initializer, batch_norm)
+    expand_1x1 = conv_relu(x, expand_filters, (1, 1), f"{name_prefix}_expand1x1", kernel_initializer, batch_norm)
+    expand_3x3 = conv_relu(x, expand_filters, (3, 3), f"{name_prefix}_expand3x3", kernel_initializer, batch_norm)
 
     x = layers.Concatenate(axis=-1, name=f"{name_prefix}_concat")([expand_1x1, expand_3x3])
     return x
 
 
-def build_squeezenet(input_shape, num_classes, dropout_rate=0.5):
+def build_squeezenet(input_shape, num_classes, dropout_rate=0.5, augmentation="standard",
+                     kernel_initializer="glorot_uniform", batch_norm=False):
     """
     Builds SqueezeNet 1.1 adapted for TinyML / custom classification.
 
     Differences from SqueezeNet 1.0:
       - Fewer parameters (50% fewer MACs than v1.0)
       - Compatible with small inputs (e.g. 96x96)
-      
+
     Architecture:
         Conv2D -> MaxPool -> Fire(2) -> Fire(3) -> MaxPool -> Fire(4) -> Fire(5) ->
         MaxPool -> Fire(6) -> Fire(7) -> Fire(8) -> Fire(9) -> Dropout -> Conv2D -> GAP -> Softmax/Sigmoid
+
+    The defaults build the network of the published models, which has no
+    normalisation layer. On some datasets it does not start to learn: on COCO
+    person detection it stayed at a constant output (accuracy 0.500) at every
+    learning rate tried. Two options are offered for that case (the
+    measurements are in docs/scripts.md):
+
+      kernel_initializer="he_normal"   starting weights scaled for ReLU layers;
+                                       the layers are the same
+      batch_norm=True                  batch normalisation between every
+                                       convolution of the backbone and its
+                                       ReLU: a different network to train
 
     Args:
         input_shape: tuple (H, W, C), accepts grayscale (C=1) or RGB (C=3)
         num_classes: number of output classes
         dropout_rate: dropout rate before the final classification layer
+        augmentation: "standard" (rotation of 0.15 of a turn) or "light" (see train_common.py)
+        kernel_initializer: initialiser of every convolution
+        batch_norm: Conv -> BatchNormalization -> ReLU in the backbone
     Returns:
         (compiled Keras model, loss function)
     """
@@ -176,46 +104,57 @@ def build_squeezenet(input_shape, num_classes, dropout_rate=0.5):
     # Normalization: scale pixels [0, 255] -> [-1, 1]
     x = layers.Rescaling(scale=1.0 / 127.5, offset=-1.0, name="normalization")(x)
 
-    # Data Augmentation (only active during training)
-    x = layers.RandomFlip('horizontal', name="aug_flip")(x)
-    x = layers.RandomRotation(0.15, name="aug_rotation")(x)
-    x = layers.RandomZoom(0.1, name="aug_zoom")(x)
+    # Data Augmentation (only active during training). The 'light' one is
+    # applied to the batches by train_common.py, not by layers of the model.
+    if augmentation != 'light':
+        x = layers.RandomFlip('horizontal', name="aug_flip")(x)
+        x = layers.RandomRotation(0.15, name="aug_rotation")(x)
+        x = layers.RandomZoom(0.1, name="aug_zoom")(x)
 
     # ---------- SqueezeNet 1.1 backbone ----------
 
     # Initial block
-    x = layers.Conv2D(64, (3, 3), strides=(2, 2), activation='relu',
-                      padding='same', name="conv1")(x)
+    x = conv_relu(x, 64, (3, 3), "conv1", kernel_initializer, batch_norm, strides=(2, 2))
     x = layers.MaxPooling2D((3, 3), strides=(2, 2), padding='same', name="pool1")(x)
 
     # Fire modules 2-3
-    x = fire_module(x, squeeze_filters=16, expand_filters=64, name_prefix="fire2")
-    x = fire_module(x, squeeze_filters=16, expand_filters=64, name_prefix="fire3")
+    x = fire_module(x, squeeze_filters=16, expand_filters=64, name_prefix="fire2",
+                    kernel_initializer=kernel_initializer, batch_norm=batch_norm)
+    x = fire_module(x, squeeze_filters=16, expand_filters=64, name_prefix="fire3",
+                    kernel_initializer=kernel_initializer, batch_norm=batch_norm)
     x = layers.MaxPooling2D((3, 3), strides=(2, 2), padding='same', name="pool3")(x)
 
     # Fire modules 4-5
-    x = fire_module(x, squeeze_filters=32, expand_filters=128, name_prefix="fire4")
-    x = fire_module(x, squeeze_filters=32, expand_filters=128, name_prefix="fire5")
+    x = fire_module(x, squeeze_filters=32, expand_filters=128, name_prefix="fire4",
+                    kernel_initializer=kernel_initializer, batch_norm=batch_norm)
+    x = fire_module(x, squeeze_filters=32, expand_filters=128, name_prefix="fire5",
+                    kernel_initializer=kernel_initializer, batch_norm=batch_norm)
     x = layers.MaxPooling2D((3, 3), strides=(2, 2), padding='same', name="pool5")(x)
 
     # Fire modules 6-9
-    x = fire_module(x, squeeze_filters=48, expand_filters=192, name_prefix="fire6")
-    x = fire_module(x, squeeze_filters=48, expand_filters=192, name_prefix="fire7")
-    x = fire_module(x, squeeze_filters=64, expand_filters=256, name_prefix="fire8")
-    x = fire_module(x, squeeze_filters=64, expand_filters=256, name_prefix="fire9")
+    x = fire_module(x, squeeze_filters=48, expand_filters=192, name_prefix="fire6",
+                    kernel_initializer=kernel_initializer, batch_norm=batch_norm)
+    x = fire_module(x, squeeze_filters=48, expand_filters=192, name_prefix="fire7",
+                    kernel_initializer=kernel_initializer, batch_norm=batch_norm)
+    x = fire_module(x, squeeze_filters=64, expand_filters=256, name_prefix="fire8",
+                    kernel_initializer=kernel_initializer, batch_norm=batch_norm)
+    x = fire_module(x, squeeze_filters=64, expand_filters=256, name_prefix="fire9",
+                    kernel_initializer=kernel_initializer, batch_norm=batch_norm)
 
     # ---------- Classification head ----------
     x = layers.Dropout(dropout_rate, name="dropout")(x)
 
     # Final conv -> Global Average Pooling (replaces Flatten + Dense, ~0 extra params)
     if num_classes == 1:
-        x = layers.Conv2D(1, (1, 1), activation='relu', padding='same', name="conv10")(x)
+        x = layers.Conv2D(1, (1, 1), activation='relu', padding='same',
+                          kernel_initializer=kernel_initializer, name="conv10")(x)
         x = layers.GlobalAveragePooling2D(name="gap")(x)
         outputs = layers.Activation('sigmoid', name="output_sigmoid")(x)
         loss_fn = 'binary_crossentropy'
         print("Binary configuration (Sigmoid) for a single class.")
     else:
-        x = layers.Conv2D(num_classes, (1, 1), activation='relu', padding='same', name="conv10")(x)
+        x = layers.Conv2D(num_classes, (1, 1), activation='relu', padding='same',
+                          kernel_initializer=kernel_initializer, name="conv10")(x)
         x = layers.GlobalAveragePooling2D(name="gap")(x)
         outputs = layers.Activation('softmax', name="output_softmax")(x)
         loss_fn = 'sparse_categorical_crossentropy'
@@ -231,7 +170,8 @@ def build_squeezenet(input_shape, num_classes, dropout_rate=0.5):
     return model, loss_fn
 
 
-def create_squeezenet_model(num_classes, img_shape, learning_rate, dropout_rate=0.5):
+def create_squeezenet_model(num_classes, img_shape, learning_rate, dropout_rate=0.5, augmentation="standard",
+                            kernel_initializer="glorot_uniform", batch_norm=False):
     """
     Wrapper that builds, compiles and returns the SqueezeNet model.
 
@@ -240,6 +180,7 @@ def create_squeezenet_model(num_classes, img_shape, learning_rate, dropout_rate=
         img_shape: tuple (H, W, C)
         learning_rate: learning rate for Adam
         dropout_rate: dropout rate
+        kernel_initializer, batch_norm: see build_squeezenet
     Returns:
         compiled model
     """
@@ -247,8 +188,11 @@ def create_squeezenet_model(num_classes, img_shape, learning_rate, dropout_rate=
     print(f"  Input shape : {img_shape}")
     print(f"  Learning rate: {learning_rate}")
     print(f"  Dropout rate: {dropout_rate}")
+    print(f"  Initialiser : {kernel_initializer}")
+    print(f"  Batch norm  : {'yes' if batch_norm else 'no'}")
 
-    model, loss_fn = build_squeezenet(img_shape, num_classes, dropout_rate)
+    model, loss_fn = build_squeezenet(img_shape, num_classes, dropout_rate, augmentation,
+                                      kernel_initializer=kernel_initializer, batch_norm=batch_norm)
 
     if num_classes == 1:
         loss = 'binary_crossentropy'
@@ -291,7 +235,8 @@ def plot_history(history, plot_path):
 
 
 def main(img_width, img_height, batch_size, epochs, learning_rate, dropout_rate, splits_dir,
-         tag=None, overwrite=False, seed=42):
+         tag=None, overwrite=False, seed=42, lr_schedule="constant", augmentation="standard",
+         kernel_initializer="glorot_uniform", batch_norm=False):
     model_name = "SqueezeNet"
     img_shape = (img_height, img_width, 1)
     plot_path = "results/training_curves/" + artifacts.training_curve_name(
@@ -310,15 +255,14 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, dropout_rate,
     # draws on every run.
     keras.utils.set_random_seed(seed)
 
-    train_ds, val_ds, class_names = load_custom_data(
-        splits_dir, img_width, img_height, batch_size, seed
-    )
-    if train_ds is None:
-        sys.exit(1)
+    train_ds, val_ds, class_names, data_info = train_common.load_splits(
+        splits_dir, img_width, img_height, batch_size, seed, augmentation)
 
     num_classes = len(class_names)
 
-    model = create_squeezenet_model(num_classes, img_shape, learning_rate, dropout_rate)
+    model = create_squeezenet_model(num_classes, img_shape, learning_rate, dropout_rate,
+                                    augmentation=augmentation,
+                                    kernel_initializer=kernel_initializer, batch_norm=batch_norm)
     model.summary()
 
     callbacks = [
@@ -329,24 +273,11 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, dropout_rate,
             mode="max",
             verbose=1
         ),
-        keras.callbacks.EarlyStopping(
-            monitor="val_loss",
-            patience=5,
-            restore_best_weights=True,
-            verbose=1
-        ),
         keras.callbacks.TensorBoard(
             log_dir=LOG_DIR,
             histogram_freq=1
-        ),
-        keras.callbacks.ReduceLROnPlateau(
-            monitor="val_loss",
-            factor=0.5,
-            patience=3,
-            min_lr=1e-7,
-            verbose=1
         )
-    ]
+    ] + train_common.schedule_callbacks(lr_schedule, learning_rate, epochs, plateau=True)
 
     print("\nStarting training of SqueezeNet...")
     try:
@@ -354,7 +285,8 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, dropout_rate,
             train_ds,
             epochs=epochs,
             validation_data=val_ds,
-            callbacks=callbacks
+            callbacks=callbacks,
+            verbose=train_common.fit_verbosity()
         )
 
         plot_history(history, plot_path)
@@ -370,9 +302,13 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, dropout_rate,
             tag=tag, seed=seed,
             settings={"width": img_width, "height": img_height, "batch_size": batch_size,
                       "epochs": epochs, "learning_rate": learning_rate,
-                      "dropout_rate": dropout_rate},
+                      "dropout_rate": dropout_rate,
+                      "kernel_initializer": kernel_initializer,
+                      "batch_norm": bool(batch_norm),
+                      **train_common.recipe_settings(lr_schedule, learning_rate, epochs, augmentation,
+                                                     STANDARD_AUGMENTATION, plateau=True)},
             splits_dir=splits_dir, class_names=class_names,
-            history=history.history, software=software_versions())
+            history=history.history, software=train_common.software_versions(), data=data_info)
         print(f"Training record (seed {seed}) saved to {record_path}")
 
     except Exception as e:
@@ -427,11 +363,26 @@ if __name__ == "__main__":
         help="Seed of the initial weights, the shuffling and the augmentation (default: 42). On a CPU it repeats a run bit for bit on the same machine and software; on a GPU two runs with the same seed still differ, because some GPU kernels are not deterministic"
     )
 
+    train_common.add_recipe_arguments(parser)
+    parser.add_argument(
+        "--kernel_initializer", choices=["glorot_uniform", "he_normal"], default="glorot_uniform",
+        help="Starting weights of the convolutions. glorot_uniform (default) is what the published models "
+             "used. he_normal is scaled for ReLU layers: try it when the network stays at a constant "
+             "output (accuracy 1/classes); the layers do not change"
+    )
+    parser.add_argument(
+        "--batch_norm", action="store_true",
+        help="Batch normalisation between every convolution of the backbone and its ReLU. A different "
+             "network to train than the published one (the converter folds it into the convolutions)"
+    )
+
     args = parser.parse_args()
     main(
         args.width, args.height,
         args.batch_size, args.epochs,
         args.learning_rate,
         args.dropout_rate, args.splits_dir,
-        tag=args.tag, overwrite=args.overwrite, seed=args.seed
+        tag=args.tag, overwrite=args.overwrite, seed=args.seed,
+        lr_schedule=args.lr_schedule, augmentation=args.augmentation,
+        kernel_initializer=args.kernel_initializer, batch_norm=args.batch_norm
     )

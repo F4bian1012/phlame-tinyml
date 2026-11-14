@@ -126,6 +126,21 @@ class LoadFolderTest(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             images.load_folder(self.root, W, H, class_names=["person", "car"])
 
+    def test_png_and_jpeg_partitions_are_both_read(self):
+        # The COCO partition is stored as lossless PNG (single channel); the earlier ones are JPEG.
+        root = Path(self.root) / "mixed"
+        gray = np.array(photo_like(5).convert("L"))
+        for cls in ("non_person", "person"):
+            (root / cls).mkdir(parents=True)
+        Image.fromarray(gray, "L").save(root / "non_person" / "a.png")
+        Image.fromarray(gray, "L").save(root / "person" / "b.PNG")
+        photo_like(6).save(root / "person" / "a.jpg", quality=90)
+        x, y, rel, _ = images.load_folder(str(root), W, H)
+        self.assertEqual(rel, ["non_person/a.png", "person/a.jpg", "person/b.PNG"])
+        self.assertEqual(y.tolist(), [0, 1, 1])
+        self.assertTrue(np.array_equal(x[0], gray))      # a PNG gives back the stored pixels
+        self.assertTrue(np.array_equal(x[2], gray))
+
     def test_result_does_not_depend_on_the_number_of_threads(self):
         a = images.load_folder(self.root, W, H, workers=1)[0]
         b = images.load_folder(self.root, W, H, workers=8)[0]
@@ -160,7 +175,8 @@ class SameBytesAtEveryLevelTest(unittest.TestCase):
 
 
 # Scripts whose images must come from images.py, and the calls that would bypass it.
-READERS = ["mil_benchmark.py", "sil_benchmark.py", "pil_benchmark.py", "quantize_int8_basic.py"]
+READERS = ["mil_benchmark.py", "sil_benchmark.py", "pil_benchmark.py", "quantize_int8_basic.py",
+           "train_common.py", "train_mobilenet.py", "train_resnet.py", "train_squeezenet.py"]
 BYPASS = {"image_dataset_from_directory", "decode_jpeg", "decode_png", "decode_image", "decode_bmp",
           "imread", "load_img", "open"}
 
@@ -186,10 +202,12 @@ class OneLoaderTest(unittest.TestCase):
     def test_the_levels_call_the_loader(self):
         uses = {name: {attr for owner, attr in attribute_calls(SRC / name) if owner == "images"}
                 for name in READERS}
-        for name in ("mil_benchmark.py", "sil_benchmark.py"):
+        for name in ("mil_benchmark.py", "sil_benchmark.py", "train_common.py"):
             self.assertIn("load_folder", uses[name], name)
         self.assertIn("load_image", uses["pil_benchmark.py"])
         self.assertIn("load_paths", uses["quantize_int8_basic.py"])
+        for name in ("train_mobilenet.py", "train_resnet.py", "train_squeezenet.py"):
+            self.assertIn(("train_common", "load_splits"), attribute_calls(SRC / name), name)
 
 
 if __name__ == "__main__":

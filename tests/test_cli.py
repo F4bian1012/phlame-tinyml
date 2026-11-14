@@ -77,9 +77,10 @@ class LadderOptionsTest(unittest.TestCase):
     BENCHES = ("mil_benchmark.py", "sil_benchmark.py", "pil_benchmark.py", "hil_benchmark.py")
 
     def test_every_script_uses_the_shared_parser(self):
+        # train_common.py only adds options to the parser a training script hands it.
         for script in sorted(SRC.glob("*.py")):
             text = script.read_text(encoding="utf-8")
-            if "add_argument(" in text and script.name != "cli.py":
+            if "add_argument(" in text and script.name not in ("cli.py", "train_common.py"):
                 self.assertIn("cli.ArgumentParser(", text, script.name)
                 self.assertNotIn("argparse.ArgumentParser(", text, script.name)
 
@@ -102,6 +103,12 @@ class TrainingOptionsTest(unittest.TestCase):
             options = declared_options(script)
             for common in ("seed", "tag", "overwrite", "splits_dir", "epochs", "learning_rate"):
                 self.assertIn(common, options, "%s lacks --%s" % (script, common))
+
+    def test_the_recipe_options_are_declared_once_for_the_three(self):
+        self.assertTrue({"lr_schedule", "augmentation"} <= declared_options("train_common.py"))
+        for script in ("train_mobilenet.py", "train_resnet.py", "train_squeezenet.py"):
+            self.assertIn("train_common.add_recipe_arguments(parser)",
+                          (SRC / script).read_text(encoding="utf-8"), script)
 
 
 class FailureExitCodeTest(unittest.TestCase):
