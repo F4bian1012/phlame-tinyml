@@ -1,0 +1,19 @@
+{
+  "generated_utc": "2026-11-03T12:11:30.102183+00:00",
+  "coco_split": "val2017",
+  "min_area_fraction": 0.005,
+  "include_small_person_as_negative": false,
+  "seed": 42,
+  "per_class_target": 500,
+  "selection_sha256": "9db263a13b9059ed242f19c93263df28a2909c178d37c7da3e813da85d1b526b",
+  "available_in_split": {
+    "person": 2467,
+    "non_person": 2307,
+    "ambiguous_excluded": 226
+  },
+  "download_summary": {
+    "downloaded": 1000,
+    "cached": 0,
+    "failed": 0
+  }
+}

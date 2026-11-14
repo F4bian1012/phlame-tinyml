@@ -263,6 +263,14 @@ def write_manifest(path, rows):
         writer.writerows(rows)
 
 
+def read_manifest_rows(path):
+    """Rows of an existing manifest as text, or None if there is no such file."""
+    if not os.path.isfile(path):
+        return None
+    with open(path, newline="", encoding="utf-8") as fh:
+        return list(csv.DictReader(fh))
+
+
 # --------------------------------------------------------------------------- #
 # Main
 # --------------------------------------------------------------------------- #
@@ -380,14 +388,22 @@ def main():
     if not args.dry_run:
         os.makedirs(args.output_dir, exist_ok=True)
 
+    # A manifest that already says the same is left as it is, so that rebuilding
+    # a published partition (data/splits_coco, ...) changes no versioned file and
+    # the comparison with it is stated below instead of being left to a diff.
     manifest_rows = {}
+    same_as_before, differs_from_before = [], []
     for sp in SPLITS:
         rows = write_split(args.output_dir, sp, class_names, per_split[sp],
                            hil_chosen, label_of, args.dry_run)
         manifest_rows[sp] = rows
-        if not args.dry_run:
-            write_manifest(os.path.join(args.output_dir,
-                                        "%s_manifest.csv" % sp), rows)
+        manifest_path = os.path.join(args.output_dir, "%s_manifest.csv" % sp)
+        previous = read_manifest_rows(manifest_path)
+        if previous is not None:
+            current = [{k: str(v) for k, v in row.items()} for row in rows]
+            (same_as_before if previous == current else differs_from_before).append(sp)
+        if not args.dry_run and sp not in same_as_before:
+            write_manifest(manifest_path, rows)
 
     # ---- summary report ---------------------------------------------------
     totals = {sp: sum(len(v) for v in per_split[sp].values()) for sp in SPLITS}
@@ -435,10 +451,29 @@ def main():
         "dry_run": args.dry_run,
     }
 
+    if len(same_as_before) == len(SPLITS):
+        print("Comparison     : same partition as the manifests already in %s"
+              % args.output_dir)
+    elif same_as_before or differs_from_before:
+        print("Comparison     : DIFFERENT from the manifests that were in %s (%s)"
+              % (args.output_dir, ", ".join(differs_from_before) or "some were missing"))
+
     if not args.dry_run:
-        with open(os.path.join(args.output_dir, "split_report.json"),
-                  "w", encoding="utf-8") as fh:
-            json.dump(report, fh, indent=2, ensure_ascii=False)
+        report_path = os.path.join(args.output_dir, "split_report.json")
+        previous_report = None
+        if os.path.isfile(report_path):
+            try:
+                with open(report_path, encoding="utf-8") as fh:
+                    previous_report = json.load(fh)
+            except (OSError, ValueError):
+                previous_report = None
+        # Same rule as for the manifests: an identical report keeps its file
+        # and its timestamp.
+        unchanged = (previous_report is not None and set(previous_report) == set(report) and
+                     all(previous_report[k] == v for k, v in report.items() if k != "created_utc"))
+        if not unchanged:
+            with open(report_path, "w", encoding="utf-8") as fh:
+                json.dump(report, fh, indent=2, ensure_ascii=False)
         print("")
         print("Written: %s/{train,val,test}/ + *_manifest.csv + "
               "split_report.json" % args.output_dir)

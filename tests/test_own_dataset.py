@@ -94,6 +94,27 @@ class SplitOwnDatasetTest(unittest.TestCase):
         self.assertIn("already exists", again.stdout)
         self.assertEqual(run_split(self.cwd, "--input_dir", "in", "--output_dir", "out", "--force").returncode, 0)
 
+    def test_rebuilding_the_same_partition_says_so_and_touches_no_file(self):
+        self.assertEqual(run_split(self.cwd, "--input_dir", "in", "--output_dir", "out").returncode, 0)
+        out = Path(self.cwd) / "out"
+        kept = ["%s_manifest.csv" % sp for sp in ("train", "val", "test")] + ["split_report.json"]
+        # other line endings, as after a checkout on another system, and an old date
+        for name in kept[:3]:
+            (out / name).write_bytes((out / name).read_bytes().replace(b"\r\n", b"\n"))
+        report = read_report(str(out))
+        report["created_utc"] = "2000-01-01T00:00:00+00:00"
+        (out / "split_report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+        before = {name: (out / name).read_bytes() for name in kept}
+
+        again = run_split(self.cwd, "--input_dir", "in", "--output_dir", "out", "--force")
+        self.assertEqual(again.returncode, 0, again.stdout)
+        self.assertIn("same partition as the manifests already in out", again.stdout)
+        self.assertEqual({name: (out / name).read_bytes() for name in kept}, before)
+
+        other = run_split(self.cwd, "--input_dir", "in", "--output_dir", "out", "--force", "--seed", "7")
+        self.assertIn("DIFFERENT from the manifests", other.stdout)
+        self.assertEqual(read_report(str(out))["seed"], 7)
+
     def test_explicit_class_file_must_match_the_folders(self):
         names = os.path.join(self.cwd, "names.txt")
         Path(names).write_text("Class1\nClass2\n", encoding="utf-8")
@@ -214,6 +235,26 @@ class ClassNamesTest(unittest.TestCase):
         self.assertIsNone(artifacts.copy_class_names(self.keras, self.tflite))
 
 
+class TrainingRecordTest(unittest.TestCase):
+    def test_record_keeps_the_seed_the_history_and_the_software(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            checkpoint = os.path.join(tmp, "ResNet8_demo+32+2+0.0001+160+120.keras")
+            path = artifacts.write_training_record(
+                checkpoint, script="train_resnet.py", architecture="ResNet8", tag="demo", seed=7,
+                settings={"width": 160, "height": 120, "batch_size": 32, "epochs": 2, "learning_rate": 0.0001},
+                splits_dir=os.path.join("data", "splits"), class_names=["non_person", "person"],
+                history={"loss": [0.7, 0.6], "val_accuracy": [0.5, 0.625]},
+                software={"tensorflow": "2.21.0"})
+            self.assertEqual(path, os.path.join(tmp, "ResNet8_demo+32+2+0.0001+160+120.training.json"))
+            with open(path, encoding="utf-8") as fh:
+                record = json.load(fh)
+        self.assertEqual((record["seed"], record["tag"], record["epochs_run"]), (7, "demo", 2))
+        self.assertEqual(record["splits_dir"], "data/splits")
+        self.assertEqual(record["history"]["val_accuracy"], [0.5, 0.625])
+        self.assertEqual(record["software"], {"tensorflow": "2.21.0"})
+        self.assertEqual(record["settings"]["epochs"], 2)
+
+
 class PublishedPartitionsTest(unittest.TestCase):
     """The published partitions sit in named folders; data/splits is left free for the user."""
 
@@ -223,13 +264,33 @@ class PublishedPartitionsTest(unittest.TestCase):
         self.assertEqual(tracked, [])
 
     def test_manifests_point_inside_their_own_folder(self):
-        for name in ("splits_plates", "splits_vww"):
+        for name in ("splits_coco", "splits_plates", "splits_vww"):
             folder = REPO / "data" / name
             for sp in ("train", "val", "test"):
                 rows = read_manifest(folder / ("%s_manifest.csv" % sp))
                 self.assertTrue(rows, "%s/%s_manifest.csv is empty" % (name, sp))
                 for r_ in rows:
                     self.assertTrue(r_["dst_path"].startswith("data/%s/%s/" % (name, sp)), r_["dst_path"])
+
+    def test_coco_test_images_come_from_another_coco_split_than_training(self):
+        folder = REPO / "data" / "splits_coco"
+        rows = {sp: read_manifest(folder / ("%s_manifest.csv" % sp)) for sp in ("train", "val", "test")}
+        self.assertEqual({sp: len(r) for sp, r in rows.items()}, {"train": 10200, "val": 1800, "test": 1000})
+        for sp in ("train", "val"):
+            self.assertTrue(all(r_["src_path"].startswith("data/processed/coco_train_160x120/") for r_ in rows[sp]))
+        self.assertTrue(all(r_["src_path"].startswith("data/processed/coco_test_160x120/") for r_ in rows["test"]))
+        names = {sp: {r_["filename"] for r_ in rows[sp]} for sp in rows}
+        self.assertFalse(names["test"] & (names["train"] | names["val"]), "a COCO image id is on both sides")
+        self.assertFalse(names["train"] & names["val"])
+        self.assertEqual(sum(r_["hil_subset"] == "1" for r_ in rows["test"]), 200)
+        report = read_report(str(folder))
+        self.assertEqual(report["test_input_dir"], "data/processed/coco_test_160x120")
+        self.assertEqual(report["label_map"], {"non_person": 0, "person": 1})
+        for coco_split, per_class in (("train2017", 6000), ("val2017", 500)):
+            with open(folder / ("subset_report_%s.json" % coco_split), encoding="utf-8") as fh:
+                subset = json.load(fh)
+            self.assertEqual((subset["coco_split"], subset["per_class_target"], subset["seed"]),
+                             (coco_split, per_class, 42))
 
 
 if __name__ == "__main__":

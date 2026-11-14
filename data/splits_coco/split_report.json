@@ -1,0 +1,60 @@
+{
+  "created_utc": "2026-11-14T19:30:38+00:00",
+  "script": "split_dataset.py",
+  "input_dir": "data/processed/coco_train_160x120",
+  "test_input_dir": "data/processed/coco_test_160x120",
+  "output_dir": "data/splits_coco",
+  "seed": 42,
+  "proportions": {
+    "train": 0.85,
+    "val": 0.15,
+    "test": 0.0
+  },
+  "class_names": [
+    "non_person",
+    "person"
+  ],
+  "class_names_source": "subfolders of data/processed/coco_train_160x120 (alphabetical)",
+  "label_map": {
+    "non_person": 0,
+    "person": 1
+  },
+  "counts_per_class": {
+    "non_person": {
+      "total": 6500,
+      "train": 5100,
+      "val": 900,
+      "test": 500
+    },
+    "person": {
+      "total": 6500,
+      "train": 5100,
+      "val": 900,
+      "test": 500
+    }
+  },
+  "totals": {
+    "train": 10200,
+    "val": 1800,
+    "test": 1000,
+    "dataset": 13000
+  },
+  "class_balance_pct": {
+    "non_person": 50.0,
+    "person": 50.0
+  },
+  "hil_subset": {
+    "requested": 200,
+    "selected": 200,
+    "per_class": {
+      "non_person": 100,
+      "person": 100
+    },
+    "seed": 43
+  },
+  "integrity": {
+    "splits_disjoint": true,
+    "images_accounted_for": true
+  },
+  "dry_run": false
+}
