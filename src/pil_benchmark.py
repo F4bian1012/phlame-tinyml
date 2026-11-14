@@ -206,6 +206,29 @@ def build_packet(payload_raw: bytes) -> bytes:
     return packet
 
 
+# How long to wait for a serial port that disappeared to come back, and how many
+# times in a row the same image is sent again before the run is given up.
+RECONNECT_WAIT_S = 30
+MAX_ATTEMPTS_PER_IMAGE = 5
+
+
+def reopen_port(port: str, baud: int, wait_s: float = RECONNECT_WAIT_S):
+    """Opens the port again after the link dropped, retrying until it is back.
+
+    A USB serial link can disappear for a moment (cable, hub, the host's power
+    management) while the board keeps running. Returns the open port, or None
+    when it did not come back within wait_s seconds."""
+    deadline = time.time() + wait_s
+    while time.time() < deadline:
+        try:
+            ser = serial.Serial(port, baud, timeout=10)
+            time.sleep(0.5)   # let the link settle before anything is written
+            return ser
+        except serial.SerialException:
+            time.sleep(0.5)
+    return None
+
+
 def send_image(port: str, baud: int, image_path: str,
                width: int, height: int, grayscale: bool,
                pre_delay: float, model_tag: str,
@@ -389,6 +412,7 @@ def send_folder(port: str, baud: int, folder: str,
     class_counts: Counter = Counter()
     errors = 0
     announced = None   # board named by the firmware in its BOARD: line
+    reconnects = 0     # times the serial link dropped and the port was reopened
     y_true = []
     y_pred = []
     # Accumulated in addition to the CSV: the JSON summarizes per phase, and
@@ -401,56 +425,85 @@ def send_folder(port: str, baud: int, folder: str,
         raw_payload = preprocess_image(image_path, width, height, grayscale)
         packet = build_packet(raw_payload)
 
-        ser.reset_input_buffer()
         print(f"[INFO] Sending packet: {len(packet)} bytes total "
               f"(raw payload={len(raw_payload)}, escaped={len(packet)-2})")
 
-        ser.write(packet)
-        ser.flush()
-        print("[OK]   Packet sent. Waiting for the predicted class...")
+        # One image is one exchange: packet out, answer in. If the serial link
+        # drops in the middle (the port disappears and the driver raises), the
+        # board keeps running, so the port is reopened and the SAME image is sent
+        # again; the firmware restarts a packet when it sees a new start marker.
+        # The latency is measured on the chip, so a repeated exchange gives a
+        # valid measurement like any other.
+        attempt = 0
+        while True:
+            attempt += 1
+            predicted_class = None
+            current_metrics = {}
+            try:
+                ser.reset_input_buffer()
+                ser.write(packet)
+                ser.flush()
+                print("[OK]   Packet sent. Waiting for the predicted class...")
 
-        # Read the response: the Arduino sends only the class number, then the latencies
-        predicted_class = None
-        current_metrics = {}
-        timeout = time.time() + 30
-        while time.time() < timeout:
-            if ser.in_waiting:
-                line = ser.readline().decode('utf-8', errors='replace').rstrip()
-                print(f"  Arduino >>> {line}")
+                # Read the response: the Arduino sends only the class number, then the latencies
+                timeout = time.time() + 30
+                while time.time() < timeout:
+                    if ser.in_waiting:
+                        line = ser.readline().decode('utf-8', errors='replace').rstrip()
+                        print(f"  Arduino >>> {line}")
 
-                if line.startswith("CYC_") or line.startswith("US_") or line.startswith("TEMP_C:"):
-                    parts = line.split(":")
-                    if len(parts) >= 2:
-                        metric = parts[0].strip()
-                        value = ":".join(parts[1:]).strip()
-                        current_metrics[metric] = value
+                        if line.startswith("CYC_") or line.startswith("US_") or line.startswith("TEMP_C:"):
+                            parts = line.split(":")
+                            if len(parts) >= 2:
+                                metric = parts[0].strip()
+                                value = ":".join(parts[1:]).strip()
+                                current_metrics[metric] = value
 
-                # The firmware says which board it runs on with every image. The
-                # results are filed by board, so a wrong --board stops the run here,
-                # before anything has been measured.
-                if announced is None and line.startswith(boards.BOARD_PREFIX):
-                    announced = boards.announced_board([line])
-                    problem = boards.mismatch(board_key, announced)
-                    if problem:
-                        print(f"[ERROR] Wrong board: {problem}")
-                        ser.close()
-                        csv_file.close()
-                        pred_file.close()
-                        for created in (csv_path, pred_csv_path):
-                            os.remove(created)
-                        sys.exit(2)
+                        # The firmware says which board it runs on with every image. The
+                        # results are filed by board, so a wrong --board stops the run here,
+                        # before anything has been measured.
+                        if announced is None and line.startswith(boards.BOARD_PREFIX):
+                            announced = boards.announced_board([line])
+                            problem = boards.mismatch(board_key, announced)
+                            if problem:
+                                print(f"[ERROR] Wrong board: {problem}")
+                                ser.close()
+                                csv_file.close()
+                                pred_file.close()
+                                for created in (csv_path, pred_csv_path):
+                                    os.remove(created)
+                                sys.exit(2)
 
-                if boards.is_end_of_inference(line):
-                    break
+                        if boards.is_end_of_inference(line):
+                            break
 
+                        try:
+                            # If the line is just an integer, assume it is the predicted class
+                            parsed_int = int(line.strip())
+                            predicted_class = parsed_int
+                        except ValueError:
+                            pass
+                    else:
+                        time.sleep(0.05)
+                break
+            except serial.SerialException as exc:
+                reconnects += 1
+                print(f"  [WARN] Serial link lost ({exc}).")
                 try:
-                    # If the line is just an integer, assume it is the predicted class
-                    parsed_int = int(line.strip())
-                    predicted_class = parsed_int
-                except ValueError:
+                    ser.close()
+                except serial.SerialException:
                     pass
-            else:
-                time.sleep(0.05)
+                ser = reopen_port(port, baud) if attempt < MAX_ATTEMPTS_PER_IMAGE else None
+                if ser is None:
+                    csv_file.close()
+                    pred_file.close()
+                    print(f"[ERROR] The serial link to {port} was lost at image {idx} of {total} and did "
+                          f"not recover (attempt {attempt} of {MAX_ATTEMPTS_PER_IMAGE}). The CSV files hold "
+                          f"the {idx - 1} images measured so far; no metrics JSON was written. Check the "
+                          f"cable and the port, then run again with --overwrite.")
+                    sys.exit(3)
+                print(f"  [INFO] Port reopened; sending the same image again "
+                      f"(attempt {attempt + 1} of {MAX_ATTEMPTS_PER_IMAGE}).")
 
         row = [os.path.basename(image_path)]
         for h in metrics_headers:
@@ -503,6 +556,9 @@ def send_folder(port: str, baud: int, folder: str,
 
     ser.close()
     print("\n[INFO] Port closed. All images sent.")
+    if reconnects:
+        print(f"[WARN] The serial link dropped {reconnects} time(s) during the run; each time the port "
+              f"was reopened and the image sent again.")
     if announced is None:
         print("[WARN] The firmware did not announce its board (no BOARD: line): it is "
               "a build earlier than the two-board sketch. The board is recorded as null.")
@@ -640,6 +696,7 @@ def send_folder(port: str, baud: int, folder: str,
             "pre_delay_s": pre_delay,
             "gap_s": gap,
             "n_samples_requested": n_samples,
+            "n_reconnects": reconnects,
         },
         "dataset": {
             "folder": folder,

@@ -107,6 +107,14 @@ equals `#`, `@`, or `ESC`, the sender escapes it as `ESC` followed by
 reverses this on reception (`pil_benchmark.py` performs the escaping on the host
 side).
 
+**Dropped link.** A USB serial link can disappear for a moment (cable, hub, the host's
+power management) while the board keeps running. When that happens the bench reopens the
+port and sends the same image again, up to five times, and counts it in `run.n_reconnects`;
+if the port does not come back it stops with a message instead of a traceback. On the
+firmware side a raw `#` in the middle of a packet restarts the packet, so the image sent
+again is not appended to what arrived before the drop. The latency is measured on the
+chip, so a repeated exchange is a valid measurement like any other.
+
 **Input handling.** Received bytes (uint8, 0–255) are written into the model
 input tensor. For an INT8 model the firmware reads the tensor's own
 `params.scale` and `params.zero_point` — set by the TFLite converter — and

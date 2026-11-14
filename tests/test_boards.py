@@ -137,13 +137,15 @@ class SimulatedBoard:
     """Stand-in for serial.Serial: every packet or trigger written to it is
     answered with the lines of one inference, as the firmware prints them."""
 
-    def __init__(self, level, board=None, banner=None, boot=()):
+    def __init__(self, level, board=None, banner=None, boot=(), drop_link_at=None):
         self.level = level
         self.board = board
         self.banner = banner or BANNER[level]
         self.queue = [line.encode() + b"\r\n" for line in boot]
         self.closed = False
         self.inferences = 0
+        self.packets = 0
+        self.drop_link_at = drop_link_at   # the n-th packet finds the port gone
 
     def answer(self):
         self.inferences += 1
@@ -167,6 +169,10 @@ class SimulatedBoard:
 
     def write(self, data):
         if data[:1] in (b"#", b"T"):
+            self.packets += 1
+            if self.packets == self.drop_link_at:
+                import serial
+                raise serial.SerialException("WriteFile failed (the device does not recognise the command)")
             self.answer()
         return len(data)
 
@@ -183,8 +189,9 @@ class SimulatedBoard:
 pil_benchmark = load_bench("pil_benchmark")
 
 
-@unittest.skipIf(pil_benchmark is None, "pil_benchmark needs pyserial, Pillow and numpy")
-class PilBenchOnSimulatedBoardTest(unittest.TestCase):
+class PilFolderCase(unittest.TestCase):
+    """A small class-per-folder test partition and an output folder, for the PIL bench."""
+
     def setUp(self):
         from PIL import Image
         self.tmp = tempfile.TemporaryDirectory()
@@ -196,6 +203,9 @@ class PilBenchOnSimulatedBoardTest(unittest.TestCase):
                 Image.new("L", (16, 12), shade + i).save(os.path.join(self.folder, cls, "img_%d.png" % i))
         self.out = os.path.join(self.tmp.name, "out")
 
+
+@unittest.skipIf(pil_benchmark is None, "pil_benchmark needs pyserial, Pillow and numpy")
+class PilBenchOnSimulatedBoardTest(PilFolderCase):
     def run_bench(self, board, board_key="portenta"):
         with mock.patch.object(pil_benchmark.serial, "Serial", return_value=board), \
                 mock.patch.object(pil_benchmark.time, "sleep"), \
@@ -240,6 +250,53 @@ class PilBenchOnSimulatedBoardTest(unittest.TestCase):
         self.assertEqual(board.inferences, 1)
         self.assertTrue(board.closed)
         self.assertEqual(os.listdir(self.out), [])
+
+
+@unittest.skipIf(pil_benchmark is None, "pil_benchmark needs pyserial, Pillow and numpy")
+class PilBenchOnDroppedLinkTest(PilFolderCase):
+    """A USB serial link can vanish for a moment while the board keeps running."""
+
+    def run_with(self, ports, reopen=None):
+        patches = [mock.patch.object(pil_benchmark.serial, "Serial", side_effect=ports),
+                   mock.patch.object(pil_benchmark.time, "sleep")]
+        if reopen is not None:
+            patches.append(mock.patch.object(pil_benchmark, "reopen_port", reopen))
+        with contextlib.ExitStack() as stack, contextlib.redirect_stdout(io.StringIO()) as log:
+            for patch in patches:
+                stack.enter_context(patch)
+            pil_benchmark.send_folder(port="SIM", baud=115200, folder=self.folder, width=16, height=12,
+                                      grayscale=True, pre_delay=0, gap=0, model_tag="sim_int8",
+                                      model_path=None, output_dir=self.out, board_key="portenta")
+        return log.getvalue()
+
+    def test_port_is_reopened_and_the_same_image_sent_again(self):
+        first = SimulatedBoard("pil", board="PORTENTA_H7", drop_link_at=3)
+        second = SimulatedBoard("pil", board="PORTENTA_H7")
+        log = self.run_with([first, second])
+        with open(os.path.join(self.out, "metrics_sim_int8.json"), encoding="utf-8") as fh:
+            metrics = json.load(fh)
+        self.assertEqual(metrics["run"]["n_reconnects"], 1)
+        self.assertEqual((metrics["dataset"]["n_images"], metrics["dataset"]["n_answered"],
+                          metrics["dataset"]["n_unanswered"]), (4, 4, 0))
+        self.assertEqual((first.inferences, second.inferences), (2, 2))   # no image lost, none counted twice
+        self.assertTrue(first.closed)
+        self.assertIn("Serial link lost", log)
+        with open(os.path.join(self.out, "predictions_sim_int8.csv"), encoding="utf-8", newline="") as fh:
+            self.assertEqual(len(list(csv.DictReader(fh, delimiter=";"))), 4)
+
+    def test_run_without_drops_records_zero_reconnects(self):
+        self.run_with([SimulatedBoard("pil", board="PORTENTA_H7")])
+        with open(os.path.join(self.out, "metrics_sim_int8.json"), encoding="utf-8") as fh:
+            self.assertEqual(json.load(fh)["run"]["n_reconnects"], 0)
+
+    def test_link_that_does_not_come_back_ends_the_run_with_a_message(self):
+        first = SimulatedBoard("pil", board="PORTENTA_H7", drop_link_at=2)
+        with self.assertRaises(SystemExit) as ctx:
+            self.run_with([first], reopen=lambda port, baud: None)
+        self.assertEqual(ctx.exception.code, 3)
+        self.assertFalse(os.path.exists(os.path.join(self.out, "metrics_sim_int8.json")))
+        with open(os.path.join(self.out, "predictions_sim_int8.csv"), encoding="utf-8", newline="") as fh:
+            self.assertEqual(len(list(csv.DictReader(fh, delimiter=";"))), 1)   # the image measured before the drop
 
 
 hil_benchmark = load_bench("hil_benchmark")

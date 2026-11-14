@@ -110,6 +110,8 @@ tflite::AllOpsResolver resolver;
 // The image bytes are sent RAW between the markers.
 // If a data byte is itself '#', '@' or ESC, the sender must escape it (see
 // the Python script). Escape: 0x1B (ESC) followed by the byte XOR 0x20.
+// A raw '#' in the middle of a packet restarts the packet, so the host can
+// send an image again after a dropped link without corrupting it.
 
 // Buffer that receives the image over serial (IMAGE_BUFFER_BYTES bytes)
 uint8_t *image_buffer = nullptr;
@@ -193,6 +195,12 @@ bool readImageFromSerial() {
         // End marker found
         receiving = false;
         return true; // complete image
+      } else if (byte_in == '#') {
+        // A start marker inside a packet: the sender began again (the host
+        // resends the image after a dropped serial link). A '#' that belongs
+        // to the image always arrives escaped, so this can only be a new
+        // start: drop what was received and take the packet from here.
+        image_bytes_received = 0;
       } else if (byte_in == 0x1B) {
         // Escape byte: the next byte is the actual data XOR 0x20
         // Wait for the next byte (blocking, with a short timeout)
