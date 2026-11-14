@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Check docs/results_schema.md against every published results JSON.
 
-For both schemas (metrics_*.json and hil_conditions_*.json):
+For both schemas (metrics_*.json and conditions_*.json):
   (a) every key found in a JSON must be documented;
   (b) every documented key must appear in at least one JSON.
 
@@ -25,7 +25,7 @@ DYNAMIC_CHILDREN = {
     "conteo_predicciones": "<CLASS>",
 }
 METRICS_HEADING = re.compile(r"^## .*`metrics_\*\.json`")
-CONDITIONS_HEADING = re.compile(r"^## .*`hil_conditions_\*\.json`")
+CONDITIONS_HEADING = re.compile(r"^## .*`conditions_\*\.json`")
 KEY_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|")
 
 
@@ -74,11 +74,11 @@ class ResultsSchemaTest(unittest.TestCase):
     def setUpClass(cls):
         cls.doc_metrics, cls.doc_conditions = documented_paths()
         cls.real_metrics, cls.n_metrics = real_paths("metrics_*.json")
-        cls.real_conditions, cls.n_conditions = real_paths("hil_conditions_*.json")
+        cls.real_conditions, cls.n_conditions = real_paths("conditions_*.json")
 
     def check_inputs_found(self):
         self.assertGreater(self.n_metrics, 0, "no metrics_*.json found under results/")
-        self.assertGreater(self.n_conditions, 0, "no hil_conditions_*.json found under results/")
+        self.assertGreater(self.n_conditions, 0, "no conditions_*.json found under results/")
 
     def assert_none(self, keys, message):
         self.assertFalse(keys, "%s: %s" % (message, ", ".join(sorted(keys))))
@@ -93,11 +93,11 @@ class ResultsSchemaTest(unittest.TestCase):
 
     def test_every_conditions_key_is_documented(self):
         self.check_inputs_found()
-        self.assert_none(self.real_conditions - self.doc_conditions, "hil_conditions keys missing from the docs")
+        self.assert_none(self.real_conditions - self.doc_conditions, "conditions keys missing from the docs")
 
     def test_every_documented_conditions_key_exists(self):
         self.check_inputs_found()
-        self.assert_none(self.doc_conditions - self.real_conditions, "documented hil_conditions keys found in no JSON")
+        self.assert_none(self.doc_conditions - self.real_conditions, "documented conditions keys found in no JSON")
 
 
 if __name__ == "__main__":

@@ -15,10 +15,10 @@ Inputs (all tracked in git; <tag> = <Architecture>+32+20+0.0001+160+120):
   results/sil/metrics_<tag>_int8.json         exact .tflite size and SHA-256
   results/pil/predictions_<tag>_int8.csv      PIL: INT8 on the MCU, images sent over serial (n = 940)
   results/pil/metrics_<tag>_int8.json         PIL per-phase latency (DWT cycle counter)
-  results/hil/hil_latencies_<tag>_int8.csv    HIL: INT8 on the MCU, camera frames (n = 200), plus the
+  results/hil/latency_metrics_<tag>_int8.csv    HIL: INT8 on the MCU, camera frames (n = 200), plus the
                                               host float/INT8 re-classification of the same frame
   results/hil/metrics_<tag>_int8.json         HIL per-phase latency
-  results/hil/hil_conditions_<tag>_int8.json  firmware fingerprint and tensor-arena usage
+  results/hil/conditions_<tag>_int8.json  firmware fingerprint and tensor-arena usage
   results/hil/rep*/                           HIL repeatability runs of the reference architecture
   data/splits_plates/test_manifest.csv        hil_subset flag (the 200 rig images)
 
@@ -302,7 +302,7 @@ def main():
     pos = {name: i for i, name in enumerate(order)}
 
     # ---- rig subset: HIL and host re-classification of the same frames ------
-    rel_ref = f"results/hil/hil_latencies_{tag(ref)}_int8.csv"
+    rel_ref = f"results/hil/latency_metrics_{tag(ref)}_int8.csv"
     rig = [r["image"] for r in io.rows(rel_ref, ",")]
     if not set(rig) <= set(order):
         sys.exit("[ERROR] Some rig images are not in the test set")
@@ -320,7 +320,7 @@ def main():
     y_rig = y_full[rig_pos]
     n_rig = len(rig)
     for a in dep:
-        rel = f"results/hil/hil_latencies_{tag(a)}_int8.csv"
+        rel = f"results/hil/latency_metrics_{tag(a)}_int8.csv"
         rows = load_hil(io, rel, rig)
         if not (as_int(rows, "true_label", rel) == y_rig).all():
             sys.exit(f"[ERROR] Ground truth of the rig subset differs for {a}")
@@ -395,7 +395,7 @@ def main():
     for a in dep:
         P = io.json(f"results/pil/metrics_{tag(a)}_int8.json")["latencia"]["por_campo"]
         H = io.json(f"results/hil/metrics_{tag(a)}_int8.json")["latencia"]["por_campo"]
-        fw = io.json(f"results/hil/hil_conditions_{tag(a)}_int8.json")["firmware_model"]
+        fw = io.json(f"results/hil/conditions_{tag(a)}_int8.json")["firmware_model"]
         ms = lambda d, k: d[k]["media"] / 1000.0
         t3[a] = {"tflite_KiB": tfl[a][0] / 1024.0, "arena_KiB": fw["arena_used_bytes"] / 1024.0,
                  "PIL_pre_ms": ms(P, "US_PRE"), "PIL_inf_ms": ms(P, "US_INF"), "PIL_post_ms": ms(P, "US_POST"),
@@ -416,14 +416,14 @@ def main():
     # ======================================================================
     rep_dirs = sorted(d for d in os.listdir(os.path.join(args.root, "results", "hil"))
                       if d.startswith("rep") and os.path.isdir(os.path.join(args.root, "results", "hil", d)))
-    ref_cond = io.json(f"results/hil/hil_conditions_{tag(ref)}_int8.json")
+    ref_cond = io.json(f"results/hil/conditions_{tag(ref)}_int8.json")
     pil_rig = on_rig("PIL", ref)
     pil_rig_f1 = float(f1_macro(y_rig, pil_rig))
     runs = [{"run": "original", "seed": ref_cond.get("seed"), "frame_dump": bool(ref_cond.get("frame_dump")),
              "pred": pred[("HIL", ref)]}]
     for d in rep_dirs:
-        cond = io.json(f"results/hil/{d}/hil_conditions_{ref}_{d}.json")
-        rel = f"results/hil/{d}/hil_latencies_{ref}_{d}.csv"
+        cond = io.json(f"results/hil/{d}/conditions_{ref}_{d}.json")
+        rel = f"results/hil/{d}/latency_metrics_{ref}_{d}.csv"
         runs.append({"run": d, "seed": cond.get("seed"), "frame_dump": bool(cond.get("frame_dump")),
                      "pred": as_int(load_hil(io, rel, rig), "pred_label", rel)})
     for r in runs:

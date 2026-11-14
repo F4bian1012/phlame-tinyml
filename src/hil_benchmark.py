@@ -25,12 +25,12 @@ construction:
        of the displayed stimulus
 
 Outputs (in --output-dir, default results/hil/):
-  - HIL_Confusion_Matrix_<tag>.png : sensor->prediction confusion matrix
-  - hil_latencies_<tag>.csv        : one row per inference with per-phase
+  - confusion_matrix_<tag>.png : sensor->prediction confusion matrix
+  - latency_metrics_<tag>.csv        : one row per inference with per-phase
                                      latencies (CAPTURE/PRE/INF/POST/TOTAL),
                                      TEMP_C, and ground truth
   - metrics_<tag>.json             : metrics JSON (same schema as MIL/SIL/PIL)
-  - hil_conditions_<tag>.json      : physical rig conditions + model fingerprint
+  - conditions_<tag>.json      : physical rig conditions + model fingerprint
                                      — the environmental protocol required for
                                      reproducible reporting
 
@@ -172,12 +172,12 @@ def expected_model_fingerprint(tflite_path: str):
 
 
 def previous_runs_fingerprints(output_dir: str):
-    """Reads existing hil_conditions_*.json files: returns (model_tag, fnv1a, filename)."""
+    """Reads existing conditions_*.json files: returns (model_tag, fnv1a, filename)."""
     out = []
     if not os.path.isdir(output_dir):
         return out
     for name in sorted(os.listdir(output_dir)):
-        if name.startswith("hil_conditions_") and name.endswith(".json"):
+        if name.startswith("conditions_") and name.endswith(".json"):
             try:
                 with open(os.path.join(output_dir, name), encoding='utf-8') as f:
                     c = json.load(f)
@@ -251,7 +251,7 @@ def check_required_conditions(args):
         sys.exit(2)
     if missing:
         print("[WARN] Incomplete conditions (" + ", ".join(missing) +
-              "): run will be flagged as non-reportable in hil_conditions.")
+              "): run will be flagged as non-reportable in the conditions file.")
     if not args.notes.strip():
         print("[WARN] --notes is empty: record at least monitor model, brightness, and mount.")
 
@@ -268,7 +268,7 @@ def warn_condition_drift(args, output_dir: str):
     prev_records = []
     for d in search_dirs:
         for name in sorted(os.listdir(d)):
-            if name.startswith("hil_conditions_") and name.endswith(".json"):
+            if name.startswith("conditions_") and name.endswith(".json"):
                 try:
                     with open(os.path.join(d, name), encoding="utf-8") as fh:
                         c = json.load(fh)
@@ -835,15 +835,15 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
     """
     Writes all HIL benchmark artifacts tagged with model_tag so consecutive
     runs across different architectures never overwrite each other:
-      - hil_latencies_<tag>.csv
-      - hil_conditions_<tag>.json
-      - HIL_Confusion_Matrix_<tag>.png
+      - latency_metrics_<tag>.csv
+      - conditions_<tag>.json
+      - confusion_matrix_<tag>.png
       - metrics_<tag>.json (unified MIL/SIL/PIL/HIL schema)
     """
     os.makedirs(output_dir, exist_ok=True)
 
     # --- Per-inference sensor->prediction latency CSV ---
-    csv_path = os.path.join(output_dir, f"hil_latencies_{model_tag}.csv")
+    csv_path = os.path.join(output_dir, f"latency_metrics_{model_tag}.csv")
     fieldnames = (['idx', 'utc_iso', 'image', 'true_label', 'true_class',
                    'pred_label', 'pred_class', 'sil_label', 'sil_class',
                    'mil_label', 'mil_class', 'frame_file']
@@ -855,7 +855,7 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
     print(f"[OK]   Per-phase latencies saved to: {csv_path}")
 
     # --- Physical rig conditions (environmental protocol) ---
-    cond_path = os.path.join(output_dir, f"hil_conditions_{model_tag}.json")
+    cond_path = os.path.join(output_dir, f"conditions_{model_tag}.json")
     with open(cond_path, 'w', encoding='utf-8') as f:
         # Output schema documented in docs/results_schema.md - update it if you add, rename or remove keys.
         json.dump(conditions, f, indent=2, ensure_ascii=False)
@@ -904,7 +904,7 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag):
         plt.ylabel('True Label (stimulus shown)')
         plt.xlabel('Predicted Label (HM01B0 -> Portenta H7)')
         plt.tight_layout()
-        cm_path = os.path.join(output_dir, f"HIL_Confusion_Matrix_{model_tag}.png")
+        cm_path = os.path.join(output_dir, f"confusion_matrix_{model_tag}.png")
         plt.savefig(cm_path)
         plt.close()
         print(f"[OK]   HIL confusion matrix saved to: {cm_path}")

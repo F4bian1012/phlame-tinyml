@@ -292,7 +292,7 @@ def send_folder(port: str, baud: int, folder: str,
     The Arduino returns the predicted class index along with on-device telemetry
     lines (TEMP_C, CYC_*, US_*). On completion, a prediction summary is printed
     and artifacts are saved under results/pil/ (latency_metrics_*.csv,
-    predictions_*.csv, Matriz_*.png, and metrics_*.json).
+    predictions_*.csv, confusion_matrix_*.png, and metrics_*.json).
 
     Parameters
     ----------
@@ -553,7 +553,7 @@ def send_folder(port: str, baud: int, folder: str,
             # overwrite each other's matrix.
             output_dir = os.path.join("results", "pil")
             os.makedirs(output_dir, exist_ok=True)
-            cm_plot_name = f"Matriz_{model_tag}.png"
+            cm_plot_name = f"confusion_matrix_{model_tag}.png"
             cm_plot_path = os.path.join(output_dir, cm_plot_name)
             plt.savefig(cm_plot_path)
             print(f"Confusion matrix plot saved to: {cm_plot_path}")

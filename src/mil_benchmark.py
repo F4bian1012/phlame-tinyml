@@ -112,7 +112,7 @@ def main():
     stem = os.path.splitext(os.path.basename(args.model_path))[0]
     artifacts.refuse_to_overwrite(
         [os.path.join(args.output_dir, name) for name in
-         (f"Matriz_{stem}.png", f"predictions_{stem}.csv", f"metrics_{stem}.json")],
+         (f"confusion_matrix_{stem}.png", f"predictions_{stem}.csv", f"metrics_{stem}.json")],
         args.overwrite,
         hint="write somewhere else with --output_dir, or train with --tag NAME")
 
@@ -217,7 +217,7 @@ def main():
 
     model_basename = os.path.basename(args.model_path)
     model_name_without_ext = os.path.splitext(model_basename)[0]
-    cm_plot_name = f"Matriz_{model_name_without_ext}.png"
+    cm_plot_name = f"confusion_matrix_{model_name_without_ext}.png"
     cm_plot_path = os.path.join(out_dir, cm_plot_name)
 
     plt.savefig(cm_plot_path)
@@ -249,7 +249,7 @@ def main():
     # Besides the PNG, a JSON with the same figures is saved. The image is for
     # looking at, but not for comparing levels of the ladder or for another
     # script to read the numbers; the JSON is. Same naming criterion as
-    # Matriz_*.png: derived from the model, so that two runs do not overwrite
+    # confusion_matrix_*.png: derived from the model, so that two runs do not overwrite
     # each other.
     metrics_path = os.path.join(out_dir, f"metrics_{model_name_without_ext}.json")
 

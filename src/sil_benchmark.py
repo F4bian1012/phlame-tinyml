@@ -139,7 +139,7 @@ def main():
     stem = os.path.splitext(os.path.basename(args.model_path))[0]
     artifacts.refuse_to_overwrite(
         [os.path.join(args.output_dir, name) for name in
-         (f"Matriz_{stem}.png", f"predictions_{stem}.csv", f"metrics_{stem}.json")],
+         (f"confusion_matrix_{stem}.png", f"predictions_{stem}.csv", f"metrics_{stem}.json")],
         args.overwrite,
         hint="write somewhere else with --output_dir, or train with --tag NAME")
 
@@ -298,7 +298,7 @@ def main():
 
     model_basename = os.path.basename(args.model_path)
     model_name_without_ext = os.path.splitext(model_basename)[0]
-    cm_plot_name = f"Matriz_{model_name_without_ext}.png"
+    cm_plot_name = f"confusion_matrix_{model_name_without_ext}.png"
     cm_plot_path = os.path.join(out_dir, cm_plot_name)
 
     plt.savefig(cm_plot_path)
@@ -329,7 +329,7 @@ def main():
 
     # Alongside the PNG, a JSON with the exact same figures is written. The PNG
     # is for visual inspection, whereas the JSON enables automated comparisons
-    # across ladder levels. Same model-derived naming convention as Matriz_*.png.
+    # across ladder levels. Same model-derived naming convention as confusion_matrix_*.png.
     metrics_path = os.path.join(out_dir, f"metrics_{model_name_without_ext}.json")
 
     # The checksum binds these metrics to the exact model artifact that produced

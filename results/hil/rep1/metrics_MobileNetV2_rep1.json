@@ -209,8 +209,8 @@
     "n_con_mil": 0
   },
   "artefactos": {
-    "matriz_png": "results/hil/rep1/HIL_Confusion_Matrix_MobileNetV2_rep1.png",
-    "latencias_csv": "results/hil/rep1/hil_latencies_MobileNetV2_rep1.csv",
-    "condiciones_json": "results/hil/rep1/hil_conditions_MobileNetV2_rep1.json"
+    "matriz_png": "results/hil/rep1/confusion_matrix_MobileNetV2_rep1.png",
+    "latencias_csv": "results/hil/rep1/latency_metrics_MobileNetV2_rep1.csv",
+    "condiciones_json": "results/hil/rep1/conditions_MobileNetV2_rep1.json"
   }
 }

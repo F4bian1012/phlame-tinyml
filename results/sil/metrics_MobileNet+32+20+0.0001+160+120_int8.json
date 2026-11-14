@@ -72,7 +72,7 @@
     "orden": "filas = etiqueta real, columnas = etiqueta predicha"
   },
   "artefactos": {
-    "matriz_png": "results\\sil\\Matriz_MobileNet+32+20+0.0001+160+120_int8.png",
+    "matriz_png": "results\\sil\\confusion_matrix_MobileNet+32+20+0.0001+160+120_int8.png",
     "predicciones_csv": "results\\sil\\predictions_MobileNet+32+20+0.0001+160+120_int8.csv"
   }
 }

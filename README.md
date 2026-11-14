@@ -371,7 +371,7 @@ Every level writes a confusion-matrix PNG for visual inspection and standardized
 | MIL | `results/mil/metrics_{model}.json` | `predictions_{model}.csv` | — |
 | SIL | `results/sil/metrics_{model}_int8.json` | `predictions_{model}_int8.csv` | — |
 | PIL | `results/pil/metrics_{model}_int8.json` | `predictions_{model}_int8.csv` | `latency_metrics_{model}_int8.csv` |
-| HIL | `results/hil/metrics_{model}_int8.json` | `hil_latencies_{model}_int8.csv` | same file |
+| HIL | `results/hil/metrics_{model}_int8.json` | `latency_metrics_{model}_int8.csv` | same file |
 
 - **Same `sha256` across SIL, PIL and HIL:** Verifies that the same `.tflite` file was evaluated on the host. MIL records the hash of the `.keras` file, so it never matches the other levels. Only HIL also verifies the model flashed on the board (FNV-1a fingerprint); PIL does not, so a stale `model.h` is detected only indirectly (per-architecture cycle signature, Table 7 attribution check).
 - **`f1_weighted` vs `f1_macro`:** On balanced splits both values coincide; any divergence indicates that minority-class degradation is being obscured by majority-class accuracy.
@@ -396,7 +396,7 @@ Every level writes a confusion-matrix PNG for visual inspection and standardized
 | `validacion_cruzada` | HIL only: paired PC MIL/SIL evaluation on the captured frames. |
 | `artefactos` | Relative paths to the companion output files. |
 
-The `hil_conditions_*.json` schema and all nested keys are documented in [`docs/results_schema.md`](docs/results_schema.md). Check that document against every published JSON with:
+The `conditions_*.json` schema and all nested keys are documented in [`docs/results_schema.md`](docs/results_schema.md). Check that document against every published JSON with:
 
 ```bash
 python -m unittest discover -s tests -v
@@ -494,7 +494,7 @@ Memory configuration, upload troubleshooting, the serial protocol and porting to
 | Document | Content |
 |---|---|
 | [`docs/scripts.md`](docs/scripts.md) | Detailed description, output artifacts and usage notes of every script |
-| [`docs/results_schema.md`](docs/results_schema.md) | Every key of the `metrics_*.json` and `hil_conditions_*.json` files |
+| [`docs/results_schema.md`](docs/results_schema.md) | Every key of the `metrics_*.json` and `conditions_*.json` files |
 | [`docs/hardware.md`](docs/hardware.md) | Memory configuration, upload troubleshooting, serial protocol and porting |
 
 ### Scripts

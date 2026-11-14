@@ -6,7 +6,7 @@ Single source of truth for the machine-readable result files in `results/`. Run
 
 **Table convention.** In every table of this document, the first column holds the full path of exactly
 one key between backticks, with dots for nesting. The `metrics_*.json` sections give paths from the root
-of the metrics JSON; the `hil_conditions_*.json` section gives paths from the root of the conditions JSON.
+of the metrics JSON; the `conditions_*.json` section gives paths from the root of the conditions JSON.
 
 Dynamic keys use placeholders:
 
@@ -150,14 +150,14 @@ Values of `<FIELD>` (`CYC_*` in core cycles, `US_*` in microseconds):
 ### 9. Output Artifacts (`artefactos`)
 | Key | Level | Type | Description |
 |---|---|---|---|
-| `artefactos.matriz_png` | All | `string` | Relative path to the generated confusion matrix heatmap image (`Matriz_*.png` or `HIL_Confusion_Matrix_*.png`). |
+| `artefactos.matriz_png` | All | `string` | Relative path to the generated confusion matrix heatmap image (`confusion_matrix_*.png` or `confusion_matrix_*.png`). |
 | `artefactos.predicciones_csv` | MIL, SIL, PIL | `string` | Relative path to the per-image classification table (`predictions_*.csv`). |
-| `artefactos.latencias_csv` | PIL, HIL | `string` | Relative path to the per-stimulus telemetry and timing record (`latency_metrics_*.csv` or `hil_latencies_*.csv`). |
-| `artefactos.condiciones_json` | HIL | `string` | Relative path to the companion test rig environment record (`hil_conditions_*.json`). |
+| `artefactos.latencias_csv` | PIL, HIL | `string` | Relative path to the per-stimulus telemetry and timing record (`latency_metrics_*.csv` or `latency_metrics_*.csv`). |
+| `artefactos.condiciones_json` | HIL | `string` | Relative path to the companion test rig environment record (`conditions_*.json`). |
 
-## Physical Rig Telemetry Schema (`hil_conditions_*.json`)
+## Physical Rig Telemetry Schema (`conditions_*.json`)
 
-Alongside `metrics_*.json`, the HIL benchmark generates a standalone `hil_conditions_{model}_int8.json` file logging environmental variables and hardware-in-the-loop integrity:
+Alongside `metrics_*.json`, the HIL benchmark generates a standalone `conditions_{model}_int8.json` file logging environmental variables and hardware-in-the-loop integrity:
 
 | Key | Type | Description |
 |---|---|---|

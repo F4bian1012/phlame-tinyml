@@ -71,7 +71,7 @@
     "orden": "filas = etiqueta real, columnas = etiqueta predicha"
   },
   "artefactos": {
-    "matriz_png": "results\\mil\\Matriz_MobileNet+32+20+0.0001+160+120.png",
+    "matriz_png": "results\\mil\\confusion_matrix_MobileNet+32+20+0.0001+160+120.png",
     "predicciones_csv": "results\\mil\\predictions_MobileNet+32+20+0.0001+160+120.csv"
   }
 }
