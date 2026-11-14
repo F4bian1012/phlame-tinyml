@@ -1,6 +1,6 @@
 {
-  "generated_utc": "2026-11-14T17:52:43+00:00",
-  "git_commit": "bb37690a40a37f415540b13d3059bd66afa9e7b7",
+  "generated_utc": "2026-11-14T18:31:20+00:00",
+  "git_commit": "f2147a67751d9bc24eceb92d1339a09cdd42cbd7",
   "parameters": {
     "bootstrap": 10000,
     "seed": 20261016,
@@ -129,7 +129,7 @@
     "platform": "Windows-11-10.0.26300-SP0"
   },
   "inputs_sha256": {
-    "data/splits/test_manifest.csv": "f961aa2ab5e53be432bd78060d25ca7c52053bb70b58af39a811ef78d0b85a7a",
+    "data/splits_plates/test_manifest.csv": "b677ae1545581b0611d1d4f94968e9a2abc0a576f1b662dd02060f2d3ee429ad",
     "results/hil/hil_conditions_MobileNet+32+20+0.0001+160+120_int8.json": "676b3461f441145efe429d331329ba4f4e763be4faf925028a7e5035b2ee599e",
     "results/hil/hil_conditions_MobileNetV2+32+20+0.0001+160+120_int8.json": "a187a1a55a96b2cafe8d8daf6b026e4bff996184a8ce6e7a17b85f5bc56ddf11",
     "results/hil/hil_conditions_MobileNetV3Small+32+20+0.0001+160+120_int8.json": "2ae62c759411b2dcc680270550267ee74702afb9e71b070f378826d4243b0d7c",
