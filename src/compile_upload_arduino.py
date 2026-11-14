@@ -24,20 +24,20 @@ FIRMWARE_DIRS = {
 # Repo root, resolved from this file so as not to depend on the cwd.
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-def ejecutar(comando):
+def run_command(command):
     """Runs a command in the terminal and returns success and its output."""
-    res = subprocess.run(comando, shell=True, capture_output=True, text=True,
+    res = subprocess.run(command, shell=True, capture_output=True, text=True,
                          encoding="utf-8", errors="replace")
     if res.returncode == 0:
         return True, res.stdout
     else:
-        print(f" Error while running:\n{comando}\nDetails:\n{res.stderr}")
+        print(f" Error while running:\n{command}\nDetails:\n{res.stderr}")
         return False, res.stderr
 
 def check_core_installed():
     """Checks whether the Portenta core is installed and, if not, installs it."""
     print("-> Checking installed cores...")
-    success, output = ejecutar("arduino-cli core list --format json")
+    success, output = run_command("arduino-cli core list --format json")
     if not success:
         print(" Could not check the list of cores. Is arduino-cli installed and on the PATH?")
         sys.exit(1)
@@ -54,7 +54,7 @@ def check_core_installed():
         sys.exit(1)
 
     print("-> Core not found. Installing arduino:mbed_portenta (this may take a few minutes)...")
-    success, _ = ejecutar("arduino-cli core install arduino:mbed_portenta")
+    success, _ = run_command("arduino-cli core install arduino:mbed_portenta")
     if not success:
         print(" Failed to install the core. Please install it manually.")
         sys.exit(1)
@@ -63,7 +63,7 @@ def check_core_installed():
 def find_portenta_port():
     """Looks for a connected Portenta board using arduino-cli and returns its COM port."""
     print("-> Looking for a connected Portenta board...")
-    success, output = ejecutar("arduino-cli board list --format json")
+    success, output = run_command("arduino-cli board list --format json")
     if not success:
         print(" Could not get the list of connected boards.")
         sys.exit(1)
@@ -89,15 +89,15 @@ def find_portenta_port():
     print(" No Portenta board was detected automatically on this computer.")
     return None
 
-def resolver_proyecto(parser, target, path_proyecto):
-    """An explicit --path_proyecto wins; otherwise --target resolves the framework sketch."""
-    if path_proyecto:
+def resolve_sketch(parser, target, sketch_path):
+    """An explicit --sketch_path wins; otherwise --target resolves the framework sketch."""
+    if sketch_path:
         if target:
-            print(" [WARN] --path_proyecto was given; --target is ignored.")
-        return os.path.abspath(path_proyecto)
+            print(" [WARN] --sketch_path was given; --target is ignored.")
+        return os.path.abspath(sketch_path)
 
     if not target:
-        parser.error("specify the firmware to upload with --target {pil,hil}, or a path with --path_proyecto.")
+        parser.error("specify the firmware to upload with --target {pil,hil}, or a path with --sketch_path.")
 
     return os.path.join(REPO_ROOT, FIRMWARE_DIRS[target])
 
@@ -107,37 +107,39 @@ def main():
                         choices=["pil", "hil"],
                         default=None,
                         help="Firmware to compile and upload: 'pil' (deployment/pil_firmware, image injected over serial) or 'hil' (deployment/hil_firmware, camera in the loop). The board runs one at a time, which is why there is no 'both' option.")
-    parser.add_argument("--path_proyecto",
+    parser.add_argument("--sketch_path",
                         default=None,
-                        help="Path to an arbitrary Arduino project, as an alternative to --target.")
+                        help="Path to an arbitrary Arduino sketch folder, as an alternative to --target.")
+    # Former name of --sketch_path: still accepted, not listed in --help.
+    parser.add_argument("--path_proyecto", dest="sketch_path", help=argparse.SUPPRESS)
 
     args = parser.parse_args()
-    path_proyecto = resolver_proyecto(parser, args.target, args.path_proyecto)
+    sketch_path = resolve_sketch(parser, args.target, args.sketch_path)
 
-    if not os.path.exists(path_proyecto):
-        print(f" The specified project path does not exist: {path_proyecto}")
+    if not os.path.exists(sketch_path):
+        print(f" The specified project path does not exist: {sketch_path}")
         sys.exit(1)
 
     check_core_installed()
 
-    puerto = find_portenta_port()
-    if not puerto:
+    port = find_portenta_port()
+    if not port:
         print("-> Please connect the board and try again.")
         sys.exit(1)
 
-    print(f"\n=== 1. Compiling project at: {path_proyecto} ===")
-    cmd_compile = f"arduino-cli compile --fqbn {FQBN_FULL} --warnings none \"{path_proyecto}\""
+    print(f"\n=== 1. Compiling project at: {sketch_path} ===")
+    cmd_compile = f"arduino-cli compile --fqbn {FQBN_FULL} --warnings none \"{sketch_path}\""
     print(f"> {cmd_compile}")
-    success, _ = ejecutar(cmd_compile)
+    success, _ = run_command(cmd_compile)
     if not success:
         sys.exit(1)
     print(" Compilation successful.")
 
     print("\n=== 2. Uploading to the board ===")
     print("NOTE: Make sure the board is in Bootloader mode (blinking green) if you have upload problems.")
-    cmd_upload = f"arduino-cli upload -p {puerto} --fqbn {FQBN_FULL} \"{path_proyecto}\""
+    cmd_upload = f"arduino-cli upload -p {port} --fqbn {FQBN_FULL} \"{sketch_path}\""
     print(f"> {cmd_upload}")
-    success, _ = ejecutar(cmd_upload)
+    success, _ = run_command(cmd_upload)
     if not success:
         sys.exit(1)
     print("[OK] Project uploaded successfully.")

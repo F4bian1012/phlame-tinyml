@@ -67,9 +67,9 @@ PROCESSED_BASE_DIR = "data/processed"
 # Accepted extensions, compared in lowercase (including .JPG, .Png, etc.)
 EXTENSIONS = ('.jpg', '.jpeg', '.png', '.bmp')
 REPORT_NAME = "reshape_report.json"
-# Key recorded in reshape_report.json for loose files in the root folder
-# (mapped to English in the console table printed by imprimir_reparto)
-SIN_CLASE = "(raiz, sin clase)"
+# Key recorded in reshape_report.json, and shown in the console table, for
+# loose files in the root folder
+NO_CLASS = "(root, no class)"
 
 
 def collect_by_class(input_dir):
@@ -79,81 +79,80 @@ def collect_by_class(input_dir):
     the root directory (without a class subfolder) are grouped under None and
     are never discarded: they do not belong to any balanceable class.
     """
-    por_clase = {}
+    by_class = {}
     for root, _, names in os.walk(input_dir):
         for name in names:
             if os.path.splitext(name)[1].lower() not in EXTENSIONS:
                 continue
-            ruta = os.path.join(root, name)
-            rel = os.path.relpath(ruta, input_dir)
-            partes = rel.replace(os.sep, '/').split('/')
-            clase = partes[0] if len(partes) > 1 else None
-            por_clase.setdefault(clase, []).append(ruta)
+            path = os.path.join(root, name)
+            rel = os.path.relpath(path, input_dir)
+            parts = rel.replace(os.sep, '/').split('/')
+            cls = parts[0] if len(parts) > 1 else None
+            by_class.setdefault(cls, []).append(path)
 
     # Sort BEFORE any sampling: the traversal order of os.walk depends on the
     # filesystem, and without sorting, the seed would not be reproducible across
     # machines. Same precaution as in split_dataset.py.
-    for clase in por_clase:
-        por_clase[clase].sort()
-    return por_clase
+    for cls in by_class:
+        by_class[cls].sort()
+    return by_class
 
 
-def select_files(por_clase, balance, max_per_class, seed):
+def select_files(by_class, balance, max_per_class, seed):
     """Applies class balancing. Returns (selected_files, per_class_detail, target)."""
-    clases = sorted([c for c in por_clase if c is not None])
-    sin_clase = por_clase.get(None, [])
+    classes = sorted([c for c in by_class if c is not None])
+    no_class = by_class.get(None, [])
 
-    objetivo = None
-    if balance == 'undersample' and clases:
-        objetivo = min(len(por_clase[c]) for c in clases)
+    target = None
+    if balance == 'undersample' and classes:
+        target = min(len(by_class[c]) for c in classes)
     if max_per_class is not None:
-        objetivo = max_per_class if objetivo is None else min(objetivo, max_per_class)
+        target = max_per_class if target is None else min(target, max_per_class)
 
     rng = random.Random(seed)
-    seleccion = []
-    detalle = {}
+    selected = []
+    detail = {}
 
     # Fixed class order so that RNG consumption is deterministic.
-    for clase in clases:
-        disponibles = por_clase[clase]
-        if objetivo is None or len(disponibles) <= objetivo:
-            elegidas = list(disponibles)
+    for cls in classes:
+        available = by_class[cls]
+        if target is None or len(available) <= target:
+            chosen = list(available)
         else:
             # Sort at the end only to keep the write traversal order stable;
             # the subset choice was already determined by the seed.
-            elegidas = sorted(rng.sample(disponibles, objetivo))
-        detalle[clase] = {
-            "disponibles": len(disponibles),
-            "seleccionadas": len(elegidas),
-            "descartadas": len(disponibles) - len(elegidas),
+            chosen = sorted(rng.sample(available, target))
+        detail[cls] = {
+            "available": len(available),
+            "selected": len(chosen),
+            "discarded": len(available) - len(chosen),
         }
-        seleccion.extend(elegidas)
+        selected.extend(chosen)
 
-    if sin_clase:
-        seleccion.extend(sin_clase)
-        detalle[SIN_CLASE] = {
-            "disponibles": len(sin_clase),
-            "seleccionadas": len(sin_clase),
-            "descartadas": 0,
+    if no_class:
+        selected.extend(no_class)
+        detail[NO_CLASS] = {
+            "available": len(no_class),
+            "selected": len(no_class),
+            "discarded": 0,
         }
 
-    return seleccion, detalle, objetivo
+    return selected, detail, target
 
 
-def imprimir_reparto(detalle, total_encontradas, total_seleccionadas):
+def print_breakdown(detail, total_found, total_selected):
     print()
     print("  %-24s %11s %14s %12s"
           % ("Class", "available", "selected", "discarded"))
     print("  " + "-" * 64)
-    for clase in sorted(detalle):
-        d = detalle[clase]
-        display_name = "(root, unclassified)" if clase == SIN_CLASE else clase
+    for cls in sorted(detail):
+        d = detail[cls]
         print("  %-24s %11d %14d %12d"
-              % (display_name, d["disponibles"], d["seleccionadas"], d["descartadas"]))
+              % (cls, d["available"], d["selected"], d["discarded"]))
     print("  " + "-" * 64)
     print("  %-24s %11d %14d %12d"
-          % ("TOTAL", total_encontradas, total_seleccionadas,
-             total_encontradas - total_seleccionadas))
+          % ("TOTAL", total_found, total_selected,
+             total_found - total_selected))
     print()
 
 
@@ -162,25 +161,25 @@ def reshape_images(width, height, input_dir, balance, max_per_class, seed, dry_r
         output_dir = os.path.join(PROCESSED_BASE_DIR, "%dx%d" % (width, height))
 
     print("Searching for images recursively in %s..." % input_dir)
-    por_clase = collect_by_class(input_dir)
-    total_encontradas = sum(len(v) for v in por_clase.values())
+    by_class = collect_by_class(input_dir)
+    total_found = sum(len(v) for v in by_class.values())
 
-    if not total_encontradas:
+    if not total_found:
         print("No images found in %s or its subdirectories" % input_dir)
         return 1
 
-    seleccion, detalle, objetivo = select_files(
-        por_clase, balance, max_per_class, seed)
+    selected, detail, target = select_files(
+        by_class, balance, max_per_class, seed)
 
-    print("Found %d images." % total_encontradas)
-    imprimir_reparto(detalle, total_encontradas, len(seleccion))
+    print("Found %d images." % total_found)
+    print_breakdown(detail, total_found, len(selected))
 
     # Warn when the dataset is imbalanced and balancing was not requested:
     # without this warning, class imbalance propagates silently to final metrics.
-    conteos = [d["seleccionadas"] for c, d in detalle.items() if c != SIN_CLASE]
-    if balance == 'none' and len(conteos) > 1 and min(conteos) != max(conteos):
+    counts = [d["selected"] for c, d in detail.items() if c != NO_CLASS]
+    if balance == 'none' and len(counts) > 1 and min(counts) != max(counts):
         print("WARNING: the dataset is imbalanced (%d vs %d) and --balance is 'none',"
-              % (max(conteos), min(conteos)))
+              % (max(counts), min(counts)))
         print("         so class imbalance is preserved as is. split_dataset.py performs a")
         print("         STRATIFIED split: it preserves that ratio in train/val/test")
         print("         rather than correcting it. To balance:  --balance undersample")
@@ -191,56 +190,56 @@ def reshape_images(width, height, input_dir, balance, max_per_class, seed, dry_r
         return 0
 
     os.makedirs(output_dir, exist_ok=True)
-    print("Resizing %d images to %dx%d..." % (len(seleccion), width, height))
+    print("Resizing %d images to %dx%d..." % (len(selected), width, height))
 
     processed_count = 0
-    fallidas = 0
+    failed = 0
 
-    for file_path in seleccion:
+    for file_path in selected:
         try:
             img = cv2.imread(file_path)
             if img is None:
                 print("Failed to load: %s" % file_path)
-                fallidas += 1
+                failed += 1
                 continue
 
             resized = cv2.resize(img, (width, height))
 
             rel_path = os.path.relpath(file_path, input_dir)
             output_path = os.path.join(output_dir, rel_path)
-            destino = os.path.dirname(output_path)
-            if destino:
-                os.makedirs(destino, exist_ok=True)
+            dest_dir = os.path.dirname(output_path)
+            if dest_dir:
+                os.makedirs(dest_dir, exist_ok=True)
 
             cv2.imwrite(output_path, resized)
             processed_count += 1
 
         except Exception as e:
             print("Error processing %s: %s" % (file_path, e))
-            fallidas += 1
+            failed += 1
 
-    reporte = {
-        "generado_utc": datetime.now(timezone.utc).isoformat(),
+    report = {
+        "generated_utc": datetime.now(timezone.utc).isoformat(),
         "input_dir": input_dir,
         "output_dir": output_dir,
         "target_size": {"width": width, "height": height},
         "balance": {
-            "modo": balance,
+            "mode": balance,
             "max_per_class": max_per_class,
-            "objetivo_por_clase": objetivo,
+            "target_per_class": target,
             "seed": seed,
         },
-        "clases": detalle,
-        "totales": {
-            "encontradas": total_encontradas,
-            "seleccionadas": len(seleccion),
-            "escritas": processed_count,
-            "fallidas": fallidas,
+        "classes": detail,
+        "totals": {
+            "found": total_found,
+            "selected": len(selected),
+            "written": processed_count,
+            "failed": failed,
         },
     }
-    ruta_reporte = os.path.join(output_dir, REPORT_NAME)
-    with open(ruta_reporte, "w", encoding="utf-8") as fh:
-        json.dump(reporte, fh, indent=2, ensure_ascii=False)
+    report_path = os.path.join(output_dir, REPORT_NAME)
+    with open(report_path, "w", encoding="utf-8") as fh:
+        json.dump(report, fh, indent=2, ensure_ascii=False)
 
     print()
     print("========================================")
@@ -248,10 +247,10 @@ def reshape_images(width, height, input_dir, balance, max_per_class, seed, dry_r
     print("Target Size: %dx%d" % (width, height))
     print("Output Folder: %s" % output_dir)
     print("Balance: %s (seed %d)" % (balance, seed))
-    print("Processed: %d/%d" % (processed_count, len(seleccion)))
-    if fallidas:
-        print("Failed: %d" % fallidas)
-    print("Report: %s" % ruta_reporte)
+    print("Processed: %d/%d" % (processed_count, len(selected)))
+    if failed:
+        print("Failed: %d" % failed)
+    print("Report: %s" % report_path)
     print("========================================")
     return 0
 
