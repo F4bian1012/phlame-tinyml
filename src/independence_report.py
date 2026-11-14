@@ -223,7 +223,8 @@ def main(argv=None):
             rng = np.random.default_rng([args.seed, content])
             figures = compare(y_true, y_pred, keep, args.bootstrap, rng)
             rows.append({"level": level, "model": model, "cleaning": cleaning,
-                         **{key: (round(v, 4) if isinstance(v, float) else v) for key, v in figures.items()}})
+                         # + 0.0 turns the -0.0 left by rounding a tiny negative number into 0.0
+                         **{key: (round(v, 4) + 0.0 if isinstance(v, float) else v) for key, v in figures.items()}})
     if not rows:
         print("ERROR: no result file under %s has all its images in the test split of %s."
               % (args.results_dir, args.splits_dir))

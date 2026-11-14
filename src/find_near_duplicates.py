@@ -49,14 +49,16 @@ then make any two photos look alike.
 
 Outputs (in --output_dir, default: the splits folder)
 -----------------------------------------------------
-    near_duplicates.csv              one row per test image: closest train/val
-                                     image, both scores, verdict
+    near_duplicates.csv              one row per test image: the train/val image
+                                     with the strongest evidence, both scores
+                                     and the verdict (ncc is empty for an image
+                                     verified by features only)
     near_duplicates_within_test.csv  the same against the other test images
     near_duplicates_summary.json     counts, calibration, thresholds, versions
 The three files hold file names and numbers only, and the same input gives the
-same bytes. --review_sheet PATH also writes a picture of the pairs closest to
-the thresholds; it shows the images unmasked, so it is never written unless
-asked for, and it must not be published when the dataset is private.
+same bytes. --review_sheet PATH also writes a picture of the pairs with the
+strongest evidence; it shows the images unmasked, so it is never written
+unless asked for, and it must not be published when the dataset is private.
 
 The thresholds are heuristics calibrated on the dataset, not a proof: the
 verdicts say where to look. What the method cannot detect is listed in
