@@ -18,6 +18,17 @@ Official VWW labeling rule (arXiv:1906.05721)
                    --include_small_person_as_negative to include them as
                    'non_person' following strict VWW conventions).
 
+Whole split with the original rule (--full_split)
+-------------------------------------------------
+The rule above is cleaner than the one the Visual Wake Words dataset was built
+with. --full_split applies the original one (the script of the TensorFlow
+models repository): an image is 'person' when one of its 'person' annotations,
+crowd annotations included, has an annotation area ABOVE 0.5% of the image
+area, and 'non_person' otherwise. Every image of the split gets a label and
+all of them are downloaded, with the class proportions COCO has: 118,287
+images for train2017 and 5,000 for val2017, the amounts the literature trains
+and evaluates on.
+
 Download efficiency
 -------------------
 Instead of downloading ~20 GB of train2017.zip or the full 241 MB of
@@ -197,6 +208,29 @@ def classify_vww_images(coco_doc: dict, min_area_fraction: float, include_small_
     return positives, negatives, ambiguous
 
 
+def classify_vww_original(coco_doc: dict, min_area_fraction: float):
+    """Labels every image of the split with the rule of the original Visual
+    Wake Words script (tensorflow/models, research/slim/datasets,
+    download_and_convert_visualwakewords_lib.py): 'person' when a 'person'
+    annotation has annotation['area'] / image area > min_area_fraction. Crowd
+    annotations are not treated apart and no image is left out."""
+    images = {}
+    for img in coco_doc["images"]:
+        w, h = int(img.get("width", 0)), int(img.get("height", 0))
+        images[int(img["id"])] = {"id": int(img["id"]), "file_name": img["file_name"],
+                                  "area": float(w * h), "person": False}
+    for ann in coco_doc["annotations"]:
+        if int(ann.get("category_id", -1)) != PERSON_CATEGORY_ID:
+            continue
+        info = images.get(int(ann["image_id"]))
+        if info is None or info["area"] <= 0:
+            continue
+        if float(ann.get("area", 0.0)) / info["area"] > min_area_fraction:
+            info["person"] = True
+    ordered = [images[k] for k in sorted(images)]
+    return [x for x in ordered if x["person"]], [x for x in ordered if not x["person"]]
+
+
 def _download_one(task):
     url, dst_path, timeout = task
     if os.path.isfile(dst_path) and os.path.getsize(dst_path) > 0:
@@ -260,6 +294,14 @@ def main():
         help="Include non-crowd images with persons below --min_area_fraction (default 0.5%%) inside non_person (excluded by default for label cleanliness)",
     )
     parser.add_argument(
+        "--full_split",
+        dest="full_split",
+        action="store_true",
+        help="Download every image of the split, labelled with the rule of the original Visual Wake Words script "
+             "(person annotation area above --min_area_fraction, crowd included; no image left out). No sampling "
+             "and no class balancing: --per_class, --seed and --include_small_person_as_negative do not apply",
+    )
+    parser.add_argument(
         "--seed",
         type=int,
         default=42,
@@ -284,40 +326,52 @@ def main():
     target_member = f"annotations/instances_{args.coco_split}.json"
 
     coco_doc = fetch_coco_instances_json(cache_json, target_member)
-    positives, negatives, ambiguous = classify_vww_images(
-        coco_doc, args.min_area_fraction, args.include_small_as_neg
-    )
 
     print()
     print("============================================================")
     print(f"Visual Wake Words Summary on COCO {args.coco_split}")
     print("============================================================")
-    neg_desc = (f"0 or < {args.min_area_fraction*100:.2f}% area"
-                if args.include_small_as_neg else "0 persons")
-    amb_desc = ("crowd person"
-                if args.include_small_as_neg
-                else f"< {args.min_area_fraction*100:.2f}% or crowd")
-    print(f"  person (>= {args.min_area_fraction*100:.2f}% area) : {len(positives):5d} available")
-    print(f"  non_person ({neg_desc}) : {len(negatives):5d} available")
-    print(f"  ambiguous ({amb_desc}) : {len(ambiguous):5d} excluded")
-    print("------------------------------------------------------------")
-
-    max_possible = min(len(positives), len(negatives))
-    if args.per_class > max_possible:
-        print(
-            f"[WARN] Requested --per_class {args.per_class}, but in {args.coco_split} "
-            f"the maximum balanced count is {max_possible}. Adjusting to {max_possible} "
-            f"(use --coco_split train2017 if you need more)."
-        )
-        target = max_possible
+    if args.full_split:
+        positives, negatives = classify_vww_original(coco_doc, args.min_area_fraction)
+        ambiguous = []
+        target = None
+        sel_pos = sorted(positives, key=lambda x: x["file_name"])
+        sel_neg = sorted(negatives, key=lambda x: x["file_name"])
+        print(f"  person (annotation area > {args.min_area_fraction*100:.2f}%, crowd included) : {len(positives):6d}")
+        print(f"  non_person (every other image)                      : {len(negatives):6d}")
+        print("------------------------------------------------------------")
+        print(f"  Whole split, original VWW rule: {len(sel_pos)} person + {len(sel_neg)} non_person "
+              f"= {len(sel_pos) + len(sel_neg)} total")
     else:
-        target = args.per_class
+        positives, negatives, ambiguous = classify_vww_images(
+            coco_doc, args.min_area_fraction, args.include_small_as_neg
+        )
+        neg_desc = (f"0 or < {args.min_area_fraction*100:.2f}% area"
+                    if args.include_small_as_neg else "0 persons")
+        amb_desc = ("crowd person"
+                    if args.include_small_as_neg
+                    else f"< {args.min_area_fraction*100:.2f}% or crowd")
+        print(f"  person (>= {args.min_area_fraction*100:.2f}% area) : {len(positives):5d} available")
+        print(f"  non_person ({neg_desc}) : {len(negatives):5d} available")
+        print(f"  ambiguous ({amb_desc}) : {len(ambiguous):5d} excluded")
+        print("------------------------------------------------------------")
 
-    rng = random.Random(args.seed)
-    sel_pos = sorted(rng.sample(positives, target), key=lambda x: x["file_name"])
-    sel_neg = sorted(rng.sample(negatives, target), key=lambda x: x["file_name"])
+        max_possible = min(len(positives), len(negatives))
+        if args.per_class > max_possible:
+            print(
+                f"[WARN] Requested --per_class {args.per_class}, but in {args.coco_split} "
+                f"the maximum balanced count is {max_possible}. Adjusting to {max_possible} "
+                f"(use --coco_split train2017 if you need more)."
+            )
+            target = max_possible
+        else:
+            target = args.per_class
 
-    print(f"  Selected per class (seed={args.seed}): {target} person + {target} non_person = {2 * target} total")
+        rng = random.Random(args.seed)
+        sel_pos = sorted(rng.sample(positives, target), key=lambda x: x["file_name"])
+        sel_neg = sorted(rng.sample(negatives, target), key=lambda x: x["file_name"])
+
+        print(f"  Selected per class (seed={args.seed}): {target} person + {target} non_person = {2 * target} total")
     print("============================================================")
 
     if args.dry_run:
@@ -351,7 +405,7 @@ def main():
             counts[status] += 1
             if err:
                 failures.append((dst_path, err))
-            if idx % 100 == 0 or idx == len(tasks):
+            if idx % (100 if len(tasks) <= 5000 else 2000) == 0 or idx == len(tasks):
                 elapsed = time.time() - t0
                 print(
                     f"  [{idx:4d}/{len(tasks):4d}] new={counts['downloaded']} "
@@ -384,6 +438,14 @@ def main():
         },
         "download_summary": counts,
     }
+    if args.full_split:
+        # Only in this mode, so that the report of a sampled subset keeps its keys.
+        report["full_split"] = True
+        report["label_rule"] = ("original Visual Wake Words script: person when a person annotation, crowd "
+                                "included, has annotation area / image area > min_area_fraction")
+        report["include_small_person_as_negative"] = True
+        report["seed"] = None
+        report["selected"] = {"person": len(sel_pos), "non_person": len(sel_neg)}
     report_path = os.path.join(args.output_dir, "vww_subset_report.json")
     # A complete re-run of the same selection keeps the existing report and its
     # timestamp: the one in data/raw_vww is versioned, and rebuilding the subset
@@ -410,8 +472,8 @@ def main():
         return 1
 
     print(f"\n[OK] VWW subset ready in: {args.output_dir}")
-    print(f"     - {person_dir} ({target} images)")
-    print(f"     - {non_person_dir} ({target} images)")
+    print(f"     - {person_dir} ({len(sel_pos)} images)")
+    print(f"     - {non_person_dir} ({len(sel_neg)} images)")
     print(f"     - Report: {report_path} (selection sha256: {manifest_hash[:12]})")
     return 0
 
