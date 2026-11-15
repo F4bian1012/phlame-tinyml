@@ -1,0 +1,88 @@
+# Runs the test suite on Linux and Windows, and checks that the tables in
+# results/tables/ are what src/build_ladder_tables.py builds from the result
+# files in the repository. No board, no dataset and no trained model are needed.
+#
+# Two kinds of installation:
+#
+#   light  Everything in requirements.txt except TensorFlow and TensorBoard.
+#          Only tests/test_sil_kernels.py needs TensorFlow, and it is skipped
+#          when TensorFlow is missing; the rest of the suite and the tables
+#          need numpy, scipy, Pillow, OpenCV, pyserial, scikit-learn, seaborn
+#          and matplotlib. These jobs are short and are the ones to look at
+#          first.
+#   full   requirements.txt exactly as the README installs it, TensorFlow
+#          included, with the Python version verified on each system. These
+#          jobs say whether the documented installation still works on a
+#          clean machine and they run the TensorFlow test as well. The file
+#          gives minimum versions, so a new release of a package can turn
+#          them red: that is the point of having them.
+#
+# The suite is run without any console-encoding setting, as a user who follows
+# the README runs it.
+
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: ${{ matrix.install }} install, ${{ matrix.os }}, Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-latest, python: "3.12", install: light}
+          - {os: ubuntu-latest, python: "3.13", install: light}
+          - {os: windows-latest, python: "3.13", install: light}
+          - {os: ubuntu-latest, python: "3.12", install: full}
+          - {os: windows-latest, python: "3.13", install: full}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install the library OpenCV loads on Linux
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgl1
+
+      - name: Install the Python packages
+        run: |
+          python -m pip install --upgrade pip
+          if [ "${{ matrix.install }}" = "light" ]; then
+            mkdir -p results/smoke_test/ci
+            grep -vE '^(tensorflow|tensorboard)([^a-z-]|$)' requirements.txt > results/smoke_test/ci/requirements-light.txt
+            python -m pip install -r results/smoke_test/ci/requirements-light.txt
+          else
+            python -m pip install -r requirements.txt
+          fi
+          python -m pip list
+
+      - name: Run the tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Rebuild the tables and compare them with results/tables
+        run: |
+          python src/build_ladder_tables.py --output_dir results/smoke_test/ci/tables
+          python tests/tables_check.py results/tables results/smoke_test/ci/tables
