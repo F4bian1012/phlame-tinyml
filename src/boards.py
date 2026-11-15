@@ -23,6 +23,9 @@ BOARDS = {
         "core": "arduino:mbed_portenta",
         "fqbn": "arduino:mbed_portenta:envie_m7:split=100_0",
         "port_match": "portenta",
+        # Where the default build keeps its tensor arena, as the PIL sketch
+        # announces it (ARENA_MEMORY:<where>).
+        "arena_memory": "SDRAM",
         "results_dir": "results",
     },
     "nicla": {
@@ -35,12 +38,20 @@ BOARDS = {
         # The board has no external SDRAM: the tensor arena is a static array
         # whose size is fixed when the sketch is compiled (see --arena_kb).
         "default_arena_kb": 368,
+        "arena_memory": "INTERNAL",
         "results_dir": os.path.join("results", "nicla"),
     },
 }
 DEFAULT_BOARD = "portenta"
 
 BOARD_PREFIX = "BOARD:"
+
+# The PIL sketch says where its tensor arena is in an identity line,
+# ARENA_MEMORY:<where>. The default build of a board announces the
+# "arena_memory" of its entry above; a board with SDRAM built with
+# compile_upload_arduino.py --arena_memory internal announces INTERNAL.
+ARENA_MEMORY_PREFIX = "ARENA_MEMORY:"
+ARENA_MEMORIES = ("SDRAM", "INTERNAL")
 
 # The firmware closes every inference with a banner and the benches read until
 # they see it. END_MARKERS is what the sketches print; LEGACY_END_MARKERS is
@@ -87,13 +98,14 @@ def identity(lines):
 
     Returns a dict with the board name (BOARD:), the input shape of the model
     (INPUT_SHAPE:<H>x<W>x<C>), the size and fingerprint of the model in flash
-    (MODEL_BYTES:, MODEL_FNV1A:) and the part of the tensor arena it uses
-    (ARENA_USED:). A field the firmware did not print, or printed in a form
-    that cannot be read, is None: builds earlier than November 2026 print only
-    some of them.
+    (MODEL_BYTES:, MODEL_FNV1A:), the part of the tensor arena it uses
+    (ARENA_USED:) and where that arena is (ARENA_MEMORY:SDRAM or INTERNAL, a
+    line only the PIL sketch prints). A field the firmware did not print, or
+    printed in a form that cannot be read, is None: builds earlier than
+    November 2026 print only some of them.
     """
     found = {"board": announced_board(lines), "input_shape": None, "model_bytes": None,
-             "model_fnv1a": None, "arena_used_bytes": None}
+             "model_fnv1a": None, "arena_used_bytes": None, "arena_memory": None}
     for line in lines:
         line = line.strip()
         if line.startswith("INPUT_SHAPE:"):
@@ -106,6 +118,8 @@ def identity(lines):
             found["model_fnv1a"] = line.split(":", 1)[1].strip().lower().replace("0x", "") or None
         elif line.startswith("ARENA_USED:"):
             found["arena_used_bytes"] = _integer(line.split(":", 1)[1])
+        elif line.startswith(ARENA_MEMORY_PREFIX):
+            found["arena_memory"] = line[len(ARENA_MEMORY_PREFIX):].strip().upper() or None
     return found
 
 

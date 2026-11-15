@@ -14,6 +14,8 @@ What is checked is what makes a PIL result worth trusting:
     making every remaining image wait;
   - a run that does not reach its last image (silent board, lost link, Ctrl+C,
     an error) keeps what it measured and says that it is not complete;
+  - the run records where the firmware says its tensor arena is, and a run
+    asked for the HIL subset of the test split measures exactly those images;
   - the keys the bench writes are the ones docs/results_schema.md documents.
 
 The board is the SimulatedBoard of test_boards.py. Time is a fake clock:
@@ -24,6 +26,7 @@ Skipped when pyserial, Pillow, numpy, scikit-learn or seaborn are missing.
 
     python -m unittest discover -s tests -v
 """
+import csv
 import importlib.util
 import json
 import os
@@ -47,6 +50,7 @@ NEEDS = "the PIL bench needs pyserial, Pillow, numpy, scikit-learn and seaborn"
 
 # Keys the PIL bench writes since November 2026 (see docs/results_schema.md).
 NEW_KEYS = {"model.fnv1a_tflite", "model.fnv1a_chip", "model.identity_verified", "model.arena_used_bytes",
+            "model.arena_memory",
             "run.completed", "run.stopped_because", "run.input_shape_verified", "run.max_unanswered",
             "dataset.n_images_planned"}
 
@@ -294,6 +298,132 @@ class RunCutShortTest(PilFolderCase):
 
 
 @unittest.skipUnless(READY, NEEDS)
+class ArenaMemoryTest(PilFolderCase):
+    """The run says where the firmware keeps its tensor arena, so that runs can be told apart by it."""
+
+    def test_default_build_is_recorded_with_the_memory_of_its_board(self):
+        code, log = self.run_folder(self.board())
+        self.assertIsNone(code, log)
+        self.assertEqual(self.metrics()["model"]["arena_memory"], "SDRAM")
+        self.assertIn("Tensor arena of this build: SDRAM", log)
+        code, log = self.run_folder(self.board("NICLA_VISION"), board_key="nicla")
+        self.assertIsNone(code, log)
+        self.assertEqual(self.metrics()["model"]["arena_memory"], "INTERNAL")
+
+    def test_portenta_built_with_the_arena_in_internal_ram_is_recorded_as_such(self):
+        board = SimulatedBoard("pil", board="PORTENTA_H7",
+                               identity=pil_identity(self.model, arena_memory="INTERNAL"))
+        code, log = self.run_folder(board)
+        self.assertIsNone(code, log)
+        metrics = self.metrics()
+        self.assertEqual((metrics["run"]["board"], metrics["model"]["arena_memory"],
+                          metrics["model"]["arena_used_bytes"], metrics["model"]["identity_verified"]),
+                         ("PORTENTA_H7", "INTERNAL", 181492, True))
+        self.assertIn("Tensor arena of this build: INTERNAL", log)
+
+    def test_it_is_also_read_from_the_boot_lines_of_a_board_just_reset(self):
+        identity = pil_identity(self.model, arena_memory="INTERNAL")
+        boot = ["--- STARTING DIAGNOSTICS ---", "BOARD:PORTENTA_H7", "Tensor arena size (bytes): 376832",
+                "Tensor arena address (internal RAM): 0x24001E40", "AllocateTensors() OK."] + identity
+        board = SimulatedBoard("pil", board="PORTENTA_H7", boot=boot, identity=identity)
+        code, log = self.run_folder(board)
+        self.assertIsNone(code, log)
+        self.assertEqual((board.empty_packets, self.metrics()["model"]["arena_memory"]), (0, "INTERNAL"))
+
+    def test_firmware_that_does_not_announce_it_is_recorded_as_null(self):
+        # a build with the identity lines but earlier than the ARENA_MEMORY one: verified, complete, and null
+        board = SimulatedBoard("pil", board="PORTENTA_H7", identity=pil_identity(self.model, arena_memory=None))
+        code, log = self.run_folder(board)
+        self.assertIsNone(code, log)
+        metrics = self.metrics()
+        self.assertIn("arena_memory", metrics["model"])
+        self.assertEqual((metrics["model"]["arena_memory"], metrics["model"]["arena_used_bytes"],
+                          metrics["model"]["identity_verified"], metrics["run"]["completed"]),
+                         (None, 181492, True, True))
+        self.assertNotIn("Tensor arena of this build", log)
+
+    def test_build_without_identity_lines_is_recorded_as_null(self):
+        board = SimulatedBoard("pil", board="PORTENTA_H7")
+        code, log = self.run_folder(board, allow_model_mismatch=True)
+        self.assertIsNone(code, log)
+        self.assertIsNone(self.metrics()["model"]["arena_memory"])
+
+
+@unittest.skipUnless(READY, NEEDS)
+class HilSubsetTest(PilFolderCase):
+    """--hil_subset: only the images the test manifest flags for the HIL rig."""
+
+    N_PER_CLASS = 3
+
+    def manifest(self, flagged, columns=("split", "class_name", "label", "filename", "hil_subset")):
+        path = os.path.join(self.tmp.name, "test_manifest.csv")
+        with open(path, "w", encoding="utf-8", newline="") as fh:
+            writer = csv.writer(fh)
+            writer.writerow(columns)
+            for label, cls in enumerate(("non_person", "person")):
+                for i in range(self.N_PER_CLASS):
+                    name = "img_%d.png" % i
+                    row = {"split": "test", "class_name": cls, "label": label, "filename": name,
+                           "hil_subset": int("%s/%s" % (cls, name) in flagged)}
+                    writer.writerow([row[c] for c in columns])
+        return path
+
+    def test_only_the_flagged_images_are_sent(self):
+        flagged = {"non_person/img_0.png", "non_person/img_2.png", "person/img_1.png"}
+        board = self.board()
+        code, log = self.run_folder(board, manifest_path=self.manifest(flagged))
+        self.assertIsNone(code, log)
+        metrics = self.metrics()
+        self.assertEqual((metrics["dataset"]["manifest_subset"], metrics["dataset"]["n_images_planned"],
+                          metrics["dataset"]["n_images"], metrics["run"]["completed"], board.inferences),
+                         ("hil_subset==1", 3, 3, True, 3))
+        self.assertEqual({r["RelPath"] for r in self.predictions()}, flagged)
+        # the labels are still those of the folders, whatever was left out
+        self.assertEqual({r["RelPath"]: r["TrueClass"] for r in self.predictions()},
+                         {rel: rel.split("/")[0] for rel in flagged})
+
+    def test_run_of_the_whole_folder_records_no_subset(self):
+        code, log = self.run_folder(self.board())
+        self.assertIsNone(code, log)
+        metrics = self.metrics()
+        self.assertIn("manifest_subset", metrics["dataset"])
+        self.assertEqual((metrics["dataset"]["manifest_subset"], metrics["dataset"]["n_images"]), (None, 6))
+
+    def test_count_draws_from_the_flagged_images(self):
+        flagged = {"non_person/img_0.png", "non_person/img_2.png", "person/img_1.png"}
+        code, log = self.run_folder(self.board(), manifest_path=self.manifest(flagged), n_samples=2)
+        self.assertIsNone(code, log)
+        rows = self.predictions()
+        self.assertEqual(len(rows), 2)
+        self.assertLess({r["RelPath"] for r in rows}, flagged)
+
+    def test_flagged_image_that_is_not_in_the_folder_stops_before_the_port_is_opened(self):
+        os.remove(os.path.join(self.folder, "person", "img_1.png"))
+        board = self.board()
+        code, log = self.run_folder(board, manifest_path=self.manifest({"non_person/img_0.png", "person/img_1.png"}))
+        self.assertEqual(code, 1)
+        self.assertIn("person/img_1.png", log)
+        self.assertNotIn("Connecting", log)
+        self.assertEqual((board.empty_packets, board.inferences, self.written()), (0, 0, []))
+
+    def test_manifest_that_cannot_give_the_subset_stops_the_run(self):
+        cases = {"not found": os.path.join(self.tmp.name, "no_such_manifest.csv"),
+                 "has hil_subset == 1": self.manifest(set())}
+        for message, path in cases.items():
+            board = self.board()
+            code, log = self.run_folder(board, manifest_path=path)
+            self.assertEqual(code, 1, message)
+            self.assertIn(message, log)
+            self.assertEqual((board.inferences, self.written()), (0, []))
+        board = self.board()
+        code, log = self.run_folder(board, manifest_path=self.manifest({"person/img_1.png"},
+                                                                       columns=("class_name", "filename")))
+        self.assertEqual(code, 1)
+        self.assertIn("lacks the column(s) ['hil_subset']", log)
+        self.assertEqual((board.inferences, self.written()), (0, []))
+
+
+@unittest.skipUnless(READY, NEEDS)
 class WrittenKeysTest(PilFolderCase):
     def paths_of(self, metrics):
         paths = set()
@@ -348,6 +478,14 @@ class CommandLineTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         for option in ("--max_unanswered", "--allow_model_mismatch"):
             self.assertIn(option, result.stdout)
+
+    def test_hil_subset_needs_the_test_split_of_a_partition(self):
+        # the manifest belongs to <splits_dir>/test: with an arbitrary folder there is none to read
+        result = self.run_script("--model_path", str(REPO / "README.md"), "--folder", "data/sample", "--hil_subset")
+        self.assertEqual(result.returncode, 2, result.stdout)
+        self.assertIn("not with --folder or --image", result.stdout)
+        self.assertNotIn("Connecting", result.stdout)
+        self.assertIn("--hil_subset", self.run_script("--help").stdout)
 
 
 if __name__ == "__main__":

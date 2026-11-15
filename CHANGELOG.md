@@ -78,6 +78,12 @@ DOI yet (see [Citation](README.md#citation)).
   (`run.completed = false`) and ends with exit code 3.
 - `calibrate_hil_rig.py` checks the alignment of the camera and the monitor before an HIL session, and
   `--monitor` chooses the monitor of the stimuli.
+- The PIL sketch announces where its tensor arena is (`ARENA_MEMORY:SDRAM` or `INTERNAL`) and the PIL bench
+  records it (`model.arena_memory`). `compile_upload_arduino.py --arena_memory internal` builds the Portenta H7
+  firmware with the arena in internal RAM, where the Nicla Vision has it; `pil_benchmark.py --hil_subset` sends
+  only the images of the HIL subset; and `compare_pil_cycles.py` puts the cycles per phase of several PIL runs of
+  one model side by side. Together they allow the place of the arena to be measured on one board. No such run is
+  published yet.
 
 Which of these have run on a board and which only against the simulated board of the tests is kept up to date in
 [`docs/hardware.md`](docs/hardware.md).

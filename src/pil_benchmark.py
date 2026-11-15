@@ -60,6 +60,9 @@ Options:
   --delay       Seconds to wait after opening the port before talking to the board (default: 1.0)
   --gap         Seconds to wait between consecutive images (default: 0.5)
   --count       Number of random images to send from the folder (default: all)
+  --hil_subset  Send only the images of the test split that
+                <splits_dir>/test_manifest.csv flags hil_subset == 1 (the ones
+                the HIL bench shows), instead of the whole split
   --max_unanswered        Images in a row without an answer after which the run
                           is given up (default: 5; 0 never gives up)
   --allow_model_mismatch  Measure although the model on the board could not be
@@ -378,6 +381,38 @@ def handshake(ser, opened_at):
     return boards.identity(seen), False
 
 
+# Value of dataset.manifest_subset in a run restricted with --hil_subset: the
+# one the HIL bench records for the same selection.
+HIL_SUBSET = "hil_subset==1"
+
+
+def read_hil_subset(manifest_path):
+    """The images a test manifest (split_dataset.py) flags hil_subset == 1.
+
+    Returns a set of '<class_name>/<filename>', the path of each image inside
+    the test folder. Ends the run (exit code 1) when the manifest is missing,
+    has no such column or flags no image: a run asked for the subset must not
+    fall back to the whole split.
+    """
+    if not os.path.isfile(manifest_path):
+        print(f"[ERROR] --hil_subset: test manifest not found at {manifest_path}")
+        print("        It is written by split_dataset.py next to the test folder; point at the "
+              "partition with --splits_dir.")
+        sys.exit(1)
+    with open(manifest_path, newline="", encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+    missing = {"class_name", "filename", "hil_subset"} - set(rows[0].keys() if rows else ())
+    if missing:
+        print(f"[ERROR] --hil_subset: {manifest_path} lacks the column(s) {sorted(missing)}.")
+        sys.exit(1)
+    flagged = {"%s/%s" % (r["class_name"], r["filename"]) for r in rows
+               if str(r["hil_subset"]).strip() in ("1", "True", "true")}
+    if not flagged:
+        print(f"[ERROR] --hil_subset: no row of {manifest_path} has hil_subset == 1.")
+        sys.exit(1)
+    return flagged
+
+
 def expected_model(model_path):
     """Size and FNV-1a fingerprint of the .tflite the operator says is on the board, or None."""
     if not model_path or not os.path.isfile(model_path):
@@ -482,6 +517,9 @@ def open_session(port, baud, pre_delay, board_key, model_path, width, height, gr
                   "a build earlier than the two-board sketch. The board is recorded as null.")
         verified = verify_model_identity(found, has_identity, expected, model_path, allow_model_mismatch)
         width, height, shape_verified = resolve_input_shape(width, height, grayscale, found["input_shape"])
+        if found["arena_memory"] is not None:
+            print(f"[INFO] Tensor arena of this build: {found['arena_memory']} "
+                  f"(ARENA_MEMORY line of the firmware).")
     except serial.SerialException as exc:
         print(f"[ERROR] The serial link to {port} was lost before the first image ({exc}). "
               "Nothing was measured or written.")
@@ -620,7 +658,8 @@ def send_folder(port: str, baud: int, folder: str,
                 output_dir: str = os.path.join("results", "pil"),
                 board_key: str = boards.DEFAULT_BOARD,
                 allow_model_mismatch: bool = False,
-                max_unanswered: int = MAX_CONSECUTIVE_UNANSWERED):
+                max_unanswered: int = MAX_CONSECUTIVE_UNANSWERED,
+                manifest_path: str = None):
     """
     Sends the images in `folder` to the Arduino in sequence.
 
@@ -659,6 +698,9 @@ def send_folder(port: str, baud: int, folder: str,
                  verified against model_path (recorded as identity_verified = false)
     max_unanswered : images in a row without an answer after which the run is
                  given up; 0 never gives up
+    manifest_path : test manifest of the partition `folder` belongs to
+                 (--hil_subset). When given, only the images it flags
+                 hil_subset == 1 are sent, and n_samples draws from those
     """
     extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.tif')
 
@@ -688,6 +730,22 @@ def send_folder(port: str, baud: int, folder: str,
     if not image_data:
         print(f"[ERROR] No valid images found in: {folder}")
         sys.exit(1)
+
+    if manifest_path is not None:
+        # Only the images the manifest flags for the HIL rig. Every one of them
+        # must be in the folder: a run asked for the subset and measured on part
+        # of it would look like any other.
+        flagged = read_hil_subset(manifest_path)
+        in_folder = {os.path.relpath(path, folder).replace(os.sep, "/"): (path, label)
+                     for path, label in image_data}
+        absent = sorted(flagged - set(in_folder))
+        if absent:
+            print(f"[ERROR] --hil_subset: {len(absent)} of the {len(flagged)} images flagged in "
+                  f"{manifest_path} are not in {folder} (first ones: {', '.join(absent[:5])}).")
+            sys.exit(1)
+        image_data = sorted(in_folder[rel] for rel in flagged)
+        print(f"[INFO] --hil_subset: {len(image_data)} of the {len(in_folder)} images of '{folder}' "
+              f"are flagged hil_subset == 1 in {manifest_path}")
 
     available = len(image_data)
     if n_samples is not None and n_samples < available:
@@ -911,6 +969,7 @@ def send_folder(port: str, baud: int, folder: str,
             cm_plot_name = f"confusion_matrix_{model_tag}.png"
             cm_plot_path = os.path.join(output_dir, cm_plot_name)
             plt.savefig(cm_plot_path)
+            plt.close()   # the figure is on disk; several runs in one process would keep them all open
             print(f"Confusion matrix plot saved to: {cm_plot_path}")
 
             # Collected here, inside the try, so that the JSON further below
@@ -963,6 +1022,7 @@ def send_folder(port: str, baud: int, folder: str,
             "fnv1a_chip": session["identity"]["model_fnv1a"],
             "identity_verified": session["identity_verified"],
             "arena_used_bytes": session["identity"]["arena_used_bytes"],
+            "arena_memory": session["identity"]["arena_memory"],
             "note": ("sha256 and fnv1a_tflite are those of the .tflite given with --model_path. "
                      "identity_verified=true means that, before the first image, the FNV-1a "
                      "fingerprint and the size of g_model[] on the board matched that file: the "
@@ -986,6 +1046,7 @@ def send_folder(port: str, baud: int, folder: str,
         },
         "dataset": {
             "folder": folder,
+            "manifest_subset": HIL_SUBSET if manifest_path is not None else None,
             "class_names": list(class_names),
             "n_images_planned": total_planned,
             "n_images": total,
@@ -1075,6 +1136,11 @@ def parse_args():
     parser.add_argument('--count',  type=int, default=None, metavar='N',
                         help="Number of random images to send from the folder. "
                              "If not specified, all of them are sent.")
+    parser.add_argument('--hil_subset', action='store_true',
+                        help="Send only the images of the test split that "
+                             "<splits_dir>/test_manifest.csv flags hil_subset == 1 (the "
+                             "ones the HIL bench shows), in place of the whole split. "
+                             "Recorded as dataset.manifest_subset. Not with --folder or --image")
     parser.add_argument('--output_dir', default=None,
                         help="Output directory for the matrix, JSON and CSV files "
                              "(default: results/pil; results/nicla/pil with --board nicla)")
@@ -1164,6 +1230,10 @@ if __name__ == '__main__':
     if args.max_unanswered < 0:
         print("[ERROR] --max_unanswered must be 0 (never give up) or a positive number.")
         sys.exit(EXIT_REFUSED)
+    if args.hil_subset and (args.folder or args.image):
+        print("[ERROR] --hil_subset selects images of the test split through its manifest "
+              "(<splits_dir>/test_manifest.csv): use it with --splits_dir, not with --folder or --image.")
+        sys.exit(EXIT_REFUSED)
 
     if args.image:
         send_image(
@@ -1206,4 +1276,6 @@ if __name__ == '__main__':
             board_key=args.board,
             allow_model_mismatch=args.allow_model_mismatch,
             max_unanswered=args.max_unanswered,
+            manifest_path=(os.path.join(args.splits_dir, "test_manifest.csv")
+                           if args.hil_subset else None),
         )

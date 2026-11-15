@@ -36,6 +36,7 @@ DYNAMIC_CHILDREN = {
 NOT_YET_PUBLISHED_METRICS = set()                                                        # HIL
 NOT_YET_PUBLISHED_PIL_METRICS = {"run.stopped_because", "run.input_shape_verified",
                                  "run.max_unanswered", "dataset.n_images_planned", "model.arena_used_bytes"}
+NOT_YET_PUBLISHED_PIL_METRICS |= {"model.arena_memory"}    # the ARENA_MEMORY line of the PIL sketch
 # 'software.pillow' is the one key of the 'software' block that only the PIL bench writes.
 NOT_YET_PUBLISHED_PIL_METRICS |= {"software.pillow"}
 NOT_YET_PUBLISHED_CONDITIONS = set()

@@ -115,6 +115,19 @@ Nicla Vision both are static arrays, so the linker accounts for them: sizes that
 (`region RAM overflowed`), and an arena too small for the model fails at boot, in `AllocateTensors()`, with a
 message that says so. A model input that does not fit the image buffer also stops at boot with a message.
 
+**Arena in internal RAM on the Portenta H7.** `compile_upload_arduino.py --target pil --arena_memory internal
+--arena_kb <n>` (the macro `TENSOR_ARENA_INTERNAL_RAM` of the PIL sketch) builds the Portenta H7 firmware with the
+tensor arena as a static array in internal RAM, as on the Nicla Vision, while the image buffer stays in SDRAM. The
+size must be given, because the 4 MiB default only fits in SDRAM, and the linker accounts for it as on the Nicla
+Vision. The option exists to measure what the place of the arena costs in cycles on one board, with the model and
+everything else unchanged. The PIL sketch announces where its arena is in the identity line `ARENA_MEMORY:SDRAM` or
+`ARENA_MEMORY:INTERNAL`, which the bench records as `model.arena_memory`; `compare_pil_cycles.py` puts such runs
+side by side. Apart from that line the default build is unchanged, and the HIL sketch has no such option. Built, and not run on a board
+yet: with `--arena_kb 368` and the COCO `MobileNet` the arena is a 376,832-byte array at `0x24001880`, in the
+512 KiB region at `0x24000000` where the Nicla Vision build also has its arena, and 75,152 bytes of that region are
+left for the heap, against 451,984 in the default build (sizes read from the `.elf`: `arduino-cli` prints no size
+summary for this board).
+
 **RAM budget on the Nicla Vision.** The board has no external SDRAM: 523,624 bytes of internal RAM hold the arena,
 the buffers, the camera frame and everything else. Reported by the compiler for the default sizes, with the
 `model.h` in the repository (`MobileNetV2`, 630.5 KiB):
@@ -217,10 +230,11 @@ equals `#`, `@`, or `ESC`, the sender escapes it as `ESC` followed by
 reverses this on reception (`pil_benchmark.py` performs the escaping on the host
 side).
 
-**Identity lines and handshake.** The sketch says what it is running in six parseable lines:
+**Identity lines and handshake.** The sketch says what it is running in seven parseable lines:
 `BOARD:<name>`, `INPUT_SHAPE:<H>x<W>x<C>` (the input tensor of the model), `MODEL_BYTES:<int>` and
 `MODEL_FNV1A:<hex>` (size and 32-bit FNV-1a fingerprint of the model array in flash, which is the
-`.tflite` byte for byte), `ARENA_USED:<bytes>` and, last, `READY_PIL`. It prints them at the end of
+`.tflite` byte for byte), `ARENA_USED:<bytes>`, `ARENA_MEMORY:<SDRAM|INTERNAL>` (where the tensor
+arena is, see [Boards and Memory](#boards-and-memory)) and, last, `READY_PIL`. It prints them at the end of
 its boot lines, which appear once, when the port is opened for the first time after a reset, and
 again whenever the host sends an empty packet (`#@`). Because `#` restarts a packet, that request is
 understood whatever the firmware was waiting for. The bench reads the boot lines if they come and
@@ -242,7 +256,8 @@ sketch is recognised by its `READY_HIL`.
 > and gave, on each board, the same prediction as the earlier firmware for all 300. On the Nicla
 > Vision a board carrying another model and a run with another image size were refused before
 > anything was sent. Not exercised on a board: `#@` sent by hand in the middle of a run, a link lost
-> for longer than the reconnect window, and a board held in reset.
+> for longer than the reconnect window, and a board held in reset. The `ARENA_MEMORY` line is later
+> than this check, which saw the other six.
 
 **Dropped link.** A USB serial link can disappear for a moment (cable, hub, the host's
 power management) while the board keeps running. When that happens the bench reopens the

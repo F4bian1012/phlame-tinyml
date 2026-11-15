@@ -144,6 +144,7 @@ assume of any board; this section is the list of what to write.
 | `port_match` | Text looked for in the board names of `arduino-cli board list` to find the port. |
 | `results_dir` | Root of the board's results: `results/<board>/{pil,hil}`. The Portenta H7 keeps `results/`, where the published files are. |
 | `default_arena_kb` | Only for a board whose arena is fixed at build time; a test keeps it equal to the sketch's default. |
+| `arena_memory` | Where the default build keeps its tensor arena, as the PIL sketch announces it: `SDRAM` or `INTERNAL`. `compile_upload_arduino.py` accepts `--arena_memory internal` only for `SDRAM`, and `compare_pil_cycles.py` uses it for a run whose file does not record the place. |
 
 `--board` takes its choices from this table in `compile_upload_arduino.py`, the two benches,
 `calibrate_hil_rig.py` and `build_ladder_tables.py`, so they need no edit. Two scripts do not follow it by
@@ -157,6 +158,7 @@ another board).
 |---|---|---|
 | `BOARD_NAME` | both | The `announces` value of the table, exactly. |
 | `BOARD_HAS_SDRAM`, `ARENA_MEMORY` | both | Whether the arena and the image buffer are allocated in external RAM or are static arrays, and the word the boot lines use for it. |
+| `ARENA_IN_SDRAM` | PIL | Whether the tensor arena is in external RAM (1) or a static array (0). The PIL sketch derives `ARENA_MEMORY` and its `ARENA_MEMORY:` identity line from it, after the block; on a board with SDRAM it is 0 when the build defines `TENSOR_ARENA_INTERNAL_RAM`. |
 | `TENSOR_ARENA_KB`, `IMAGE_BUFFER_BYTES` | both | Defaults of the two sizes, inside `#ifndef` so that `--arena_kb` and `--image_buffer_bytes` can replace them at build time. |
 | `CAMERA_NAME`, `CAMERA_FAIL_TEXT` | HIL | Texts of the boot lines. |
 | `CAMERA_PIXEL_FORMAT`, `CAMERA_DELIVERS_RGB565` | HIL | The format asked of the camera, and whether the frame must be converted to luminance before the common path. |

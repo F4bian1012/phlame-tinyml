@@ -73,8 +73,10 @@ class BoardTableTest(unittest.TestCase):
     def test_every_board_has_what_the_scripts_use(self):
         announced = set()
         for key, board in boards.BOARDS.items():
-            for field in ("label", "announces", "camera", "core", "fqbn", "port_match", "results_dir"):
+            for field in ("label", "announces", "camera", "core", "fqbn", "port_match", "results_dir",
+                          "arena_memory"):
                 self.assertTrue(board.get(field), "%s lacks %s" % (key, field))
+            self.assertIn(board["arena_memory"], boards.ARENA_MEMORIES, key)
             self.assertTrue(board["fqbn"].startswith(board["core"] + ":"), key)
             self.assertEqual(boards.key_of(board["announces"]), key)
             announced.add(board["announces"])
@@ -108,10 +110,12 @@ class IdentityLinesTest(unittest.TestCase):
 
     def test_identity_is_read_from_the_firmware_lines(self):
         found = boards.identity(["--- STARTING DIAGNOSTICS ---", "BOARD:NICLA_VISION", "INPUT_SHAPE:120x160x1",
-                                 "MODEL_BYTES:644648", "MODEL_FNV1A:0A1B2C3D", "ARENA_USED:356404", "READY_PIL"])
+                                 "MODEL_BYTES:644648", "MODEL_FNV1A:0A1B2C3D", "ARENA_USED:356404",
+                                 "ARENA_MEMORY:INTERNAL", "READY_PIL"])
         self.assertEqual(found, {"board": "NICLA_VISION",
                                  "input_shape": {"height": 120, "width": 160, "channels": 1},
-                                 "model_bytes": 644648, "model_fnv1a": "0a1b2c3d", "arena_used_bytes": 356404})
+                                 "model_bytes": 644648, "model_fnv1a": "0a1b2c3d", "arena_used_bytes": 356404,
+                                 "arena_memory": "INTERNAL"})
 
     def test_lines_a_build_does_not_print_are_none(self):
         found = boards.identity(["BOARD:PORTENTA_H7", "ARENA_USED:181492", "TEMP_C:40", "1"])
@@ -119,11 +123,21 @@ class IdentityLinesTest(unittest.TestCase):
         self.assertIsNone(found["input_shape"])
         self.assertIsNone(found["model_bytes"])
         self.assertIsNone(found["model_fnv1a"])
+        self.assertIsNone(found["arena_memory"])
 
     def test_lines_that_cannot_be_read_are_none_not_an_error(self):
-        found = boards.identity(["INPUT_SHAPE:120x160", "MODEL_BYTES:many", "MODEL_FNV1A:", "ARENA_USED:"])
+        found = boards.identity(["INPUT_SHAPE:120x160", "MODEL_BYTES:many", "MODEL_FNV1A:", "ARENA_USED:",
+                                 "ARENA_MEMORY:"])
         self.assertEqual(found, {"board": None, "input_shape": None, "model_bytes": None,
-                                 "model_fnv1a": None, "arena_used_bytes": None})
+                                 "model_fnv1a": None, "arena_used_bytes": None, "arena_memory": None})
+
+    def test_the_address_line_of_the_boot_text_is_not_taken_for_the_arena_memory(self):
+        # the boot lines also name the memory in a line meant for the eye, before the identity lines
+        found = boards.identity(["Tensor arena size (bytes): 376832", "Tensor arena address (internal RAM): 0x24001E40",
+                                 "BOARD:PORTENTA_H7", "ARENA_USED:181492", "ARENA_MEMORY:INTERNAL", "READY_PIL"])
+        self.assertEqual((found["arena_used_bytes"], found["arena_memory"]), (181492, "INTERNAL"))
+        found = boards.identity(["Tensor arena address (SDRAM): 0x60064010", "ARENA_MEMORY: sdram "])
+        self.assertEqual(found["arena_memory"], "SDRAM")
 
 
 SKETCHES = {
@@ -159,11 +173,43 @@ class SketchTextTest(unittest.TestCase):
 
     def test_pil_sketch_prints_its_identity_lines_and_answers_an_empty_packet(self):
         source = self.source("pil")
-        for text in ("INPUT_SHAPE:", "MODEL_BYTES:", "MODEL_FNV1A:", "ARENA_USED:"):
+        for text in ("INPUT_SHAPE:", "MODEL_BYTES:", "MODEL_FNV1A:", "ARENA_USED:", boards.ARENA_MEMORY_PREFIX):
             self.assertIn('Serial.print("%s");' % text, source)
         self.assertIn('Serial.println("%s");' % boards.READY_PIL, source)
         self.assertIn("if (image_bytes_received == 0) {", source)
         self.assertIn('Serial.println("%s");' % boards.READY_HIL, self.source("hil"))
+
+    def test_pil_sketch_announces_the_arena_memory_with_its_identity(self):
+        source = self.source("pil")
+        # inside printIdentity(), so that it is printed at boot and again for an empty packet,
+        # and before READY_PIL, which is where the bench stops reading
+        identity = source[source.index("static void printIdentity() {"):source.index("bool readImageFromSerial()")]
+        announced = identity.index('Serial.print("%s");' % boards.ARENA_MEMORY_PREFIX)
+        self.assertLess(announced, identity.index('Serial.println("%s");' % boards.READY_PIL))
+        self.assertIn("Serial.println(ARENA_MEMORY_ID);", identity[announced:])
+        # the values it can print are the ones the host knows
+        values = re.findall(r'#define ARENA_MEMORY_ID "([^"]*)"', source)
+        self.assertEqual(sorted(values), sorted(boards.ARENA_MEMORIES))
+
+    def test_default_build_of_each_board_keeps_the_arena_where_the_table_says(self):
+        source = self.source("pil")
+        support = source[source.index("#if defined(ARDUINO_PORTENTA_H7_M7)"):source.index("#if ARENA_IN_SDRAM")]
+        portenta, nicla = support.split("#elif defined(ARDUINO_NICLA_VISION)")
+        nicla = nicla.split("#else")[0]
+        self.assertEqual(boards.BOARDS["nicla"]["arena_memory"], "INTERNAL")
+        self.assertEqual(re.findall(r"#define ARENA_IN_SDRAM (\d)", nicla), ["0"])
+        # Portenta H7: in SDRAM unless the build asks for the internal RAM, which is off by default
+        self.assertEqual(boards.BOARDS["portenta"]["arena_memory"], "SDRAM")
+        asked, default = portenta.split("#if TENSOR_ARENA_INTERNAL_RAM")[1].split("#else")[:2]
+        self.assertEqual(re.findall(r"#define ARENA_IN_SDRAM (\d)", asked), ["0"])
+        self.assertEqual(re.findall(r"#define ARENA_IN_SDRAM (\d)", default), ["1"])
+        self.assertIn("#define TENSOR_ARENA_KB 4096", default)
+        self.assertNotIn("#define TENSOR_ARENA_KB", asked)      # no default size for the internal RAM...
+        self.assertIn("#error", asked)                          # ...the build stops and says what to pass
+        self.assertIn("#ifndef TENSOR_ARENA_INTERNAL_RAM\n#define TENSOR_ARENA_INTERNAL_RAM 0\n#endif",
+                      source.replace("\r\n", "\n"))
+        self.assertIn('#if ARENA_IN_SDRAM\n#define ARENA_MEMORY "SDRAM"\n#define ARENA_MEMORY_ID "SDRAM"\n#else',
+                      source.replace("\r\n", "\n"))
 
     def test_both_sketches_compute_the_fingerprint_the_host_computes(self):
         for level in SKETCHES:
@@ -194,12 +240,22 @@ class FakeClock:
 
 
 def pil_identity(model_path, board="PORTENTA_H7", shape="12x16x1", fnv1a=None, model_bytes=None,
-                 arena=181492):
-    """The identity lines of the PIL sketch for a board that carries model_path."""
-    return ["BOARD:" + board, "INPUT_SHAPE:" + shape,
-            "MODEL_BYTES:%d" % (os.path.getsize(model_path) if model_bytes is None else model_bytes),
-            "MODEL_FNV1A:%s" % (fnv1a or boards.fnv1a32_file(model_path)),
-            "ARENA_USED:%d" % arena, boards.READY_PIL]
+                 arena=181492, arena_memory="default"):
+    """The identity lines of the PIL sketch for a board that carries model_path.
+
+    arena_memory is what the ARENA_MEMORY line says: "default" for what the
+    default build of the board announces, another value for a build that says
+    so (INTERNAL on a Portenta H7 built with --arena_memory internal), None for
+    a build that has no such line."""
+    if arena_memory == "default":
+        key = boards.key_of(board)
+        arena_memory = boards.BOARDS[key]["arena_memory"] if key else None
+    return (["BOARD:" + board, "INPUT_SHAPE:" + shape,
+             "MODEL_BYTES:%d" % (os.path.getsize(model_path) if model_bytes is None else model_bytes),
+             "MODEL_FNV1A:%s" % (fnv1a or boards.fnv1a32_file(model_path)),
+             "ARENA_USED:%d" % arena]
+            + ([boards.ARENA_MEMORY_PREFIX + arena_memory] if arena_memory else [])
+            + [boards.READY_PIL])
 
 
 class SimulatedBoard:

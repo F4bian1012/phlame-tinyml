@@ -21,6 +21,7 @@
 //   MODEL_FNV1A:<hex32>       FNV-1a fingerprint of g_model[]: the bench
 //                             compares it with the .tflite on the PC
 //   ARENA_USED:<bytes>        interpreter->arena_used_bytes()
+//   ARENA_MEMORY:<where>      where the tensor arena is: SDRAM | INTERNAL
 //   READY_PIL                 last line: ready to receive images
 // The boot lines are printed once, when the port is opened for the first time
 // after a reset, so a bench that opens the port later asks with #@. BOARD is
@@ -60,14 +61,38 @@
 //   TENSOR_ARENA_KB     tensor arena, in KB
 //   IMAGE_BUFFER_BYTES  image buffer, in bytes (width * height * channels of
 //                       the largest model input to be received)
+//
+// A third build option moves the arena of a board that has SDRAM:
+//   TENSOR_ARENA_INTERNAL_RAM=1   (--arena_memory internal of
+//                       compile_upload_arduino.py) the tensor arena is a static
+//                       array of TENSOR_ARENA_KB KB in the internal RAM, as on
+//                       the Nicla Vision, and the image buffer stays in SDRAM.
+//                       TENSOR_ARENA_KB must then be given: the 4 MB default
+//                       does not fit in the internal RAM. It is there to
+//                       measure what the place of the arena costs in cycles
+//                       with everything else unchanged. Without it, and on a
+//                       board without SDRAM, the build is the one described
+//                       above.
+// Where the arena ended up is announced in the ARENA_MEMORY identity line.
 // ============================================================================
+#ifndef TENSOR_ARENA_INTERNAL_RAM
+#define TENSOR_ARENA_INTERNAL_RAM 0
+#endif
+
 #if defined(ARDUINO_PORTENTA_H7_M7)
 #define BOARD_NAME "PORTENTA_H7"
 #define BOARD_HAS_SDRAM 1
-#define ARENA_MEMORY "SDRAM"
 #include <SDRAM.h>
+#if TENSOR_ARENA_INTERNAL_RAM
+#define ARENA_IN_SDRAM 0
+#ifndef TENSOR_ARENA_KB
+#error "TENSOR_ARENA_INTERNAL_RAM needs -DTENSOR_ARENA_KB=<n>: the 4096 KB default of the SDRAM build does not fit in the internal RAM."
+#endif
+#else
+#define ARENA_IN_SDRAM 1
 #ifndef TENSOR_ARENA_KB
 #define TENSOR_ARENA_KB 4096 // 4 MB for the larger models
+#endif
 #endif
 #ifndef IMAGE_BUFFER_BYTES
 #define IMAGE_BUFFER_BYTES (400 * 1024) // holds up to 320x320 RGB (307,200 bytes)
@@ -75,7 +100,7 @@
 #elif defined(ARDUINO_NICLA_VISION)
 #define BOARD_NAME "NICLA_VISION"
 #define BOARD_HAS_SDRAM 0
-#define ARENA_MEMORY "internal RAM"
+#define ARENA_IN_SDRAM 0
 #ifndef TENSOR_ARENA_KB
 #define TENSOR_ARENA_KB 368 // sized for MobileNetV2 160x120x1 (uses 356,404 bytes)
 #endif
@@ -84,6 +109,17 @@
 #endif
 #else
 #error "Unsupported board. Build for arduino:mbed_portenta:envie_m7 or arduino:mbed_nicla:nicla_vision."
+#endif
+
+// Where the tensor arena is: ARENA_MEMORY is the word of the boot line that
+// prints its address, ARENA_MEMORY_ID the value of the ARENA_MEMORY identity
+// line, which the bench records.
+#if ARENA_IN_SDRAM
+#define ARENA_MEMORY "SDRAM"
+#define ARENA_MEMORY_ID "SDRAM"
+#else
+#define ARENA_MEMORY "internal RAM"
+#define ARENA_MEMORY_ID "INTERNAL"
 #endif
 
 #include "mbed.h"
@@ -105,7 +141,8 @@ TfLiteTensor *input = nullptr;
 TfLiteTensor *output = nullptr;
 
 // Tensor arena: reached through a POINTER so that it can live in SDRAM
-// (Portenta) or in a static array (Nicla Vision)
+// (Portenta) or in a static array (Nicla Vision, or a Portenta built with
+// TENSOR_ARENA_INTERNAL_RAM)
 constexpr int kTensorArenaSize = TENSOR_ARENA_KB * 1024;
 uint8_t *tensor_arena = nullptr;
 
@@ -137,11 +174,13 @@ bool receiving = false;
 int model_h = 0, model_w = 0, model_c = 0;
 uint32_t model_fnv1a = 0;
 
-#if !BOARD_HAS_SDRAM
 // Static storage in the internal RAM. Being static, the linker accounts for
 // it: a combination of sizes that does not fit fails at build time instead of
 // at run time.
+#if !ARENA_IN_SDRAM
 alignas(16) static uint8_t tensor_arena_storage[TENSOR_ARENA_KB * 1024];
+#endif
+#if !BOARD_HAS_SDRAM
 static uint8_t image_buffer_storage[IMAGE_BUFFER_BYTES];
 #endif
 
@@ -179,6 +218,7 @@ bool allocateBuffers() {
   // Allocate the image buffer in SDRAM
   image_buffer = (uint8_t *)ea_malloc(IMAGE_BUFFER_BYTES);
 
+#if ARENA_IN_SDRAM
   // Memory with 16 extra bytes for alignment
   uint8_t *raw_arena = (uint8_t *)ea_malloc(kTensorArenaSize + 16);
 
@@ -188,6 +228,13 @@ bool allocateBuffers() {
 
   // Align to 16 bytes
   tensor_arena = (uint8_t *)(((uintptr_t)raw_arena + 15) & ~15);
+#else
+  // TENSOR_ARENA_INTERNAL_RAM: only the image buffer is in SDRAM
+  if (image_buffer == nullptr) {
+    return false;
+  }
+  tensor_arena = tensor_arena_storage;
+#endif
 #else
   image_buffer = image_buffer_storage;
   tensor_arena = tensor_arena_storage;
@@ -234,6 +281,10 @@ static void printIdentity() {
   // TENSOR_ARENA_KB with on a board without external RAM
   Serial.print("ARENA_USED:");
   Serial.println((unsigned long)interpreter->arena_used_bytes());
+  // Where the arena is (SDRAM | INTERNAL): the bench records it with the
+  // latencies, so that runs with the arena in different places are told apart
+  Serial.print("ARENA_MEMORY:");
+  Serial.println(ARENA_MEMORY_ID);
   Serial.println("READY_PIL");
   Serial.flush();
 }
@@ -423,7 +474,7 @@ void runInference() {
 
 void setup() {
   // Tensor arena and image buffer: SDRAM on the Portenta, static arrays on
-  // the Nicla Vision
+  // the Nicla Vision (see BOARD SUPPORT for TENSOR_ARENA_INTERNAL_RAM)
   bool buffers_ok = allocateBuffers();
 
   Serial.begin(115200);
@@ -489,6 +540,8 @@ void setup() {
     Serial.println("Failed to allocate tensors. Arena too small?");
 #if !BOARD_HAS_SDRAM
     Serial.println("This board has no external RAM: rebuild with a larger -DTENSOR_ARENA_KB (until the linker reports that RAM overflowed) or use a smaller model.");
+#elif !ARENA_IN_SDRAM
+    Serial.println("This build keeps the arena in internal RAM (TENSOR_ARENA_INTERNAL_RAM): rebuild with a larger -DTENSOR_ARENA_KB (until the linker reports that RAM overflowed) or without that option.");
 #endif
     while (1)
       ;

@@ -6,10 +6,18 @@ Compiles one of the framework sketches for a board and uploads it.
     python src/compile_upload_arduino.py --target pil                   # Portenta H7
     python src/compile_upload_arduino.py --target hil --board nicla     # Nicla Vision
     python src/compile_upload_arduino.py --target pil --board nicla --compile_only
+    python src/compile_upload_arduino.py --target pil --arena_memory internal --arena_kb 368
 
 The same two sketches (deployment/pil_firmware, deployment/hil_firmware) serve
 every board in boards.py; --board selects the core and the FQBN, and the
 sketch picks its board block at compile time.
+
+--arena_memory internal builds the PIL sketch for a board with external SDRAM
+(the Portenta H7) with the tensor arena as a static array in internal RAM,
+where the Nicla Vision has it, and the image buffer still in SDRAM. It is there
+to measure what the place of the arena costs in cycles: the firmware announces
+the place (ARENA_MEMORY:INTERNAL) and pil_benchmark.py records it. Flash the
+default firmware again afterwards.
 """
 import argparse
 import subprocess
@@ -18,12 +26,6 @@ import sys
 import os
 import boards
 import cli
-
-try:
-    if sys.stdout.encoding != 'utf-8':
-        sys.stdout.reconfigure(encoding='utf-8')
-except AttributeError:
-    pass
 
 # Framework firmware sketches. The board runs ONE at a time, so --target
 # picks which one gets uploaded (there is no "both" option).
@@ -114,7 +116,65 @@ def resolve_sketch(parser, target, sketch_path):
 
     return os.path.join(REPO_ROOT, FIRMWARE_DIRS[target])
 
-def main():
+def sketch_defines(board_key, target, arena_kb=None, image_buffer_bytes=None, arena_memory="default"):
+    """The -D flags that carry the build options into the sketch (see its BOARD SUPPORT block).
+
+    target is the framework sketch being built ('pil' or 'hil'), or None for a
+    sketch given with --sketch_path. Raises ValueError, with the message for
+    the operator, when --arena_memory internal is asked where it means nothing:
+    for a sketch other than the PIL one, for a board whose arena is in internal
+    RAM already, or without the size of the arena, since the default of a board
+    with SDRAM is sized for the SDRAM.
+    """
+    board = boards.BOARDS[board_key]
+    defines = []
+    if arena_memory == "internal":
+        if target != "pil":
+            raise ValueError("--arena_memory internal is an option of the PIL sketch: use it with --target pil "
+                             "(the HIL sketch and a sketch given with --sketch_path do not have it).")
+        if board["arena_memory"] != "SDRAM":
+            raise ValueError("--arena_memory internal is for a board with external SDRAM. The %s has none: its "
+                             "tensor arena is in internal RAM already. Leave the option out." % board["label"])
+        if arena_kb is None:
+            raise ValueError("--arena_memory internal needs --arena_kb: the default arena of the %s (4096 KB) is "
+                             "sized for its SDRAM and does not fit in the internal RAM. Pass the size in KB, at "
+                             "least what the model uses (ARENA_USED in the boot lines, model.arena_used_bytes in "
+                             "a PIL result); for example --arena_kb %d, the default of the Nicla Vision. A size "
+                             "that does not fit fails at link time (region RAM overflowed)."
+                             % (board["label"], boards.BOARDS["nicla"]["default_arena_kb"]))
+        defines.append("-DTENSOR_ARENA_INTERNAL_RAM=1")
+    if arena_kb is not None:
+        defines.append(f"-DTENSOR_ARENA_KB={arena_kb}")
+    if image_buffer_bytes is not None:
+        defines.append(f"-DIMAGE_BUFFER_BYTES={image_buffer_bytes}")
+    return defines
+
+def compile_command(fqbn, sketch_path, defines=(), build_path=None):
+    """The arduino-cli command that compiles the sketch. The defines are macros
+    of the sketch and reach the compiler as compiler.cpp.extra_flags."""
+    command = f"arduino-cli compile --fqbn {fqbn} --warnings none"
+    if defines:
+        command += f" --build-property \"compiler.cpp.extra_flags={' '.join(defines)}\""
+    if build_path:
+        command += f" --build-path \"{build_path}\""
+    return command + f" \"{sketch_path}\""
+
+def upload_command(port, fqbn, sketch_path, build_path=None):
+    """The arduino-cli command that uploads what compile_command built. With a
+    build folder of its own the binary is taken from there: without --input-dir
+    arduino-cli would upload what an earlier build left in its default folder."""
+    command = f"arduino-cli upload -p {port} --fqbn {fqbn}"
+    if build_path:
+        command += f" --input-dir \"{build_path}\""
+    return command + f" \"{sketch_path}\""
+
+def main(argv=None):
+    try:
+        if sys.stdout.encoding != 'utf-8':
+            sys.stdout.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
+
     parser = cli.ArgumentParser(description="Compile one of the framework firmwares and upload it to the board (Arduino Portenta H7 or Nicla Vision).")
     parser.add_argument("--target",
                         choices=["pil", "hil"],
@@ -127,7 +187,11 @@ def main():
     parser.add_argument("--arena_kb",
                         type=int,
                         default=None,
-                        help="Size of the tensor arena compiled into the sketch, in KB. Default: the sketch's own value for the board (4096 on the Portenta H7, in external SDRAM; 368 on the Nicla Vision, which only has its 512 KB of internal RAM).")
+                        help="Size of the tensor arena compiled into the sketch, in KB. Default: the sketch's own value for the board (4096 on the Portenta H7, in external SDRAM; 368 on the Nicla Vision, which only has its 512 KB of internal RAM). Required with --arena_memory internal.")
+    parser.add_argument("--arena_memory",
+                        choices=["default", "internal"],
+                        default="default",
+                        help="Where the PIL sketch keeps its tensor arena. 'default': where the board has it (external SDRAM on the Portenta H7, internal RAM on the Nicla Vision). 'internal': a static array in internal RAM on a board that has SDRAM, with the image buffer still in SDRAM; only with --target pil --board portenta, and it needs --arena_kb. The firmware announces the place (ARENA_MEMORY:SDRAM or ARENA_MEMORY:INTERNAL).")
     parser.add_argument("--image_buffer_bytes",
                         type=int,
                         default=None,
@@ -135,15 +199,27 @@ def main():
     parser.add_argument("--compile_only",
                         action="store_true",
                         help="Compile and report the size without uploading; no board needs to be connected.")
+    parser.add_argument("--build_path",
+                        default=None,
+                        help="Folder for the files of the build (arduino-cli --build-path); the upload then takes the binary from it. Default: the folder arduino-cli keeps for the sketch. On Windows give a short path: the files of the libraries go some 130 characters deep into it, and the compiler does not open a path longer than 260.")
     parser.add_argument("--sketch_path",
                         default=None,
                         help="Path to an arbitrary Arduino sketch folder, as an alternative to --target.")
     # Former name of --sketch_path: still accepted, not listed in --help.
     parser.add_argument("--path_proyecto", dest="sketch_path", help=argparse.SUPPRESS)
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     board = boards.BOARDS[args.board]
     sketch_path = resolve_sketch(parser, args.target, args.sketch_path)
+    # The two sizes and the place of the arena are macros of the sketch (see
+    # its BOARD SUPPORT block). Worked out before arduino-cli is run: an option
+    # that means nothing for this board or sketch stops here.
+    try:
+        defines = sketch_defines(args.board, None if args.sketch_path else args.target,
+                                 args.arena_kb, args.image_buffer_bytes, args.arena_memory)
+    except ValueError as problem:
+        parser.error(str(problem))
+    build_path = os.path.abspath(args.build_path) if args.build_path else None
 
     if not os.path.exists(sketch_path):
         print(f" The specified project path does not exist: {sketch_path}")
@@ -159,16 +235,7 @@ def main():
             sys.exit(1)
 
     print(f"\n=== 1. Compiling project at: {sketch_path} ({board['label']}) ===")
-    cmd_compile = f"arduino-cli compile --fqbn {board['fqbn']} --warnings none"
-    # Both sizes are macros of the sketch (see its BOARD SUPPORT block).
-    defines = []
-    if args.arena_kb is not None:
-        defines.append(f"-DTENSOR_ARENA_KB={args.arena_kb}")
-    if args.image_buffer_bytes is not None:
-        defines.append(f"-DIMAGE_BUFFER_BYTES={args.image_buffer_bytes}")
-    if defines:
-        cmd_compile += f" --build-property \"compiler.cpp.extra_flags={' '.join(defines)}\""
-    cmd_compile += f" \"{sketch_path}\""
+    cmd_compile = compile_command(board['fqbn'], sketch_path, defines, build_path)
     print(f"> {cmd_compile}")
     success, output = run_command(cmd_compile)
     if not success:
@@ -184,7 +251,7 @@ def main():
 
     print("\n=== 2. Uploading to the board ===")
     print("NOTE: Make sure the board is in Bootloader mode (blinking green) if you have upload problems.")
-    cmd_upload = f"arduino-cli upload -p {port} --fqbn {board['fqbn']} \"{sketch_path}\""
+    cmd_upload = upload_command(port, board['fqbn'], sketch_path, build_path)
     print(f"> {cmd_upload}")
     success, _ = run_command(cmd_upload)
     if not success:
