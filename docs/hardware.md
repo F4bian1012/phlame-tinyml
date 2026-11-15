@@ -83,6 +83,19 @@ residual `Add` in ResNet18, `Concatenation` in SqueezeNet's fire modules), and
 trades a larger firmware binary (all kernels linked, not just the ones the
 loaded model needs) for that flexibility — see the flash budget in the [README](../README.md#hardware-details).
 
+**Kernels on the chip.** The TFLite-Micro library the sketches build with (`Chirale_TensorFlowLite` 2.0.0) carries
+the CMSIS-NN versions (CMSIS-NN V.11.0.0) of `ADD`, `CONV_2D`, `DEPTHWISE_CONV_2D`, `FULLY_CONNECTED`, `MUL`, the
+pooling operators, `SOFTMAX` and `SVDF`, and no reference version of them, so those are the kernels both boards run
+for these operators. The sketches are built for `-mcpu=cortex-m7`, for which CMSIS-NN enables its DSP code paths
+(`ARM_MATH_DSP`), and the linker map of the firmware holds `arm_convolve_wrapper_s8`,
+`arm_depthwise_conv_wrapper_s8`, `arm_fully_connected_s8`, `arm_elementwise_add_s8`, `arm_elementwise_mul_s8`,
+`arm_avgpool_s8`, `arm_max_pool_s8` and `arm_softmax_s8`. Every other operator (hard-swish, mean, pad,
+concatenation and the rest) runs the TFLite-Micro reference kernel. Which CMSIS-NN variant each layer takes at run
+time was not traced. The CMSIS-NN headers describe these kernels as bit-accurate with TensorFlow Lite Micro. The
+PIL runs of the COCO benchmark put that to the test on hardware, against the reference kernels of TFLite on the PC:
+the predictions are the same for 4,975 to 4,999 of 5,000 images in four models and for 4,754 in `MobileNetV3Small`
+(see [Results](../README.md#results), section 1).
+
 ## Upload Troubleshooting
 
 **`Last page at 0x08... is not writeable`.** `arduino-cli upload`
