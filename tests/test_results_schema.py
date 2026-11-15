@@ -25,20 +25,15 @@ DYNAMIC_CHILDREN = {
     "per_class_metrics": "<CLASS>",
     "prediction_counts": "<CLASS>",
 }
-# Keys the PIL bench writes that no published file carries yet: it gained them in
-# November 2026 and no PIL run has been measured with them since. They are
-# documented from what the bench writes, which tests/test_pil_session.py checks
-# against a simulated board. When a published file has one of them it must leave
-# this list: the last test of this file fails until it does. The keys the HIL
-# bench gained at the same time (the state of the session, the kernels of the
-# PC-side SIL, the stimulus monitor and the 'software' block with the versions
-# behind a result) left these lists with the COCO HIL sessions of 2026-11-15.
+# Keys a bench writes that no published file carries yet. A key documented from
+# what a bench writes (which tests/test_hil_session.py and tests/test_pil_session.py
+# check against a simulated board) goes in one of these lists until a published
+# file has it; then it must leave the list: the last test of this file fails until
+# it does. The lists are empty since 2026-11-15: the keys the HIL bench gained in
+# November were published with the COCO HIL sessions, and those of the PIL bench
+# with the runs of results/experiments/.
 NOT_YET_PUBLISHED_METRICS = set()                                                        # HIL
-NOT_YET_PUBLISHED_PIL_METRICS = {"run.stopped_because", "run.input_shape_verified",
-                                 "run.max_unanswered", "dataset.n_images_planned", "model.arena_used_bytes"}
-NOT_YET_PUBLISHED_PIL_METRICS |= {"model.arena_memory"}    # the ARENA_MEMORY line of the PIL sketch
-# 'software.pillow' is the one key of the 'software' block that only the PIL bench writes.
-NOT_YET_PUBLISHED_PIL_METRICS |= {"software.pillow"}
+NOT_YET_PUBLISHED_PIL_METRICS = set()
 NOT_YET_PUBLISHED_CONDITIONS = set()
 METRICS_HEADING = re.compile(r"^## .*`metrics_\*\.json`")
 CONDITIONS_HEADING = re.compile(r"^## .*`conditions_\*\.json`")

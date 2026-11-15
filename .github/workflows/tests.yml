@@ -88,3 +88,5 @@ jobs:
         run: |
           python src/build_ladder_tables.py --benchmark vehicle --output_dir results/smoke_test/ci/tables
           python tests/tables_check.py results/tables results/smoke_test/ci/tables
+          python src/build_ladder_tables.py --output_dir results/smoke_test/ci/tables_coco
+          python tests/tables_check.py results/tables/coco results/smoke_test/ci/tables_coco

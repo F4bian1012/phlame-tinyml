@@ -54,6 +54,11 @@ DOI yet (see [Citation](README.md#citation)).
   `--trainable_backbone` for the MobileNets and `--batch_norm` for SqueezeNet.
 - `compare_results.py` says whether a reproduced run gives the published result: same model file, same metrics,
   same prediction for every image.
+- The benchmark has its fourth level: HIL sessions of the five models that fit, on the Portenta H7 and the 200
+  images of the HIL subset, four repeatability sessions of `MobileNetV2`, and the eight ladder tables in
+  `results/tables/coco/`, which a test and the CI now rebuild and compare. The rig report taken before the
+  sessions is in `results/hil/calibration/`. A first set of sessions, measured the same day before the camera
+  was aligned, was published and then withdrawn; it is in the history of the repository (commit 407a025).
 - `find_near_duplicates.py` and `independence_report.py` look for test images that show the same photo or scene
   as a training image and recompute the results without them; what they found on each published partition is in
   [`docs/data_independence.md`](docs/data_independence.md).
@@ -67,6 +72,10 @@ DOI yet (see [Citation](README.md#citation)).
   firmware announced (`run.board`). A bench stops when that is not the board given with `--board`.
 - `compile_upload_arduino.py` takes `--arena_kb`, `--image_buffer_bytes` and `--compile_only` (build and report
   the sizes without a board).
+- Why the Nicla Vision needs fewer cycles than the Portenta H7 for the same model was measured: with the tensor
+  arena in internal RAM (`--arena_memory internal`) the Portenta H7 runs `MobileNet` within 0.2% of the cycles
+  of the Nicla Vision; the external SDRAM costs about 18% of the inference time of that model
+  (`results/experiments/`).
 - The firmware comments and serial messages are in English. The benches still accept the end-of-inference
   banners of the earlier builds, so a board does not have to be reflashed.
 

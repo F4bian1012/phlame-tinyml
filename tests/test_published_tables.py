@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Checks that the tables in results/tables/ are what src/build_ladder_tables.py
-builds from the result files in git, and that the bootstrap is reproducible.
-Those tables are the ones of the vehicle benchmark, which the script builds
-with --benchmark vehicle (without options it builds the COCO benchmark, into
-results/tables/coco/; tests/test_ladder_benchmarks.py checks which is which).
+Checks that the published tables are what src/build_ladder_tables.py builds
+from the result files in git, and that the bootstrap is reproducible. There
+are two sets: those of the COCO benchmark in results/tables/coco/, which the
+script builds without options, and those of the vehicle benchmark in
+results/tables/, which it builds with --benchmark vehicle
+(tests/test_ladder_benchmarks.py checks which is which).
 
   - A rebuild of the vehicle benchmark gives the published tables: the eight
     CSV files, the LaTeX and the Markdown files and the summary, leaving out
@@ -43,9 +44,9 @@ BENCHMARK = ("--benchmark", "vehicle")   # the one option that names the benchma
 READY = all(importlib.util.find_spec(name) for name in ("numpy", "scipy"))
 
 
-def rebuild(out_dir, *options):
+def rebuild(out_dir, *options, benchmark=BENCHMARK):
     env = dict(os.environ, PYTHONIOENCODING="utf-8")
-    return subprocess.run([sys.executable, SCRIPT, *BENCHMARK, "--output_dir", str(out_dir), *options], cwd=REPO,
+    return subprocess.run([sys.executable, SCRIPT, *benchmark, "--output_dir", str(out_dir), *options], cwd=REPO,
                           env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8")
 
 
@@ -80,6 +81,42 @@ class RebuiltTablesTest(unittest.TestCase):
         self.assertGreater(len(published["inputs_sha256"]), 20)
         self.assertEqual(rebuilt["inputs_sha256"], published["inputs_sha256"])
         self.assertEqual(rebuilt["parameters"], published["parameters"])
+
+
+@unittest.skipUnless(READY, "build_ladder_tables.py needs numpy and scipy")
+class RebuiltCocoTablesTest(unittest.TestCase):
+    """The tables of the COCO benchmark, which the script builds without naming a benchmark."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.out = Path(cls.tmp.name) / "tables"
+        cls.rebuilt = rebuild(cls.out, benchmark=())
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def test_the_rebuild_gives_the_published_tables(self):
+        self.assertEqual(self.rebuilt.returncode, 0, self.rebuilt.stdout[-3000:])
+        found, _rounded = tables_check.differences(str(PUBLISHED / "coco"), str(self.out))
+        self.assertEqual(found, [], "\n".join(found[:20]))
+
+    def test_the_tables_were_built_from_the_result_files_in_git(self):
+        self.assertEqual(self.rebuilt.returncode, 0, self.rebuilt.stdout[-3000:])
+        with open(PUBLISHED / "coco" / "ladder_summary.json", encoding="utf-8") as fh:
+            published = json.load(fh)
+        with open(self.out / "ladder_summary.json", encoding="utf-8") as fh:
+            rebuilt = json.load(fh)
+        self.assertGreater(len(published["inputs_sha256"]), 20)
+        self.assertEqual(rebuilt["inputs_sha256"], published["inputs_sha256"])
+        self.assertEqual(rebuilt["parameters"], published["parameters"])
+
+    def test_they_have_the_repeatability_sessions(self):
+        rows = read_csv(PUBLISHED / "coco" / "table4_repeatability.csv")
+        self.assertEqual([row["run"] for row in rows], ["original", "rep1", "rep2", "rep3", "rep4"])
+        self.assertEqual([row["role"] for row in rows[1:]],
+                         ["strict replicate"] * 3 + ["presentation-order control"])
 
 
 @unittest.skipUnless(READY, "build_ladder_tables.py needs numpy and scipy")
