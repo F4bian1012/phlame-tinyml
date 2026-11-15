@@ -1,0 +1,1846 @@
+test_file,match_file,checked,note,found_by
+000000000285.png,000000354326.png,different,,detector
+000000000785.png,000000317832.png,different,,detector
+000000000872.png,000000056650.png,different,,detector
+000000000885.png,000000180131.png,different,,detector
+000000001353.png,000000174066.png,different,,detector
+000000001490.png,000000407319.png,different,,detector
+000000001532.png,000000142561.png,different,,detector
+000000001675.png,000000423742.png,different,,detector
+000000001761.png,000000030054.png,different,,detector
+000000001993.png,000000497826.png,different,,detector
+000000002153.png,000000188310.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000002473.png,000000393738.png,different,,detector
+000000002592.png,000000384750.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000002923.png,000000539775.png,different,,detector
+000000003501.png,000000184951.png,different,,detector
+000000003845.png,000000207205.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000004395.png,000000416320.png,different,,detector
+000000004495.png,000000530038.png,different,,detector
+000000004765.png,000000453689.png,different,,detector
+000000004795.png,000000183537.png,different,,detector
+000000005037.png,000000282097.png,different,,detector
+000000005193.png,000000092206.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000005586.png,000000220234.png,different,,detector
+000000005600.png,000000184713.png,different,,detector
+000000006213.png,000000554749.png,different,another bathroom with the same fittings,detector
+000000006471.png,000000539967.png,different,,detector
+000000006723.png,000000170194.png,different,,detector
+000000006818.png,000000038630.png,different,,detector
+000000007088.png,000000412384.png,same_scene,"same child with an umbrella by the same bush, another instant",detector
+000000007108.png,000000077014.png,different,,detector
+000000007278.png,000000312078.png,different,,detector
+000000007386.png,000000281800.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000007511.png,000000572477.png,different,,detector
+000000007784.png,000000397759.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000007818.png,000000233121.png,different,,detector
+000000007991.png,000000022461.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000008532.png,000000257657.png,different,,detector
+000000008762.png,000000392493.png,different,,detector
+000000009891.png,000000326510.png,same_scene,"same person loading the same car in the same car park, another instant",detector
+000000010977.png,000000343749.png,different,,detector
+000000010995.png,000000411654.png,different,,detector
+000000011051.png,000000341857.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000011122.png,000000480087.png,different,,detector
+000000012639.png,000000166489.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000012667.png,000000378644.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000013004.png,000000332069.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000013597.png,000000208690.png,different,,detector
+000000013774.png,000000307670.png,different,,detector
+000000014007.png,000000206257.png,different,,detector
+000000014380.png,000000012664.png,different,,detector
+000000014831.png,000000464895.png,different,,detector
+000000015335.png,000000052847.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000015497.png,000000173832.png,same_scene,"same cat and computer mouse on the same dark cloth, another instant and framing",detector
+000000015517.png,000000328111.png,different,,detector
+000000015597.png,000000329640.png,different,,detector
+000000015751.png,000000061588.png,different,,detector
+000000016010.png,000000412406.png,different,,detector
+000000016249.png,000000477042.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000016439.png,000000101719.png,different,,detector
+000000016502.png,000000420958.png,different,,detector
+000000016598.png,000000223857.png,different,same person in front of the same mirror on another day (other hair colour and clothes),"random sample (not flagged, fewer than 15 inliers)"
+000000017029.png,000000266246.png,different,,detector
+000000017379.png,000000428773.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000017436.png,000000247050.png,different,,detector
+000000017714.png,000000280687.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000017959.png,000000234643.png,different,,detector
+000000018193.png,000000516856.png,different,,detector
+000000018519.png,000000434067.png,different,,detector
+000000018737.png,000000024221.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000018833.png,000000163394.png,different,,detector
+000000019742.png,000000140167.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000019924.png,000000169547.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000020059.png,000000387669.png,different,,detector
+000000020333.png,000000119502.png,same_photo,the same photograph of a child; one copy has the background turned to grey,detector
+000000021503.png,000000248878.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000022192.png,000000342126.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000022623.png,000000088983.png,different,,detector
+000000022892.png,000000571544.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000022969.png,000000269621.png,different,,detector
+000000023023.png,000000497167.png,different,,detector
+000000023272.png,000000554142.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000023359.png,000000013802.png,different,possibly the same jump and day; another rider and framing,detector
+000000023666.png,000000299371.png,different,,detector
+000000023751.png,000000492008.png,different,,detector
+000000023781.png,000000038083.png,same_scene,"same vegetables on the same table, framed slightly differently",detector
+000000024021.png,000000020849.png,different,,detector
+000000024027.png,000000265677.png,different,,detector
+000000024610.png,000000483130.png,different,,detector
+000000024919.png,000000134242.png,different,,detector
+000000025096.png,000000053184.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000025181.png,000000080203.png,different,,detector
+000000025228.png,000000468337.png,same_scene,"same person in a kayak at sunset, moments apart",detector
+000000025593.png,000000302538.png,different,,detector
+000000025986.png,000000475248.png,same_scene,"same table, bowls and plate of food, from another position","extra check (not flagged, 15 to 23 inliers)"
+000000026465.png,000000543183.png,different,,detector
+000000027186.png,000000496239.png,same_scene,"same child on the same sofa, another instant",detector
+000000028452.png,000000390627.png,different,,detector
+000000029393.png,000000484599.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000029640.png,000000144534.png,same_scene,"same pan of vegetables on the same cooker, framed differently",detector
+000000030675.png,000000396907.png,different,,detector
+000000030828.png,000000517795.png,different,,detector
+000000031217.png,000000564489.png,different,,detector
+000000031269.png,000000115071.png,different,,detector
+000000031749.png,000000474656.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000032038.png,000000013675.png,different,,detector
+000000032285.png,000000554523.png,different,,detector
+000000032570.png,000000506039.png,different,,detector
+000000032811.png,000000303178.png,different,,detector
+000000033005.png,000000351588.png,different,same broadcaster logo in the corner of both frames; another court view and player,detector
+000000033109.png,000000036448.png,different,,detector
+000000033114.png,000000196524.png,different,,detector
+000000033221.png,000000074156.png,different,,detector
+000000033368.png,000000159898.png,different,,detector
+000000033759.png,000000472329.png,different,,detector
+000000033854.png,000000116398.png,different,,detector
+000000034071.png,000000405740.png,different,,detector
+000000035197.png,000000361860.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000035326.png,000000074975.png,different,,detector
+000000036678.png,000000146111.png,different,same landmark (Palace of Westminster) in another photograph,detector
+000000036844.png,000000428698.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000037670.png,000000577107.png,different,,detector
+000000037689.png,000000083427.png,different,,detector
+000000037740.png,000000306466.png,different,,detector
+000000037751.png,000000559416.png,different,,detector
+000000037988.png,000000389638.png,different,,detector
+000000038048.png,000000265374.png,different,,detector
+000000038070.png,000000096328.png,different,,detector
+000000038118.png,000000132710.png,different,,detector
+000000038210.png,000000304548.png,different,,detector
+000000038576.png,000000287578.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000038825.png,000000180363.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000039484.png,000000119034.png,different,,detector
+000000039551.png,000000509255.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000039785.png,000000269786.png,same_scene,"same river wave from the same position, the surfer at another instant",detector
+000000039951.png,000000579060.png,different,same court and caption frame of one junior tournament; another player,detector
+000000040757.png,000000401313.png,different,,detector
+000000041488.png,000000431692.png,different,,detector
+000000041633.png,000000404424.png,different,,detector
+000000041635.png,000000334217.png,different,,detector
+000000041872.png,000000313585.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000041888.png,000000175584.png,different,,detector
+000000042070.png,000000203865.png,different,,detector
+000000042102.png,000000063114.png,same_scene,"same person in the same room, another pose",detector
+000000042178.png,000000085482.png,different,,detector
+000000042276.png,000000379350.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000042296.png,000000224907.png,same_scene,"same polar bear with the same balls in the same pool, another instant",detector
+000000042528.png,000000405068.png,different,,detector
+000000042563.png,000000242501.png,different,,detector
+000000042628.png,000000276693.png,different,,detector
+000000042889.png,000000570801.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000043314.png,000000208135.png,different,same printed frame and logos of one ski event; another skier and place,detector
+000000043737.png,000000397036.png,different,,detector
+000000044068.png,000000340699.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000044590.png,000000192579.png,different,,detector
+000000044699.png,000000110348.png,different,,detector
+000000045090.png,000000273586.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000045596.png,000000064270.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000047010.png,000000354303.png,different,,detector
+000000047121.png,000000196307.png,different,,detector
+000000048555.png,000000495789.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000049060.png,000000560325.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000049269.png,000000499451.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000049810.png,000000036523.png,different,,detector
+000000050006.png,000000469798.png,different,,detector
+000000050165.png,000000555307.png,different,,detector
+000000050679.png,000000295970.png,different,,detector
+000000050828.png,000000112622.png,different,,detector
+000000050943.png,000000547941.png,different,possibly the same surf break and day; another wave and framing,detector
+000000051008.png,000000190387.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000051309.png,000000067742.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000051314.png,000000158507.png,different,,detector
+000000051598.png,000000170885.png,different,,detector
+000000051712.png,000000063703.png,different,,detector
+000000051738.png,000000530187.png,different,,detector
+000000051976.png,000000385894.png,different,,detector
+000000052007.png,000000399998.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000053505.png,000000159392.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000054164.png,000000476864.png,different,,detector
+000000054592.png,000000458596.png,different,,detector
+000000054593.png,000000021029.png,different,,detector
+000000054967.png,000000086901.png,different,,detector
+000000055072.png,000000363494.png,different,,detector
+000000055299.png,000000416912.png,different,,detector
+000000055528.png,000000420120.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000056288.png,000000573825.png,different,,detector
+000000056344.png,000000374680.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000057149.png,000000154625.png,different,,detector
+000000057238.png,000000461221.png,different,,detector
+000000057597.png,000000573647.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000057725.png,000000159320.png,different,,detector
+000000057760.png,000000307569.png,different,,detector
+000000058029.png,000000082721.png,different,,detector
+000000058111.png,000000266379.png,different,,detector
+000000058350.png,000000550760.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000058384.png,000000301597.png,different,,detector
+000000058393.png,000000227736.png,different,,detector
+000000058636.png,000000427992.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000058655.png,000000456178.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000060363.png,000000166370.png,different,,detector
+000000060449.png,000000399275.png,different,,detector
+000000060855.png,000000461217.png,different,,detector
+000000060886.png,000000005064.png,different,,detector
+000000061171.png,000000290432.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000061268.png,000000565971.png,same_scene,"same level crossing, the train at another instant",detector
+000000061418.png,000000365170.png,different,,detector
+000000061584.png,000000120858.png,different,,detector
+000000061747.png,000000335318.png,different,,detector
+000000062692.png,000000067427.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000063047.png,000000345576.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000063552.png,000000196971.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000064359.png,000000387669.png,different,,detector
+000000064462.png,000000010142.png,different,,detector
+000000064523.png,000000370963.png,different,,detector
+000000064574.png,000000198761.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000065074.png,000000238154.png,different,,detector
+000000065798.png,000000278829.png,different,possibly the same stadium; another stand and game situation,detector
+000000066038.png,000000166751.png,different,,detector
+000000066635.png,000000465007.png,different,,detector
+000000066771.png,000000481702.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000067310.png,000000463306.png,different,,detector
+000000067315.png,000000350500.png,different,,detector
+000000067406.png,000000472444.png,different,,detector
+000000068286.png,000000044215.png,different,,detector
+000000068387.png,000000536312.png,different,,detector
+000000068765.png,000000134532.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000069224.png,000000361394.png,different,,detector
+000000071756.png,000000462773.png,different,,detector
+000000072813.png,000000045108.png,different,,detector
+000000073118.png,000000515773.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000073326.png,000000555156.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000074058.png,000000212856.png,different,,detector
+000000074200.png,000000240288.png,different,,detector
+000000074209.png,000000415218.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000074457.png,000000042406.png,different,,detector
+000000074646.png,000000166340.png,different,,detector
+000000074860.png,000000053177.png,different,,detector
+000000076211.png,000000466511.png,different,,detector
+000000076261.png,000000527526.png,different,,detector
+000000076417.png,000000178941.png,different,,detector
+000000076468.png,000000191949.png,same_scene,"same tennis match: same court, stands and spectators at another instant",detector
+000000076731.png,000000440810.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000078404.png,000000431136.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000078420.png,000000182213.png,different,,detector
+000000078426.png,000000574834.png,different,,detector
+000000078915.png,000000423773.png,different,,detector
+000000079031.png,000000429290.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000079188.png,000000442894.png,different,,detector
+000000079408.png,000000005635.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000079565.png,000000108627.png,different,,detector
+000000079588.png,000000384030.png,different,,detector
+000000079837.png,000000215474.png,different,,detector
+000000080022.png,000000395363.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000080273.png,000000036827.png,different,,detector
+000000080340.png,000000549297.png,same_scene,"same child with a suitcase on the same terrace, another instant",detector
+000000080659.png,000000277688.png,different,,detector
+000000080666.png,000000368676.png,different,,detector
+000000080671.png,000000285291.png,different,,detector
+000000081738.png,000000171453.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000081988.png,000000474858.png,different,,detector
+000000082180.png,000000424258.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000082688.png,000000152403.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000082696.png,000000121349.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000082986.png,000000256809.png,different,,detector
+000000083172.png,000000072312.png,same_scene,"same tennis court, banners and line judge from the same position; another player",detector
+000000084031.png,000000045626.png,same_scene,"same baseball game: same batter, catcher, umpire and stand at another instant, framed closer",detector
+000000084362.png,000000388312.png,different,,detector
+000000084477.png,000000253686.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000084650.png,000000312668.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000084752.png,000000405441.png,different,,detector
+000000085195.png,000000066468.png,different,,detector
+000000085329.png,000000216733.png,different,,detector
+000000085376.png,000000552721.png,different,,detector
+000000085576.png,000000013228.png,different,,detector
+000000085665.png,000000044478.png,different,,detector
+000000085911.png,000000238831.png,different,,detector
+000000086755.png,000000205559.png,different,,detector
+000000086956.png,000000457901.png,same_scene,"same three people in front of the same wall, another pose",detector
+000000087038.png,000000370602.png,different,,detector
+000000088040.png,000000181047.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000088250.png,000000127214.png,different,,detector
+000000088951.png,000000395281.png,different,,detector
+000000088970.png,000000065957.png,different,,detector
+000000089078.png,000000467285.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000089271.png,000000548141.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000089296.png,000000350663.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000089697.png,000000076893.png,different,,detector
+000000089880.png,000000449981.png,different,,detector
+000000090003.png,000000524263.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000090062.png,000000471654.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000090155.png,000000015876.png,different,,detector
+000000090208.png,000000237309.png,different,,detector
+000000091619.png,000000402809.png,different,,detector
+000000091654.png,000000032126.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000091921.png,000000318763.png,different,,detector
+000000092177.png,000000122117.png,different,,detector
+000000092416.png,000000140648.png,different,,detector
+000000093154.png,000000399252.png,different,,detector
+000000093261.png,000000507741.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000093353.png,000000003310.png,different,,detector
+000000094157.png,000000515728.png,different,,detector
+000000094336.png,000000447885.png,different,,detector
+000000094614.png,000000378118.png,different,,detector
+000000095069.png,000000185712.png,different,,detector
+000000095843.png,000000421735.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000095899.png,000000345658.png,different,,detector
+000000096001.png,000000041669.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000096427.png,000000400440.png,different,,detector
+000000096493.png,000000108360.png,different,,detector
+000000096825.png,000000553827.png,different,,detector
+000000097230.png,000000243135.png,different,,detector
+000000097278.png,000000104453.png,different,,detector
+000000097679.png,000000149974.png,different,,detector
+000000097994.png,000000086426.png,different,,detector
+000000098018.png,000000079689.png,different,,detector
+000000098287.png,000000483677.png,different,,detector
+000000098392.png,000000208585.png,different,,detector
+000000098497.png,000000113333.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000098520.png,000000564911.png,different,,detector
+000000098633.png,000000081012.png,different,,detector
+000000098839.png,000000304819.png,same_scene,"same cat in front of the same television, another instant",detector
+000000099024.png,000000114421.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000099242.png,000000502896.png,different,,detector
+000000099428.png,000000271068.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000100274.png,000000031948.png,different,,detector
+000000100489.png,000000512337.png,same_scene,"same bird on the same branch, moments apart","extra check (not flagged, 15 to 23 inliers)"
+000000100582.png,000000519683.png,same_scene,"same pizza, framed slightly differently",detector
+000000101022.png,000000426519.png,different,,detector
+000000101068.png,000000206596.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000101762.png,000000476967.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000101780.png,000000333290.png,same_scene,"same giraffes, rocks and fence of the same enclosure, framed differently",detector
+000000101787.png,000000168533.png,different,,detector
+000000102644.png,000000190234.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000102805.png,000000225108.png,different,,detector
+000000103585.png,000000147856.png,different,,detector
+000000103723.png,000000568979.png,different,,detector
+000000104198.png,000000543681.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000104603.png,000000482071.png,different,possibly the same animal and slope; another framing,detector
+000000104612.png,000000483330.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000104619.png,000000249817.png,different,,detector
+000000104669.png,000000221245.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000104803.png,000000294418.png,different,,detector
+000000105014.png,000000381782.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000105264.png,000000115680.png,different,,detector
+000000105455.png,000000259426.png,different,same clock tower from another position and on another day,detector
+000000106235.png,000000181155.png,different,,detector
+000000106389.png,000000222146.png,same_scene,"same room and orange chair, the cats at another instant",detector
+000000106563.png,000000134589.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000106757.png,000000266302.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000107087.png,000000242212.png,different,,detector
+000000107094.png,000000233904.png,different,,detector
+000000107851.png,000000522487.png,different,,detector
+000000108253.png,000000275657.png,different,,detector
+000000108440.png,000000145727.png,different,,detector
+000000108864.png,000000205451.png,different,,detector
+000000109313.png,000000384416.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000109441.png,000000225479.png,different,,detector
+000000109900.png,000000312825.png,different,,detector
+000000109976.png,000000495322.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000109992.png,000000134098.png,same_scene,"same snow slope and houses, the child at another instant",detector
+000000110042.png,000000564631.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000110282.png,000000102316.png,different,,detector
+000000110449.png,000000465613.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000110784.png,000000275843.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000110972.png,000000118748.png,different,,detector
+000000110999.png,000000351976.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000111179.png,000000106635.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000111207.png,000000352739.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000112626.png,000000206257.png,different,,detector
+000000113051.png,000000416266.png,different,,detector
+000000113720.png,000000042463.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000113867.png,000000521549.png,different,,detector
+000000114871.png,000000222994.png,different,,detector
+000000114884.png,000000307136.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000115118.png,000000209388.png,same_scene,"same container train on the same track, moments apart",detector
+000000115885.png,000000116126.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000115946.png,000000217156.png,different,,detector
+000000116068.png,000000089921.png,different,,detector
+000000116206.png,000000038190.png,different,,detector
+000000116362.png,000000536169.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000116825.png,000000569333.png,same_scene,"same cat on the same desk next to the same phone, another instant",detector
+000000117525.png,000000102030.png,different,,detector
+000000117645.png,000000423502.png,different,,detector
+000000117908.png,000000415571.png,different,,detector
+000000118209.png,000000094569.png,different,,detector
+000000118515.png,000000025239.png,different,,detector
+000000118921.png,000000180653.png,different,,detector
+000000119038.png,000000521321.png,different,,detector
+000000119445.png,000000271972.png,different,,detector
+000000119641.png,000000098721.png,different,,detector
+000000119828.png,000000209299.png,same_scene,"same cat in front of the same laptop, moments apart",detector
+000000120584.png,000000058651.png,different,,detector
+000000120777.png,000000086861.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000121673.png,000000176009.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000122217.png,000000191457.png,different,,detector
+000000122745.png,000000301300.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000122927.png,000000449701.png,different,,detector
+000000123131.png,000000503404.png,different,,detector
+000000123480.png,000000488240.png,same_scene,"same person in the same room, another instant",detector
+000000124277.png,000000422434.png,same_scene,"same elevated railway curve and train, moments apart",detector
+000000124442.png,000000566262.png,different,,detector
+000000125072.png,000000354546.png,different,,detector
+000000125257.png,000000454601.png,different,,detector
+000000125472.png,000000564304.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000125572.png,000000219225.png,different,,detector
+000000125952.png,000000505487.png,same_scene,"same suitcase against the same wall, from another side",detector
+000000126216.png,000000536198.png,different,,detector
+000000126592.png,000000465266.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000127263.png,000000188029.png,different,,detector
+000000127476.png,000000298827.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000127624.png,000000476324.png,different,,detector
+000000127955.png,000000530040.png,different,,detector
+000000128051.png,000000573485.png,different,,detector
+000000128112.png,000000372633.png,different,,detector
+000000128598.png,000000462080.png,different,,detector
+000000128654.png,000000217297.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000128675.png,000000041950.png,different,,detector
+000000129054.png,000000013150.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000129062.png,000000214648.png,same_scene,"same street front and parking meter, moments apart",detector
+000000129135.png,000000122039.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000129416.png,000000115632.png,different,,detector
+000000129492.png,000000028719.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000129756.png,000000323457.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000129812.png,000000539617.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000129945.png,000000513015.png,different,,detector
+000000130386.png,000000248834.png,different,,detector
+000000130465.png,000000017600.png,different,,detector
+000000130566.png,000000256367.png,same_scene,same railway curve from the same position; another train,detector
+000000130579.png,000000218158.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000130586.png,000000294229.png,different,,detector
+000000130826.png,000000230756.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000131131.png,000000304819.png,same_scene,"same cat in front of the same television, another instant",detector
+000000131386.png,000000194777.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000131431.png,000000166370.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000131556.png,000000517869.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000132116.png,000000508592.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000132408.png,000000447456.png,different,,detector
+000000132587.png,000000278095.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000132622.png,000000431146.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000132703.png,000000185258.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000133233.png,000000040783.png,different,,detector
+000000133778.png,000000479328.png,different,,detector
+000000133819.png,000000058174.png,same_scene,same street corner from the same position; another bus of the same operator,detector
+000000134322.png,000000084474.png,different,,detector
+000000134689.png,000000271964.png,different,,detector
+000000134722.png,000000288985.png,different,,detector
+000000134856.png,000000099751.png,different,,detector
+000000134882.png,000000385786.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000134886.png,000000069584.png,different,,detector
+000000135561.png,000000287335.png,different,,detector
+000000135673.png,000000202573.png,different,,detector
+000000135872.png,000000288589.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000135890.png,000000156556.png,different,,detector
+000000136334.png,000000177571.png,different,,detector
+000000137727.png,000000103255.png,different,,detector
+000000137950.png,000000008548.png,same_scene,"same aircraft over the same field; one copy in sepia, framed slightly differently",detector
+000000138115.png,000000362367.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000138241.png,000000048572.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000138819.png,000000164343.png,different,,detector
+000000138856.png,000000254925.png,different,,detector
+000000138954.png,000000234749.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000139684.png,000000152788.png,different,,detector
+000000139871.png,000000249441.png,different,,detector
+000000140270.png,000000260951.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000140439.png,000000388823.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000140556.png,000000080010.png,same_photo,the same photograph (three workers and a hydrant),detector
+000000140583.png,000000354853.png,different,,detector
+000000140658.png,000000334958.png,different,,detector
+000000140840.png,000000259858.png,different,,detector
+000000140929.png,000000036110.png,different,,detector
+000000141597.png,000000457035.png,different,,detector
+000000142472.png,000000522160.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000142585.png,000000299083.png,different,,detector
+000000143556.png,000000320523.png,different,,detector
+000000143998.png,000000568406.png,different,,detector
+000000144300.png,000000255279.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000144706.png,000000535899.png,different,,detector
+000000144784.png,000000133485.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000144798.png,000000575978.png,different,,detector
+000000144932.png,000000007116.png,different,,detector
+000000144984.png,000000503663.png,different,,detector
+000000145591.png,000000355088.png,different,,detector
+000000145665.png,000000314297.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000146363.png,000000187108.png,different,,detector
+000000146498.png,000000088332.png,different,,detector
+000000146831.png,000000568895.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000147498.png,000000253728.png,different,,detector
+000000147518.png,000000203492.png,different,,detector
+000000147725.png,000000171915.png,different,,detector
+000000147745.png,000000413275.png,different,,detector
+000000148662.png,000000338384.png,different,,detector
+000000148999.png,000000094978.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000149222.png,000000451279.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000149568.png,000000167973.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000150265.png,000000319798.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000150726.png,000000483656.png,different,,detector
+000000151000.png,000000164864.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000151051.png,000000570694.png,different,,detector
+000000151629.png,000000318733.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000151657.png,000000250588.png,different,,detector
+000000151820.png,000000285558.png,different,,detector
+000000151857.png,000000408501.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000151962.png,000000300476.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000152214.png,000000452359.png,same_scene,"same person in front of the same wall, another pose",detector
+000000152870.png,000000363494.png,different,,detector
+000000153510.png,000000524389.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000153632.png,000000197863.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000154000.png,000000020182.png,different,,detector
+000000154339.png,000000103778.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000154358.png,000000347558.png,different,,detector
+000000154425.png,000000200770.png,different,,detector
+000000154644.png,000000380475.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000154718.png,000000338367.png,different,,detector
+000000154947.png,000000356049.png,different,,detector
+000000155341.png,000000130908.png,different,,detector
+000000155443.png,000000123041.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000156372.png,000000114846.png,different,,detector
+000000157138.png,000000336088.png,different,,detector
+000000157390.png,000000520337.png,different,,detector
+000000157847.png,000000269142.png,different,,detector
+000000158744.png,000000361991.png,different,,detector
+000000158956.png,000000208793.png,different,,detector
+000000159399.png,000000341620.png,different,,detector
+000000159684.png,000000108680.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000159977.png,000000544856.png,different,,detector
+000000160556.png,000000096832.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000161008.png,000000371549.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000161044.png,000000444831.png,different,,detector
+000000161128.png,000000375811.png,different,,detector
+000000161781.png,000000200289.png,different,,detector
+000000161799.png,000000285498.png,different,,detector
+000000161875.png,000000045388.png,different,,detector
+000000162130.png,000000327388.png,different,,detector
+000000162543.png,000000306160.png,different,,detector
+000000163057.png,000000327695.png,different,,detector
+000000163117.png,000000027237.png,different,,detector
+000000163155.png,000000398489.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000163258.png,000000381595.png,different,,detector
+000000164363.png,000000143736.png,different,,detector
+000000164885.png,000000213457.png,different,same ski slope and day; another skier and the camera turned,"extra check (not flagged, 15 to 23 inliers)"
+000000165336.png,000000362785.png,different,,detector
+000000165500.png,000000528154.png,different,,detector
+000000165518.png,000000207703.png,different,,detector
+000000166165.png,000000086823.png,different,,detector
+000000166166.png,000000108293.png,different,,detector
+000000166259.png,000000046316.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000166287.png,000000463588.png,different,,detector
+000000166391.png,000000446861.png,same_scene,"same junction and traffic lights against the sky, moments apart",detector
+000000166478.png,000000078263.png,different,,detector
+000000166664.png,000000204589.png,different,,detector
+000000166768.png,000000227986.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000167067.png,000000448994.png,different,,detector
+000000167898.png,000000152209.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000168458.png,000000517253.png,different,,detector
+000000168619.png,000000528761.png,different,,detector
+000000168883.png,000000439765.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000168974.png,000000544615.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000169169.png,000000341062.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000170191.png,000000394133.png,different,,detector
+000000170545.png,000000564074.png,different,,detector
+000000170613.png,000000176785.png,different,,detector
+000000170893.png,000000011420.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000170955.png,000000535130.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000171190.png,000000104368.png,different,,detector
+000000172083.png,000000544026.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000172547.png,000000327491.png,different,,detector
+000000172856.png,000000532744.png,different,,detector
+000000172935.png,000000017766.png,different,,detector
+000000172946.png,000000545268.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000173004.png,000000288313.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000173033.png,000000218875.png,different,,detector
+000000173830.png,000000248242.png,different,,detector
+000000174123.png,000000238641.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000174371.png,000000336231.png,same_scene,"same group of girls looking at a phone, another instant",detector
+000000175364.png,000000382924.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000175387.png,000000388027.png,different,,detector
+000000176446.png,000000561635.png,different,,detector
+000000176701.png,000000068114.png,different,,detector
+000000176778.png,000000466058.png,different,,detector
+000000177539.png,000000421286.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000177714.png,000000221245.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000177861.png,000000055536.png,different,,detector
+000000177893.png,000000565746.png,different,,detector
+000000178618.png,000000501047.png,different,,detector
+000000179141.png,000000113246.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000179392.png,000000201918.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000180188.png,000000131978.png,different,,detector
+000000180560.png,000000169334.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000180751.png,000000506172.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000180792.png,000000105152.png,different,,detector
+000000181499.png,000000459164.png,different,,detector
+000000181542.png,000000322604.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000181753.png,000000445009.png,different,,detector
+000000182202.png,000000336369.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000182417.png,000000356654.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000182805.png,000000479573.png,different,,detector
+000000182923.png,000000346481.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000183127.png,000000301042.png,different,,detector
+000000183246.png,000000134032.png,different,,detector
+000000183391.png,000000306335.png,different,,detector
+000000183709.png,000000127100.png,different,,detector
+000000183965.png,000000205898.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000184321.png,000000008422.png,different,,detector
+000000184324.png,000000172000.png,different,,detector
+000000184400.png,000000319655.png,different,,detector
+000000184762.png,000000121237.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000185409.png,000000182240.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000185472.png,000000152247.png,different,,detector
+000000185599.png,000000036255.png,different,,detector
+000000185802.png,000000355370.png,different,,detector
+000000186042.png,000000394126.png,different,,detector
+000000186282.png,000000010476.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000186296.png,000000382710.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000186345.png,000000453582.png,different,,detector
+000000186873.png,000000106275.png,different,,detector
+000000187144.png,000000268023.png,different,,detector
+000000187271.png,000000575356.png,different,,detector
+000000187734.png,000000314092.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000188465.png,000000399790.png,different,,detector
+000000188689.png,000000498796.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000189078.png,000000093487.png,different,,detector
+000000189226.png,000000079905.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000189475.png,000000088913.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000189698.png,000000224522.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000189752.png,000000092861.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000189775.png,000000006216.png,different,,detector
+000000190007.png,000000417016.png,different,,detector
+000000190307.png,000000179421.png,different,,detector
+000000190637.png,000000101414.png,different,,detector
+000000190676.png,000000307873.png,different,,detector
+000000191471.png,000000567837.png,different,,detector
+000000191614.png,000000369499.png,different,,detector
+000000192716.png,000000418811.png,different,,detector
+000000193181.png,000000339108.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000193245.png,000000027237.png,different,,detector
+000000193674.png,000000533315.png,different,,detector
+000000193717.png,000000238065.png,different,,detector
+000000193743.png,000000241643.png,different,,detector
+000000194716.png,000000035160.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000194940.png,000000275708.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000195918.png,000000432522.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000196141.png,000000291680.png,different,,detector
+000000196754.png,000000355777.png,different,,detector
+000000197658.png,000000067200.png,different,,detector
+000000198510.png,000000229150.png,different,,detector
+000000198641.png,000000086426.png,different,,detector
+000000198915.png,000000064303.png,different,,detector
+000000198928.png,000000551900.png,different,,detector
+000000199395.png,000000115743.png,different,,detector
+000000199442.png,000000327499.png,different,,detector
+000000199551.png,000000367535.png,different,,detector
+000000199681.png,000000358236.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000201025.png,000000242096.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000201148.png,000000057068.png,different,,detector
+000000201646.png,000000190595.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000201775.png,000000256877.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000202001.png,000000180014.png,different,,detector
+000000202228.png,000000441196.png,different,,detector
+000000202445.png,000000045108.png,different,,detector
+000000203317.png,000000177467.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000203629.png,000000210472.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000203864.png,000000529624.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000204329.png,000000012434.png,different,,detector
+000000205105.png,000000540681.png,different,,detector
+000000205282.png,000000428858.png,different,,detector
+000000205289.png,000000502064.png,different,,detector
+000000205333.png,000000298242.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000205401.png,000000331594.png,different,,detector
+000000205542.png,000000083476.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000205776.png,000000018000.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000206025.png,000000188623.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000206135.png,000000024778.png,different,,detector
+000000206271.png,000000457188.png,different,,detector
+000000206411.png,000000455103.png,different,,detector
+000000206579.png,000000429593.png,different,,detector
+000000208423.png,000000244549.png,different,,detector
+000000208901.png,000000012138.png,different,,detector
+000000209530.png,000000475488.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000209753.png,000000241490.png,different,,detector
+000000209829.png,000000258399.png,different,,detector
+000000209972.png,000000366135.png,different,,detector
+000000210099.png,000000488980.png,different,,detector
+000000210394.png,000000326143.png,different,,detector
+000000210708.png,000000185837.png,same_scene,"same elephants bathing, another instant",detector
+000000210789.png,000000021400.png,different,,detector
+000000210855.png,000000058329.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000210915.png,000000292187.png,different,,detector
+000000211674.png,000000548159.png,different,,detector
+000000212072.png,000000212782.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000212166.png,000000042667.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000212226.png,000000444805.png,different,,detector
+000000212559.png,000000056971.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000212895.png,000000244418.png,different,,detector
+000000213033.png,000000377949.png,different,,detector
+000000213035.png,000000019967.png,different,,detector
+000000213171.png,000000479866.png,different,,detector
+000000213445.png,000000109296.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000213547.png,000000134386.png,same_scene,"same shop, mechanical horse and cake with candles, moments apart",detector
+000000213605.png,000000329188.png,different,,detector
+000000213816.png,000000063855.png,same_scene,"same open train door, framed slightly differently",detector
+000000213935.png,000000363574.png,different,,detector
+000000214192.png,000000534662.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000214200.png,000000482625.png,different,,detector
+000000215245.png,000000381282.png,different,,detector
+000000215644.png,000000321242.png,same_scene,"same kitchen and microwave oven, framed slightly differently",detector
+000000216296.png,000000001407.png,different,,detector
+000000216497.png,000000198312.png,different,,detector
+000000216516.png,000000271490.png,different,,detector
+000000216739.png,000000041713.png,different,,detector
+000000217219.png,000000197880.png,different,,detector
+000000217614.png,000000263520.png,same_scene,"same young giraffe in the same grove, moments apart",detector
+000000217872.png,000000561512.png,same_scene,probably the same snow ridge from the same position; another jump,detector
+000000217948.png,000000303388.png,different,,detector
+000000218091.png,000000404981.png,different,,detector
+000000219271.png,000000420958.png,different,,detector
+000000219440.png,000000504289.png,different,,detector
+000000220858.png,000000091371.png,different,,detector
+000000221213.png,000000323758.png,same_scene,"same rail yard and wagons, from another position",detector
+000000221281.png,000000306365.png,different,,detector
+000000221291.png,000000068609.png,different,,detector
+000000221754.png,000000147192.png,different,,detector
+000000222094.png,000000133137.png,different,,detector
+000000222118.png,000000008771.png,different,,detector
+000000222458.png,000000012434.png,different,,detector
+000000222825.png,000000161486.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000222991.png,000000577107.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000223130.png,000000516634.png,different,,detector
+000000223738.png,000000557811.png,different,,detector
+000000223747.png,000000521348.png,different,,detector
+000000223955.png,000000422211.png,different,,detector
+000000223959.png,000000084867.png,different,,detector
+000000224051.png,000000240625.png,different,,detector
+000000224093.png,000000190806.png,different,,detector
+000000224119.png,000000409323.png,different,,detector
+000000224664.png,000000570360.png,different,,detector
+000000224675.png,000000291126.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000225532.png,000000188805.png,different,,detector
+000000225946.png,000000406097.png,different,,detector
+000000226058.png,000000366373.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000226154.png,000000142774.png,same_scene,"same bus on the same road, moments apart",detector
+000000226171.png,000000567552.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000226802.png,000000217156.png,different,,detector
+000000226903.png,000000415218.png,different,,detector
+000000227044.png,000000229740.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000227187.png,000000201756.png,same_scene,"same bird table with bananas, another instant",detector
+000000227399.png,000000483751.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000227511.png,000000074099.png,different,,detector
+000000227686.png,000000441213.png,different,,detector
+000000227765.png,000000204288.png,different,,detector
+000000227985.png,000000246706.png,different,,detector
+000000228942.png,000000362944.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000229216.png,000000328918.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000229221.png,000000573762.png,different,,detector
+000000229601.png,000000063307.png,different,,detector
+000000229747.png,000000192788.png,different,,detector
+000000229753.png,000000041713.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000230362.png,000000020395.png,different,,detector
+000000231088.png,000000560898.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000231097.png,000000314125.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000231237.png,000000421401.png,same_scene,"same vase of flowers on the same floor, framed slightly differently","extra check (not flagged, 15 to 23 inliers)"
+000000231831.png,000000451744.png,different,,detector
+000000232088.png,000000493652.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000232489.png,000000024547.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000232646.png,000000187108.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000232649.png,000000167477.png,different,,detector
+000000232684.png,000000375875.png,different,,detector
+000000232692.png,000000496253.png,different,,detector
+000000233370.png,000000113114.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000233567.png,000000379966.png,different,,detector
+000000234413.png,000000082530.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000234757.png,000000551608.png,different,,detector
+000000234779.png,000000209808.png,same_scene,"same sandwiches on the same plates, framed slightly differently",detector
+000000235057.png,000000409098.png,same_scene,"same giraffe drinking at the same pond, moments apart",detector
+000000235252.png,000000256809.png,different,,detector
+000000236166.png,000000096365.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000236426.png,000000128482.png,different,,detector
+000000236592.png,000000337095.png,different,,detector
+000000236599.png,000000539775.png,different,,detector
+000000236784.png,000000406976.png,same_scene,"same dogs on the same sofa, another instant",detector
+000000237071.png,000000560902.png,same_scene,"same tennis player, shirt and court fence at the same instant or a moment apart, framed closer",detector
+000000237118.png,000000444362.png,different,,detector
+000000237864.png,000000101959.png,different,,detector
+000000238039.png,000000181065.png,different,,detector
+000000239318.png,000000155177.png,different,,detector
+000000240250.png,000000517306.png,different,,detector
+000000240767.png,000000353288.png,different,,detector
+000000241297.png,000000102923.png,different,,detector
+000000242678.png,000000513703.png,different,,detector
+000000243075.png,000000506198.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000243204.png,000000091576.png,different,,detector
+000000243867.png,000000183123.png,different,,detector
+000000244099.png,000000545107.png,different,,detector
+000000244379.png,000000315160.png,different,,detector
+000000244411.png,000000284536.png,different,,detector
+000000245026.png,000000384981.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000245173.png,000000292181.png,different,,detector
+000000245320.png,000000002686.png,different,,detector
+000000245651.png,000000447548.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000245764.png,000000411685.png,same_scene,"same cat on the same toilet, another instant",detector
+000000245915.png,000000449307.png,different,,detector
+000000246522.png,000000173644.png,different,,detector
+000000246883.png,000000071988.png,different,,detector
+000000246963.png,000000104621.png,different,,detector
+000000247806.png,000000344402.png,different,,detector
+000000247917.png,000000221505.png,different,,detector
+000000248111.png,000000055544.png,same_scene,"same empty kitchen, framed slightly differently",detector
+000000248112.png,000000414868.png,different,,detector
+000000248314.png,000000164103.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000248334.png,000000134503.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000248980.png,000000179696.png,different,,detector
+000000249643.png,000000494768.png,different,,detector
+000000249786.png,000000288442.png,different,,detector
+000000250205.png,000000070856.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000250758.png,000000079501.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000251065.png,000000572985.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000251537.png,000000390322.png,different,,detector
+000000252332.png,000000402313.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000252507.png,000000342183.png,different,,detector
+000000252716.png,000000487781.png,different,,detector
+000000253835.png,000000487835.png,different,,detector
+000000254016.png,000000383949.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000254368.png,000000171762.png,same_scene,"same person on the same bed, another instant",detector
+000000255165.png,000000442197.png,different,,detector
+000000255536.png,000000051278.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000255749.png,000000388935.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000255824.png,000000008718.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000255917.png,000000043912.png,different,,detector
+000000256407.png,000000036324.png,different,,detector
+000000256518.png,000000035269.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000256775.png,000000248797.png,different,,detector
+000000256941.png,000000438864.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000257084.png,000000506126.png,different,,detector
+000000257624.png,000000561746.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000257865.png,000000030403.png,different,,detector
+000000257896.png,000000354391.png,different,,detector
+000000258541.png,000000080619.png,different,,detector
+000000258793.png,000000073650.png,different,,detector
+000000259097.png,000000488132.png,different,,detector
+000000259382.png,000000398290.png,different,,detector
+000000259854.png,000000376187.png,different,,detector
+000000260105.png,000000356654.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000260266.png,000000248771.png,different,,detector
+000000260657.png,000000232148.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000261097.png,000000010591.png,same_scene,"same tennis match: same court, banner and stand at another instant",detector
+000000261116.png,000000075910.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000261888.png,000000052094.png,different,,detector
+000000262048.png,000000187108.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000262227.png,000000375500.png,different,,detector
+000000262682.png,000000280787.png,different,,detector
+000000263299.png,000000413779.png,different,,detector
+000000263403.png,000000072573.png,different,,detector
+000000263463.png,000000428149.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000263796.png,000000534247.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000263966.png,000000395498.png,different,,detector
+000000263969.png,000000459721.png,same_scene,"same couple cutting the same cake, another instant",detector
+000000264441.png,000000004282.png,different,,detector
+000000265816.png,000000418085.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000266082.png,000000139586.png,different,,detector
+000000266409.png,000000254164.png,different,,detector
+000000266892.png,000000496152.png,same_scene,"same tennis match: same grass court, stand and player at another instant",detector
+000000266981.png,000000571384.png,different,,detector
+000000267670.png,000000271206.png,different,,detector
+000000267940.png,000000515072.png,different,,detector
+000000268996.png,000000577748.png,different,,detector
+000000269121.png,000000070566.png,different,,detector
+000000269314.png,000000280740.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000269316.png,000000072947.png,different,,detector
+000000269682.png,000000070261.png,different,,detector
+000000269942.png,000000434850.png,same_scene,"same traffic light and road, moments apart (the light changed)",detector
+000000270297.png,000000505542.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000270908.png,000000485897.png,different,,detector
+000000271402.png,000000516505.png,different,,detector
+000000271457.png,000000240436.png,different,,detector
+000000271471.png,000000051795.png,different,,detector
+000000272148.png,000000454131.png,different,,detector
+000000272212.png,000000152731.png,different,,detector
+000000272416.png,000000044604.png,different,,detector
+000000273493.png,000000408187.png,different,,detector
+000000273617.png,000000010540.png,different,,detector
+000000273712.png,000000407970.png,same_scene,"same refrigerator in the same room, framed slightly differently",detector
+000000273760.png,000000056509.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000274066.png,000000507211.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000274219.png,000000124736.png,different,,detector
+000000274411.png,000000494617.png,different,,detector
+000000274687.png,000000029711.png,different,,detector
+000000274708.png,000000086912.png,different,,detector
+000000275392.png,000000481665.png,different,,detector
+000000276720.png,000000562217.png,different,,detector
+000000276804.png,000000387480.png,different,,detector
+000000277005.png,000000363917.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000278705.png,000000189260.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000278848.png,000000571384.png,different,,detector
+000000278973.png,000000518894.png,different,,detector
+000000279145.png,000000470473.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000279278.png,000000537673.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000279714.png,000000546708.png,different,,detector
+000000279769.png,000000146813.png,different,,detector
+000000280325.png,000000048682.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000280710.png,000000576650.png,different,,detector
+000000280779.png,000000482441.png,different,,detector
+000000280918.png,000000233526.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000281409.png,000000561386.png,same_scene,"same baseball game: same batter, catcher, umpire and spectators at another instant",detector
+000000281687.png,000000509547.png,different,,detector
+000000281693.png,000000055092.png,different,,detector
+000000282046.png,000000366135.png,different,,detector
+000000282296.png,000000456737.png,different,,detector
+000000283070.png,000000203618.png,different,,detector
+000000283412.png,000000460783.png,different,,detector
+000000283520.png,000000152963.png,different,,detector
+000000284106.png,000000263138.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000284623.png,000000072704.png,different,,detector
+000000284762.png,000000365301.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000285047.png,000000442225.png,different,,detector
+000000285788.png,000000553034.png,same_scene,"same giraffes in the same enclosure, another instant",detector
+000000285894.png,000000130339.png,different,,detector
+000000286503.png,000000083013.png,same_scene,"same elephant in the same enclosure, another instant",detector
+000000286507.png,000000279726.png,different,,detector
+000000286994.png,000000463588.png,different,,detector
+000000287667.png,000000237762.png,different,,detector
+000000287874.png,000000561967.png,different,,detector
+000000288042.png,000000297046.png,different,,detector
+000000288062.png,000000212239.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000288762.png,000000563816.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000289229.png,000000376059.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000289702.png,000000275374.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000289960.png,000000057424.png,different,,detector
+000000290081.png,000000275700.png,different,,detector
+000000290163.png,000000283624.png,different,,detector
+000000290179.png,000000334675.png,different,,detector
+000000290619.png,000000513351.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000290768.png,000000571513.png,different,,detector
+000000290843.png,000000401515.png,different,,detector
+000000291619.png,000000330932.png,different,,detector
+000000292060.png,000000531552.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000292225.png,000000198477.png,different,,detector
+000000292330.png,000000518782.png,different,,detector
+000000292415.png,000000161970.png,different,,detector
+000000292997.png,000000198558.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000293044.png,000000288723.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000293300.png,000000502419.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000293474.png,000000522273.png,different,,detector
+000000293804.png,000000055527.png,different,,detector
+000000294162.png,000000563696.png,different,,detector
+000000294350.png,000000455874.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000294695.png,000000551900.png,different,,detector
+000000295138.png,000000402650.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000295420.png,000000329148.png,different,,detector
+000000295809.png,000000556666.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000296634.png,000000282669.png,different,,detector
+000000296969.png,000000487095.png,different,,detector
+000000297022.png,000000138730.png,different,,detector
+000000297343.png,000000405104.png,different,,detector
+000000297595.png,000000123797.png,different,,detector
+000000298697.png,000000364814.png,different,,detector
+000000298738.png,000000422887.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000299355.png,000000360525.png,different,,detector
+000000299553.png,000000285808.png,different,,detector
+000000299609.png,000000345406.png,different,,detector
+000000299887.png,000000526769.png,different,,detector
+000000300842.png,000000564166.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000301061.png,000000469080.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000301135.png,000000172543.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000301563.png,000000411686.png,different,,detector
+000000301718.png,000000461908.png,different,,detector
+000000302760.png,000000097017.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000303713.png,000000269346.png,same_scene,"same tennis match: same stand, spectators and banners; the other player",detector
+000000303908.png,000000243967.png,different,,detector
+000000304180.png,000000385196.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000304365.png,000000369504.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000304404.png,000000297522.png,same_scene,same baseball game: same batter and dugout at another instant,detector
+000000304560.png,000000486536.png,different,,detector
+000000304812.png,000000230708.png,different,,detector
+000000304817.png,000000187108.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000305317.png,000000320434.png,different,,detector
+000000305609.png,000000027776.png,different,,detector
+000000306139.png,000000096500.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000307074.png,000000305385.png,different,,detector
+000000307598.png,000000503807.png,different,,detector
+000000307658.png,000000238602.png,different,,detector
+000000308193.png,000000490012.png,different,,detector
+000000308391.png,000000567437.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000308430.png,000000022861.png,different,,detector
+000000308476.png,000000419228.png,different,,detector
+000000308531.png,000000149464.png,different,,detector
+000000308587.png,000000125552.png,different,,detector
+000000308753.png,000000195992.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000309173.png,000000105291.png,different,,detector
+000000309467.png,000000420775.png,different,,detector
+000000310072.png,000000161823.png,different,,detector
+000000310980.png,000000333899.png,different,,detector
+000000311180.png,000000575756.png,different,,detector
+000000311190.png,000000490284.png,different,,detector
+000000311295.png,000000495348.png,same_scene,"same plain, trees and animals, moments apart",detector
+000000311394.png,000000501429.png,same_scene,"same baby with the same toothbrush, another instant","extra check (not flagged, 15 to 23 inliers)"
+000000311789.png,000000234599.png,different,,detector
+000000311883.png,000000265645.png,different,,detector
+000000312213.png,000000222145.png,different,,detector
+000000312263.png,000000238006.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000312340.png,000000375568.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000312489.png,000000474465.png,different,,detector
+000000312549.png,000000325668.png,different,,detector
+000000312552.png,000000550760.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000313034.png,000000497365.png,same_scene,"same two people in the same room, another instant","extra check (not flagged, 15 to 23 inliers)"
+000000313182.png,000000102056.png,different,,detector
+000000313454.png,000000048575.png,different,,detector
+000000313783.png,000000336174.png,different,,detector
+000000314264.png,000000363272.png,different,,detector
+000000314294.png,000000529360.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000314709.png,000000244334.png,different,,detector
+000000315001.png,000000212203.png,different,,detector
+000000315187.png,000000542582.png,different,,detector
+000000315450.png,000000269888.png,different,,detector
+000000316015.png,000000386540.png,different,,detector
+000000316054.png,000000456656.png,different,,detector
+000000317024.png,000000251816.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000317999.png,000000012472.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000318080.png,000000102057.png,different,,detector
+000000318114.png,000000235575.png,different,,detector
+000000318238.png,000000133295.png,different,,detector
+000000318908.png,000000066976.png,different,,detector
+000000319617.png,000000139734.png,different,,detector
+000000319721.png,000000363331.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000320232.png,000000187569.png,different,,detector
+000000320490.png,000000457616.png,same_scene,"same child batting in the same cage, another instant",detector
+000000320696.png,000000517313.png,different,,detector
+000000321118.png,000000565303.png,different,,detector
+000000321790.png,000000575164.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000322574.png,000000244940.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000322864.png,000000351053.png,same_scene,"same posters on the same pole and street, framed slightly differently",detector
+000000322895.png,000000524822.png,different,,detector
+000000322959.png,000000214388.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000323202.png,000000159133.png,different,,detector
+000000323571.png,000000073527.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000323709.png,000000333363.png,different,,detector
+000000323895.png,000000273069.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000324614.png,000000159061.png,different,,detector
+000000324715.png,000000415889.png,different,,detector
+000000325114.png,000000223122.png,different,,detector
+000000326541.png,000000543231.png,different,,detector
+000000326542.png,000000405365.png,different,,detector
+000000326627.png,000000454329.png,different,,detector
+000000327306.png,000000269045.png,different,,detector
+000000327701.png,000000359403.png,different,,detector
+000000328337.png,000000023392.png,different,,detector
+000000328683.png,000000520964.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000329614.png,000000486304.png,different,,detector
+000000329827.png,000000177571.png,different,,detector
+000000330396.png,000000474858.png,different,,detector
+000000330554.png,000000105520.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000331075.png,000000401308.png,different,,detector
+000000331280.png,000000224379.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000331317.png,000000236767.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000331352.png,000000176849.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000332318.png,000000286920.png,different,,detector
+000000332570.png,000000475561.png,different,,detector
+000000332845.png,000000262162.png,different,,detector
+000000333069.png,000000184383.png,different,,detector
+000000333402.png,000000570721.png,different,,detector
+000000333697.png,000000050992.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000333956.png,000000362751.png,different,,detector
+000000334417.png,000000563727.png,different,,detector
+000000334521.png,000000330532.png,different,,detector
+000000334767.png,000000379487.png,different,,detector
+000000335328.png,000000073333.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000335427.png,000000065835.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000335450.png,000000084163.png,different,,detector
+000000335529.png,000000094837.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000335658.png,000000334136.png,different,,detector
+000000336265.png,000000426026.png,different,,detector
+000000337498.png,000000176194.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000338191.png,000000165766.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000338219.png,000000488297.png,different,,detector
+000000338325.png,000000523599.png,different,,detector
+000000338532.png,000000411751.png,different,,detector
+000000338560.png,000000035972.png,different,,detector
+000000338901.png,000000227428.png,same_scene,"same dog under the same blanket on the same sofa, another instant",detector
+000000339442.png,000000497483.png,different,,detector
+000000339870.png,000000051334.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000340272.png,000000516146.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000340697.png,000000451386.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000341681.png,000000245002.png,different,,detector
+000000342006.png,000000054327.png,different,,detector
+000000342397.png,000000213457.png,different,possibly the same ski slope and day; another skier and framing,detector
+000000342971.png,000000534656.png,different,,detector
+000000343149.png,000000557422.png,different,,detector
+000000343218.png,000000138830.png,different,,detector
+000000343453.png,000000187797.png,different,,detector
+000000343524.png,000000238591.png,different,,detector
+000000343706.png,000000182647.png,same_scene,"same hand, coat and framing; the phone cover is another one",detector
+000000343937.png,000000298380.png,different,,detector
+000000343976.png,000000213649.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000344029.png,000000036811.png,different,,detector
+000000344059.png,000000406988.png,different,,detector
+000000344268.png,000000335785.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000344611.png,000000497021.png,different,,detector
+000000345027.png,000000563264.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000345261.png,000000420598.png,different,,detector
+000000345941.png,000000484915.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000346232.png,000000383154.png,different,,detector
+000000346638.png,000000363079.png,different,,detector
+000000346707.png,000000080395.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000346968.png,000000437872.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000347163.png,000000497731.png,different,,detector
+000000347254.png,000000199927.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000347265.png,000000420579.png,different,,detector
+000000347456.png,000000076460.png,different,,detector
+000000347544.png,000000066348.png,different,,detector
+000000347664.png,000000477679.png,different,,detector
+000000347693.png,000000090935.png,same_scene,"same room and furniture, framed slightly differently",detector
+000000348012.png,000000418699.png,different,,detector
+000000348045.png,000000114173.png,different,,detector
+000000348216.png,000000303453.png,different,,detector
+000000348488.png,000000077282.png,different,,detector
+000000348708.png,000000568052.png,different,,detector
+000000348881.png,000000368611.png,different,,detector
+000000349594.png,000000041899.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000349837.png,000000180503.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000349860.png,000000234572.png,same_scene,"same skateboarder over the same ramp, another instant",detector
+000000350019.png,000000523637.png,different,,detector
+000000350023.png,000000441387.png,different,,detector
+000000350388.png,000000438671.png,different,,detector
+000000350679.png,000000152403.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000351362.png,000000328452.png,different,,detector
+000000351530.png,000000020849.png,different,,detector
+000000351823.png,000000277491.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000352491.png,000000225093.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000352684.png,000000209527.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000352760.png,000000455717.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000352900.png,000000002697.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000353051.png,000000036218.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000353970.png,000000350727.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000354072.png,000000520781.png,different,,detector
+000000354753.png,000000004068.png,different,,detector
+000000354829.png,000000029508.png,different,,detector
+000000355610.png,000000515006.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000355817.png,000000001762.png,different,,detector
+000000355905.png,000000195155.png,different,,detector
+000000356125.png,000000142719.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000356169.png,000000484215.png,different,,detector
+000000356261.png,000000181065.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000356387.png,000000539797.png,different,,detector
+000000356424.png,000000344146.png,different,,detector
+000000357060.png,000000223327.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000357238.png,000000519493.png,different,,detector
+000000357567.png,000000155515.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000357748.png,000000505464.png,different,,detector
+000000357978.png,000000379201.png,different,,detector
+000000359677.png,000000387736.png,different,,detector
+000000359833.png,000000258734.png,different,,detector
+000000360564.png,000000526896.png,different,,detector
+000000360661.png,000000307569.png,different,possibly the same beach race; another moment and a much wider framing,detector
+000000360943.png,000000123175.png,different,,detector
+000000361142.png,000000566026.png,different,,detector
+000000361180.png,000000162767.png,different,,detector
+000000361238.png,000000517306.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000361268.png,000000136819.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000361506.png,000000293377.png,different,,detector
+000000361919.png,000000405365.png,different,,detector
+000000363072.png,000000561967.png,different,,detector
+000000363784.png,000000286860.png,different,,detector
+000000364102.png,000000162227.png,different,,detector
+000000364126.png,000000338802.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000364587.png,000000265773.png,different,,detector
+000000364884.png,000000529317.png,different,,detector
+000000365207.png,000000343319.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000365385.png,000000408989.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000365387.png,000000356190.png,different,,detector
+000000365642.png,000000561746.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000365655.png,000000234182.png,same_scene,"same glacier bus on the same road, framed slightly differently",detector
+000000365766.png,000000390184.png,different,,detector
+000000366199.png,000000087718.png,different,,detector
+000000366711.png,000000088116.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000366884.png,000000239584.png,different,,detector
+000000367228.png,000000147488.png,different,,detector
+000000367386.png,000000180578.png,different,,detector
+000000368335.png,000000530620.png,different,,detector
+000000368684.png,000000247130.png,same_scene,"same living room, laptop and television, moments apart",detector
+000000368940.png,000000280808.png,different,,detector
+000000369081.png,000000277918.png,different,,detector
+000000369323.png,000000261984.png,different,,detector
+000000369503.png,000000283190.png,different,,detector
+000000369675.png,000000278177.png,different,,detector
+000000370999.png,000000184470.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000371042.png,000000562381.png,different,possibly the same court; other players and framing,detector
+000000371677.png,000000008721.png,different,,detector
+000000372203.png,000000247609.png,same_photo,"the same photograph (bench and lamp post in a plain), with another colour processing",detector
+000000372307.png,000000011188.png,different,,detector
+000000372466.png,000000395169.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000372577.png,000000423773.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000373382.png,000000070566.png,different,,detector
+000000374369.png,000000035935.png,different,,detector
+000000374545.png,000000449872.png,different,,detector
+000000375278.png,000000561383.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000375493.png,000000164810.png,different,,detector
+000000375763.png,000000564232.png,different,,detector
+000000376206.png,000000215291.png,different,,detector
+000000376365.png,000000180208.png,different,,detector
+000000376900.png,000000134068.png,different,,detector
+000000377000.png,000000256533.png,different,,detector
+000000377368.png,000000276413.png,same_scene,"same cake on the same table, framed differently; the test frame includes a person, the other does not",detector
+000000377588.png,000000469888.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000377635.png,000000145792.png,different,,detector
+000000377814.png,000000580600.png,different,,detector
+000000377882.png,000000485387.png,different,,detector
+000000378244.png,000000546664.png,different,,detector
+000000378673.png,000000381527.png,same_scene,"same skate park from the same position, moments apart; another skater in the air",detector
+000000379533.png,000000572055.png,different,,detector
+000000380203.png,000000469181.png,different,,detector
+000000382734.png,000000192164.png,different,,detector
+000000382743.png,000000134111.png,different,,detector
+000000383337.png,000000333201.png,different,,detector
+000000383339.png,000000570360.png,different,,detector
+000000383386.png,000000190334.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000383838.png,000000251897.png,different,,detector
+000000384350.png,000000228226.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000384513.png,000000257231.png,different,,detector
+000000384616.png,000000500888.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000384666.png,000000272101.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000384670.png,000000423773.png,different,possibly the same tournament; another player and framing,detector
+000000384808.png,000000473055.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000384949.png,000000298295.png,different,same bridge and clock tower from another position and on another day,detector
+000000385997.png,000000301963.png,same_scene,"same room, rocking chair and dog bed, from another position; one copy in grey",detector
+000000386277.png,000000118329.png,different,,detector
+000000386457.png,000000154369.png,different,,detector
+000000387148.png,000000350631.png,different,,detector
+000000387383.png,000000349809.png,different,,detector
+000000387387.png,000000536363.png,different,,detector
+000000388215.png,000000316014.png,different,,detector
+000000388258.png,000000182820.png,different,,detector
+000000388846.png,000000252844.png,different,,detector
+000000388927.png,000000203879.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000389315.png,000000507384.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000389804.png,000000560007.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000389812.png,000000371854.png,different,,detector
+000000390246.png,000000193474.png,different,,detector
+000000391140.png,000000255315.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000392228.png,000000238184.png,different,,detector
+000000392722.png,000000068912.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000392933.png,000000236567.png,different,,detector
+000000393056.png,000000450749.png,different,,detector
+000000393093.png,000000279430.png,different,,detector
+000000393226.png,000000123770.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000393282.png,000000192970.png,different,,detector
+000000393838.png,000000145666.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000394275.png,000000438364.png,different,,detector
+000000394510.png,000000514083.png,different,,detector
+000000394559.png,000000429809.png,different,,detector
+000000394611.png,000000382318.png,different,,detector
+000000395575.png,000000528931.png,different,,detector
+000000395633.png,000000170512.png,different,,detector
+000000395801.png,000000061822.png,different,,detector
+000000396205.png,000000439050.png,different,,detector
+000000396526.png,000000164224.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000396568.png,000000109361.png,different,,detector
+000000397639.png,000000126432.png,different,,detector
+000000398810.png,000000214306.png,different,,detector
+000000398905.png,000000072583.png,different,,detector
+000000399205.png,000000235760.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000400082.png,000000491117.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000400815.png,000000198169.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000400922.png,000000090020.png,different,,detector
+000000401446.png,000000527054.png,same_scene,"same person with an umbrella in the same park, another pose",detector
+000000402433.png,000000066129.png,different,,detector
+000000402473.png,000000127854.png,same_scene,"same two cats in the same bathtub, another instant and framing",detector
+000000402615.png,000000573647.png,different,,detector
+000000402765.png,000000502024.png,different,,detector
+000000403122.png,000000290412.png,different,,detector
+000000403385.png,000000118507.png,different,,detector
+000000404479.png,000000175418.png,different,,detector
+000000404534.png,000000288769.png,different,,detector
+000000404568.png,000000418586.png,different,,detector
+000000405279.png,000000045785.png,different,,detector
+000000406129.png,000000510871.png,different,,detector
+000000406417.png,000000370873.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000406997.png,000000499451.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000407002.png,000000567518.png,different,,detector
+000000407403.png,000000023255.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000407646.png,000000422183.png,different,,detector
+000000407943.png,000000192154.png,different,,detector
+000000407960.png,000000309618.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000408112.png,000000323950.png,different,,detector
+000000409211.png,000000441363.png,same_scene,"same tennis match: same player, court and scoreboard at another instant",detector
+000000409358.png,000000475056.png,different,,detector
+000000409630.png,000000067536.png,different,,detector
+000000409867.png,000000274446.png,different,,detector
+000000410221.png,000000471283.png,different,,detector
+000000410510.png,000000113041.png,same_scene,"same tennis match: same player, court and caption at another instant",detector
+000000410612.png,000000535160.png,different,,detector
+000000412286.png,000000218784.png,different,,detector
+000000412531.png,000000198477.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000412894.png,000000090020.png,different,,detector
+000000413404.png,000000068751.png,different,,detector
+000000413552.png,000000214528.png,different,,detector
+000000413689.png,000000557343.png,different,,detector
+000000414170.png,000000287570.png,different,,detector
+000000414261.png,000000003067.png,different,,detector
+000000414340.png,000000088854.png,different,,detector
+000000414385.png,000000201564.png,different,,detector
+000000414638.png,000000533917.png,different,,detector
+000000414673.png,000000153224.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000415536.png,000000546212.png,different,,detector
+000000415716.png,000000184396.png,different,,detector
+000000415990.png,000000120872.png,different,,detector
+000000416170.png,000000147538.png,different,,detector
+000000416256.png,000000332270.png,different,,detector
+000000416330.png,000000033008.png,same_scene,"same cat asleep on the same blanket, framed slightly differently",detector
+000000416343.png,000000304627.png,different,,detector
+000000416745.png,000000416909.png,different,,detector
+000000416837.png,000000541991.png,different,,detector
+000000417043.png,000000121663.png,different,,detector
+000000417085.png,000000423025.png,different,,detector
+000000417249.png,000000405451.png,different,,detector
+000000417911.png,000000533394.png,different,,detector
+000000418062.png,000000189880.png,different,,detector
+000000418959.png,000000062347.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000419096.png,000000001712.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000419098.png,000000405214.png,different,,detector
+000000419653.png,000000578387.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000420069.png,000000523332.png,different,,detector
+000000420230.png,000000426687.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000421455.png,000000499760.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000421757.png,000000237271.png,different,,detector
+000000421834.png,000000398927.png,different,possibly the same bird feeder; another bird and framing,"random sample (not flagged, fewer than 15 inliers)"
+000000422706.png,000000243382.png,different,,detector
+000000423104.png,000000545525.png,different,,detector
+000000423123.png,000000334631.png,same_photo,the same photograph (person bending over an open refrigerator),detector
+000000423229.png,000000114235.png,same_scene,"same steam train at the same signal, moments apart",detector
+000000423519.png,000000317460.png,different,,detector
+000000423798.png,000000389378.png,different,,detector
+000000423971.png,000000062423.png,different,,detector
+000000424162.png,000000414047.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000424349.png,000000518117.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000425221.png,000000291067.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000425227.png,000000215558.png,different,,detector
+000000425361.png,000000481702.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000425906.png,000000180397.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000425925.png,000000175530.png,different,,detector
+000000426166.png,000000293605.png,different,,detector
+000000426268.png,000000417660.png,different,,detector
+000000426329.png,000000330265.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000426372.png,000000314313.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000426376.png,000000051977.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000427055.png,000000465853.png,different,,detector
+000000427160.png,000000357613.png,different,,detector
+000000427256.png,000000482036.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000427649.png,000000286899.png,different,,detector
+000000429718.png,000000205181.png,different,,detector
+000000429761.png,000000311435.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000430048.png,000000372122.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000430286.png,000000163394.png,different,,detector
+000000430377.png,000000539932.png,different,,detector
+000000431545.png,000000237814.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000431693.png,000000563575.png,same_scene,"same tennis player on the same court, another instant",detector
+000000432468.png,000000274058.png,different,,detector
+000000432898.png,000000042849.png,different,,detector
+000000433204.png,000000469515.png,different,,detector
+000000433515.png,000000091442.png,different,,detector
+000000433915.png,000000330775.png,different,,detector
+000000434204.png,000000328189.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000434247.png,000000282158.png,different,,detector
+000000435205.png,000000525988.png,different,,detector
+000000435299.png,000000037566.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000437110.png,000000195650.png,different,,detector
+000000437351.png,000000069000.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000437514.png,000000200024.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000438017.png,000000379567.png,different,,detector
+000000439522.png,000000451511.png,different,,detector
+000000439525.png,000000246105.png,same_scene,"same couple cutting the same cake, another instant",detector
+000000439593.png,000000469242.png,different,,detector
+000000439773.png,000000355272.png,different,,detector
+000000439854.png,000000193255.png,different,,detector
+000000440171.png,000000220135.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000440507.png,000000141508.png,same_scene,"same suitcase and shoes on the same floor, from another position","extra check (not flagged, 15 to 23 inliers)"
+000000440508.png,000000463222.png,different,,detector
+000000440617.png,000000365386.png,different,,detector
+000000441286.png,000000555932.png,different,,detector
+000000441442.png,000000040298.png,different,,detector
+000000441468.png,000000216319.png,different,,detector
+000000441491.png,000000515158.png,different,,detector
+000000441543.png,000000159979.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000441553.png,000000408833.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000441586.png,000000245383.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000442323.png,000000525223.png,different,,detector
+000000442463.png,000000276215.png,different,,detector
+000000442661.png,000000296793.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000442836.png,000000229935.png,different,,detector
+000000443303.png,000000435584.png,different,,detector
+000000444142.png,000000118436.png,different,,detector
+000000444879.png,000000556903.png,different,,detector
+000000445602.png,000000207500.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000445675.png,000000028974.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000445834.png,000000050752.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000445846.png,000000138806.png,same_scene,"same kitchen and window, from farther back",detector
+000000445999.png,000000579716.png,different,,detector
+000000446005.png,000000547644.png,different,another kitchen with the same cabinets and appliances,detector
+000000446206.png,000000496800.png,different,,detector
+000000446574.png,000000137927.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000446703.png,000000168020.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000447314.png,000000519264.png,different,,detector
+000000448365.png,000000450543.png,different,,detector
+000000448810.png,000000003799.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000449579.png,000000567121.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000449603.png,000000085584.png,same_scene,"same kite surfer in the same waves, moments apart",detector
+000000450303.png,000000510320.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000450439.png,000000219228.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000450559.png,000000348701.png,same_scene,"same skateboarder at the same bowl and fence, another instant",detector
+000000450758.png,000000386497.png,different,,detector
+000000451043.png,000000151299.png,different,,detector
+000000451084.png,000000252905.png,different,,detector
+000000451090.png,000000087156.png,different,,detector
+000000451144.png,000000556568.png,different,,detector
+000000451155.png,000000381037.png,different,,detector
+000000451435.png,000000074975.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000451693.png,000000284652.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000451714.png,000000230655.png,different,,detector
+000000452084.png,000000562856.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000452515.png,000000093916.png,different,,detector
+000000452891.png,000000131159.png,different,,detector
+000000453708.png,000000528712.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000453841.png,000000077924.png,different,,detector
+000000453860.png,000000314396.png,different,,detector
+000000453981.png,000000340333.png,different,,detector
+000000454067.png,000000464447.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000454750.png,000000212089.png,different,,detector
+000000454978.png,000000186697.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000455352.png,000000415225.png,different,,detector
+000000455597.png,000000005802.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000455872.png,000000253413.png,different,,detector
+000000455981.png,000000473623.png,different,,detector
+000000456015.png,000000396754.png,same_scene,"same riders on the same beach, another instant",detector
+000000456292.png,000000303178.png,different,,detector
+000000456303.png,000000218749.png,different,,detector
+000000456394.png,000000546966.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000456559.png,000000305788.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000456865.png,000000061624.png,different,,detector
+000000457262.png,000000387318.png,different,,detector
+000000457884.png,000000337427.png,different,,detector
+000000458054.png,000000132874.png,different,,detector
+000000458325.png,000000056638.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000458768.png,000000285998.png,different,,detector
+000000458790.png,000000437889.png,different,,detector
+000000459153.png,000000053635.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000459272.png,000000180366.png,different,,detector
+000000459467.png,000000180336.png,different,,detector
+000000459662.png,000000371364.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000459757.png,000000441861.png,different,,detector
+000000460147.png,000000231863.png,different,,detector
+000000460160.png,000000581220.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000460229.png,000000482625.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000460379.png,000000140044.png,different,,detector
+000000460682.png,000000111788.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000460841.png,000000072437.png,different,,detector
+000000460927.png,000000431146.png,different,,detector
+000000461275.png,000000557263.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000462576.png,000000416356.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000463037.png,000000572279.png,different,,detector
+000000463174.png,000000282251.png,different,,detector
+000000463542.png,000000093806.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000463690.png,000000331298.png,different,,detector
+000000463802.png,000000026905.png,different,,detector
+000000463849.png,000000087156.png,different,,detector
+000000464872.png,000000425077.png,different,,detector
+000000465129.png,000000535889.png,same_photo,the same photograph (person in a white robe in a kitchen),detector
+000000465179.png,000000351133.png,same_scene,"same person brushing teeth in the same bathroom, another instant",detector
+000000465675.png,000000333378.png,different,,detector
+000000465822.png,000000041272.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000466339.png,000000507540.png,different,,detector
+000000466986.png,000000501015.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000468124.png,000000022229.png,different,,detector
+000000468632.png,000000192810.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000469067.png,000000106793.png,different,,detector
+000000469174.png,000000042085.png,different,,detector
+000000469246.png,000000369201.png,different,,detector
+000000469828.png,000000356937.png,different,,detector
+000000471087.png,000000393372.png,different,,detector
+000000471450.png,000000346334.png,same_scene,"probably the same bears on the same slope, another instant and framing",detector
+000000471756.png,000000326420.png,different,,detector
+000000471789.png,000000151141.png,different,,detector
+000000472030.png,000000042387.png,same_scene,"same forest path, bench and sign, from a slightly different position",detector
+000000472298.png,000000238831.png,different,,detector
+000000472375.png,000000412899.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000472623.png,000000090201.png,different,,detector
+000000473015.png,000000121384.png,same_scene,"same gull on the same water in front of the same rocks, moments apart",detector
+000000473406.png,000000296492.png,same_scene,"same child on the same kitchen worktop, another instant",detector
+000000473821.png,000000303970.png,different,,detector
+000000474039.png,000000429582.png,same_scene,"same baby next to the same teddy bear, another instant",detector
+000000474095.png,000000053800.png,different,,detector
+000000474164.png,000000237685.png,different,,detector
+000000474170.png,000000554654.png,different,,detector
+000000474452.png,000000442220.png,different,,detector
+000000474854.png,000000120414.png,different,,detector
+000000474881.png,000000513299.png,different,,detector
+000000475191.png,000000093860.png,different,,detector
+000000475732.png,000000339738.png,same_scene,"same cat under the same helmet, framed differently",detector
+000000476215.png,000000028290.png,different,,detector
+000000476258.png,000000001732.png,different,,detector
+000000476415.png,000000543119.png,different,,detector
+000000476491.png,000000434549.png,different,,detector
+000000476810.png,000000541267.png,different,,detector
+000000477118.png,000000140130.png,different,,detector
+000000477441.png,000000266959.png,different,,detector
+000000477623.png,000000417660.png,different,,detector
+000000477689.png,000000525933.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000477805.png,000000436844.png,different,,detector
+000000477955.png,000000352866.png,different,,detector
+000000478286.png,000000482756.png,different,,detector
+000000478420.png,000000037468.png,different,,detector
+000000479126.png,000000564281.png,different,,detector
+000000479248.png,000000093400.png,same_scene,"same living room, television and pictures on the wall, from another position","extra check (not flagged, 15 to 23 inliers)"
+000000479732.png,000000208690.png,different,,detector
+000000479912.png,000000485755.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000479953.png,000000424991.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000480842.png,000000151094.png,different,possibly the same animal; another framing,detector
+000000481159.png,000000183273.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000481386.png,000000378482.png,same_scene,"same person in the same kitchen, another pose",detector
+000000481390.png,000000574155.png,different,,detector
+000000481404.png,000000388057.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000481480.png,000000104685.png,same_scene,"same horse race in front of the same grandstand, moments apart",detector
+000000481582.png,000000579457.png,same_scene,"same horse and person in the same stable, another instant",detector
+000000482436.png,000000179251.png,different,,detector
+000000482487.png,000000113338.png,different,,detector
+000000482585.png,000000376746.png,different,,detector
+000000482719.png,000000435883.png,different,,detector
+000000482735.png,000000343432.png,different,,detector
+000000482970.png,000000028824.png,different,,detector
+000000482978.png,000000283180.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000483050.png,000000254022.png,same_scene,"same hotel room (or an identical one of the same hotel), framed differently",detector
+000000483531.png,000000287495.png,different,,detector
+000000484351.png,000000232467.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000484760.png,000000445605.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000485027.png,000000489052.png,different,,detector
+000000485071.png,000000485212.png,different,,detector
+000000485130.png,000000073420.png,different,,detector
+000000485480.png,000000402945.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000485802.png,000000534058.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000485895.png,000000019060.png,different,,detector
+000000486479.png,000000205440.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000486573.png,000000275429.png,same_scene,"same vase on the same window sill, framed slightly differently",detector
+000000488166.png,000000258823.png,different,,detector
+000000488270.png,000000480415.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000488664.png,000000566501.png,different,,detector
+000000488736.png,000000282730.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000489091.png,000000014774.png,different,,detector
+000000490470.png,000000253281.png,different,,detector
+000000491071.png,000000374106.png,different,,detector
+000000491216.png,000000358633.png,different,,detector
+000000491464.png,000000494113.png,different,,detector
+000000491470.png,000000266959.png,different,,detector
+000000491497.png,000000070365.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000491683.png,000000477310.png,different,,detector
+000000491725.png,000000000404.png,different,,detector
+000000491757.png,000000242113.png,different,,detector
+000000491867.png,000000383453.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000492077.png,000000064731.png,different,,detector
+000000492282.png,000000484175.png,different,,detector
+000000492968.png,000000143263.png,different,,detector
+000000493284.png,000000488368.png,different,,detector
+000000493566.png,000000098800.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000493772.png,000000366153.png,different,,detector
+000000493905.png,000000257821.png,different,,detector
+000000494427.png,000000374333.png,different,,detector
+000000494759.png,000000413367.png,different,,detector
+000000495054.png,000000555953.png,different,,detector
+000000495146.png,000000246728.png,different,,detector
+000000496597.png,000000384852.png,different,,detector
+000000496722.png,000000204700.png,different,,detector
+000000497344.png,000000496379.png,different,,detector
+000000497568.png,000000579325.png,different,,detector
+000000497599.png,000000109513.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000498032.png,000000118690.png,different,,detector
+000000499266.png,000000104982.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000499313.png,000000578147.png,different,,detector
+000000499775.png,000000183123.png,different,,detector
+000000500211.png,000000049444.png,different,,detector
+000000500257.png,000000095850.png,different,,detector
+000000500270.png,000000520049.png,different,,detector
+000000500423.png,000000346083.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000500565.png,000000550760.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000500613.png,000000487428.png,different,,detector
+000000500663.png,000000495825.png,different,,detector
+000000501368.png,000000347463.png,different,,detector
+000000502168.png,000000129440.png,different,,detector
+000000502229.png,000000215650.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000502347.png,000000348550.png,different,,detector
+000000502732.png,000000294937.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000502910.png,000000065238.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000503841.png,000000024851.png,same_scene,"same traffic lights and building, moments apart (the lights changed)",detector
+000000503855.png,000000224081.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000504074.png,000000448181.png,different,,detector
+000000504389.png,000000192200.png,different,,detector
+000000504415.png,000000133580.png,different,,detector
+000000504580.png,000000302458.png,different,,detector
+000000504589.png,000000229935.png,different,,detector
+000000504711.png,000000244992.png,different,,detector
+000000505451.png,000000568790.png,different,,detector
+000000505573.png,000000370808.png,different,,detector
+000000505638.png,000000522479.png,different,,detector
+000000506004.png,000000172784.png,different,,detector
+000000506178.png,000000051324.png,different,,detector
+000000506279.png,000000503470.png,different,,detector
+000000506656.png,000000094569.png,different,,detector
+000000506707.png,000000510771.png,different,,detector
+000000507037.png,000000116004.png,different,,detector
+000000507893.png,000000238090.png,different,,detector
+000000508101.png,000000442338.png,different,,detector
+000000508586.png,000000501038.png,different,,detector
+000000508602.png,000000544005.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000508639.png,000000122421.png,different,,detector
+000000508730.png,000000039743.png,same_scene,"same two children in the same bathroom, another instant",detector
+000000508917.png,000000081555.png,different,,detector
+000000509008.png,000000480452.png,different,,detector
+000000511076.png,000000397192.png,different,,detector
+000000511321.png,000000543612.png,different,,detector
+000000511384.png,000000443033.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000511599.png,000000134103.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000511760.png,000000567838.png,different,,detector
+000000512564.png,000000233916.png,different,,detector
+000000512657.png,000000295409.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000512985.png,000000147277.png,different,,detector
+000000513181.png,000000173109.png,different,,detector
+000000513524.png,000000339001.png,different,,detector
+000000513580.png,000000159567.png,different,,detector
+000000514540.png,000000475882.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000514979.png,000000450841.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000515025.png,000000233124.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000515350.png,000000482539.png,different,,detector
+000000516316.png,000000495348.png,different,,detector
+000000516318.png,000000458932.png,same_scene,"probably the same surfer on the same break on the same grey day, another wave",detector
+000000516871.png,000000492016.png,different,same lunch box and tablecloth; another meal,detector
+000000517832.png,000000024762.png,different,,detector
+000000519338.png,000000503807.png,different,,detector
+000000519491.png,000000362329.png,different,,detector
+000000519522.png,000000348368.png,different,,detector
+000000519611.png,000000078112.png,different,,detector
+000000519688.png,000000474667.png,different,,detector
+000000520009.png,000000486304.png,different,,detector
+000000520301.png,000000385856.png,different,,detector
+000000520324.png,000000160524.png,different,,detector
+000000520659.png,000000248651.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000520910.png,000000185486.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000521282.png,000000001577.png,same_scene,"same jug of daffodils (same photographer's mark), from another side","extra check (not flagged, 15 to 23 inliers)"
+000000521717.png,000000180131.png,different,,detector
+000000521819.png,000000449981.png,different,,detector
+000000521956.png,000000397101.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000522393.png,000000049602.png,different,,detector
+000000522713.png,000000260990.png,different,,detector
+000000522889.png,000000107389.png,different,possibly the same tournament; another player,detector
+000000522940.png,000000482625.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000523033.png,000000361587.png,same_scene,"same surf break from the same position, moments apart",detector
+000000523100.png,000000488282.png,different,,detector
+000000523175.png,000000258270.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000523229.png,000000065737.png,different,,detector
+000000523241.png,000000468159.png,different,,detector
+000000523782.png,000000198590.png,same_scene,"same parked pickup trucks, framed slightly differently",detector
+000000524280.png,000000121229.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000524850.png,000000355370.png,different,,detector
+000000525083.png,000000291597.png,same_scene,"same kitchen and furniture, framed slightly differently",detector
+000000526392.png,000000390684.png,same_scene,"same junction, cars and traffic lights, moments apart",detector
+000000526706.png,000000405811.png,same_scene,"same cows and calf in the same field, another instant (or mirrored)",detector
+000000527528.png,000000466261.png,different,,detector
+000000527616.png,000000260686.png,same_scene,"same television and cricket bats on the same wall, moments apart",detector
+000000527695.png,000000287369.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000528314.png,000000084000.png,different,,detector
+000000528578.png,000000374530.png,different,same landmark (Palace of Westminster) from another position and on another day,detector
+000000528705.png,000000004673.png,different,,detector
+000000529939.png,000000404065.png,different,,detector
+000000529966.png,000000034121.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000530099.png,000000004212.png,different,,detector
+000000530162.png,000000310202.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000530466.png,000000174198.png,different,,detector
+000000530470.png,000000164105.png,different,,detector
+000000531036.png,000000183123.png,different,,detector
+000000531134.png,000000100990.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000531135.png,000000152158.png,same_scene,"same baseball game seen through the same net, moments apart",detector
+000000531495.png,000000187200.png,different,,detector
+000000531707.png,000000490735.png,different,,detector
+000000531771.png,000000171049.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000532129.png,000000174091.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000532481.png,000000063414.png,different,,detector
+000000532493.png,000000575163.png,different,,detector
+000000532530.png,000000462238.png,different,,detector
+000000532575.png,000000046345.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000532761.png,000000279122.png,different,,detector
+000000532855.png,000000408564.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000533145.png,000000508147.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000533493.png,000000232351.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000533536.png,000000127573.png,same_scene,"same cat in front of the same television, another instant and framing",detector
+000000533816.png,000000423678.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000533855.png,000000113561.png,different,,detector
+000000534270.png,000000398649.png,different,,detector
+000000534601.png,000000177532.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000534605.png,000000051175.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000534664.png,000000420882.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000534673.png,000000296693.png,different,,detector
+000000535253.png,000000485426.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000537153.png,000000148099.png,different,,detector
+000000537270.png,000000042752.png,different,,detector
+000000537672.png,000000447724.png,different,,detector
+000000537802.png,000000330785.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000537812.png,000000564861.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000538067.png,000000042799.png,different,,detector
+000000539143.png,000000548013.png,different,,detector
+000000539445.png,000000170348.png,different,,detector
+000000540280.png,000000371564.png,different,,detector
+000000540928.png,000000151739.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000540932.png,000000413367.png,different,,detector
+000000541123.png,000000363318.png,different,,detector
+000000541291.png,000000553796.png,different,,detector
+000000541773.png,000000209012.png,different,,detector
+000000541952.png,000000236048.png,different,,detector
+000000542073.png,000000420882.png,different,,detector
+000000542089.png,000000277167.png,different,,detector
+000000542127.png,000000195974.png,different,possibly the same event; another rider and framing,detector
+000000542423.png,000000145727.png,different,,detector
+000000543528.png,000000200560.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000543581.png,000000081017.png,different,,detector
+000000544052.png,000000516505.png,different,,detector
+000000544306.png,000000029019.png,different,same landmark (Elizabeth Tower) in another photograph,detector
+000000544444.png,000000151237.png,different,,detector
+000000544519.png,000000120509.png,different,,detector
+000000545007.png,000000079808.png,different,,detector
+000000545730.png,000000033561.png,different,,detector
+000000546325.png,000000313428.png,different,,detector
+000000546556.png,000000535010.png,different,,detector
+000000546626.png,000000378807.png,different,,detector
+000000546826.png,000000144084.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000547144.png,000000142557.png,different,,detector
+000000547816.png,000000557677.png,different,,detector
+000000547886.png,000000396754.png,same_scene,"same riders on the same beach, another instant",detector
+000000548267.png,000000128922.png,different,,detector
+000000548339.png,000000581409.png,different,,detector
+000000548506.png,000000136894.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000548524.png,000000385885.png,different,,detector
+000000548555.png,000000045283.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000549136.png,000000430473.png,different,,detector
+000000549167.png,000000551998.png,same_scene,"same dish in the same bowl, framed differently",detector
+000000549674.png,000000004488.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000549738.png,000000573971.png,different,,detector
+000000550322.png,000000261648.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000550349.png,000000022440.png,different,,detector
+000000550426.png,000000416468.png,different,,detector
+000000550691.png,000000426917.png,different,,detector
+000000551215.png,000000528305.png,different,,detector
+000000551304.png,000000350855.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000551780.png,000000404064.png,different,,detector
+000000551804.png,000000554561.png,different,,detector
+000000552612.png,000000353302.png,different,,detector
+000000552842.png,000000521482.png,different,,detector
+000000552883.png,000000204044.png,different,,detector
+000000552902.png,000000250387.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000553094.png,000000008547.png,different,,detector
+000000553221.png,000000158342.png,different,,detector
+000000553339.png,000000068114.png,different,,detector
+000000553664.png,000000274529.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000553776.png,000000449369.png,different,,detector
+000000553788.png,000000369936.png,different,,detector
+000000555412.png,000000519683.png,same_scene,"same pizza, framed slightly differently",detector
+000000556158.png,000000304548.png,different,,detector
+000000556193.png,000000316320.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000557501.png,000000182317.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000557672.png,000000156889.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000557884.png,000000425817.png,different,,detector
+000000557916.png,000000452004.png,different,,detector
+000000558073.png,000000346985.png,different,,detector
+000000558421.png,000000038026.png,different,,detector
+000000558854.png,000000353974.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000559099.png,000000272412.png,different,,detector
+000000559348.png,000000448560.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000559842.png,000000448694.png,different,,detector
+000000559956.png,000000498856.png,different,,detector
+000000560011.png,000000012463.png,different,,detector
+000000560880.png,000000498918.png,different,,detector
+000000562059.png,000000051801.png,same_scene,"same dish, jug and apples on the same cloth, framed slightly differently",detector
+000000562121.png,000000154770.png,different,,detector
+000000562229.png,000000310889.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000562561.png,000000124729.png,different,,detector
+000000562581.png,000000145231.png,different,,detector
+000000562818.png,000000364368.png,different,,detector
+000000562843.png,000000292480.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000563267.png,000000456485.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000563349.png,000000217654.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000563470.png,000000275863.png,same_scene,"same person with a bat on the same lawn, another instant",detector
+000000563648.png,000000107394.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000563702.png,000000432378.png,different,,detector
+000000563882.png,000000316343.png,different,,detector
+000000564023.png,000000020809.png,different,,detector
+000000564336.png,000000193021.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000565012.png,000000118459.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000565469.png,000000256953.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000565597.png,000000084493.png,same_scene,"same pizza slices on the same tablecloth, framed differently",detector
+000000565853.png,000000566012.png,different,,detector
+000000565877.png,000000351345.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000565962.png,000000370808.png,different,,detector
+000000565989.png,000000017392.png,different,,detector
+000000566282.png,000000243296.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000566436.png,000000084460.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000566524.png,000000071220.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000567197.png,000000557422.png,different,,detector
+000000567432.png,000000122573.png,different,,detector
+000000568584.png,000000230119.png,different,,detector
+000000569059.png,000000461042.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000569700.png,000000459234.png,different,,detector
+000000569972.png,000000500434.png,different,,detector
+000000570169.png,000000571334.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000570664.png,000000030288.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000570756.png,000000218119.png,different,,detector
+000000570782.png,000000003259.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000571008.png,000000215215.png,different,,detector
+000000571313.png,000000420287.png,different,,detector
+000000571598.png,000000522727.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000571804.png,000000157876.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000571857.png,000000064948.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000571943.png,000000024416.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000572303.png,000000209816.png,different,,detector
+000000572408.png,000000027879.png,different,,detector
+000000573008.png,000000334110.png,different,,detector
+000000573258.png,000000157424.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000573391.png,000000404437.png,same_scene,"the same trail camera and clearing, a bear at another instant",detector
+000000573626.png,000000056510.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000574315.png,000000088499.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000574520.png,000000568790.png,different,,detector
+000000575205.png,000000576089.png,different,,detector
+000000575357.png,000000412899.png,different,,detector
+000000575372.png,000000446497.png,different,,detector
+000000575500.png,000000084005.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000575970.png,000000124004.png,same_scene,"same kitchen, counter and stools, from another position",detector
+000000576031.png,000000161958.png,different,,detector
+000000576052.png,000000157920.png,different,,detector
+000000576566.png,000000317448.png,different,,detector
+000000576654.png,000000557708.png,different,,detector
+000000576955.png,000000468588.png,different,,detector
+000000577182.png,000000558822.png,different,,detector
+000000577959.png,000000359471.png,different,,detector
+000000577976.png,000000294491.png,different,,detector
+000000578236.png,000000401569.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000578500.png,000000515212.png,different,,detector
+000000578545.png,000000061983.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000578871.png,000000405192.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000578967.png,000000270009.png,different,,detector
+000000579091.png,000000516000.png,different,,"random sample (not flagged, fewer than 15 inliers)"
+000000579635.png,000000580862.png,different,,detector
+000000579818.png,000000566262.png,different,,detector
+000000581100.png,000000411581.png,different,,detector
+000000581206.png,000000206013.png,different,,"extra check (not flagged, 15 to 23 inliers)"
+000000581317.png,000000294229.png,different,,detector
+000000581615.png,000000441483.png,different,,detector
