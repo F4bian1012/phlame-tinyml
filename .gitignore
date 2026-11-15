@@ -39,6 +39,8 @@ models/tflite/*.classes.txt
 
 # Scratch smoke-test outputs
 results/smoke_test/
+# Preview that calibrate_hil_rig.py --live rewrites at every capture
+live_latest.png
 
 # Arduino / PlatformIO
 .pio/

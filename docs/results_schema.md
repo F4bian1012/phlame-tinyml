@@ -205,6 +205,7 @@ Values of `<FIELD>` (`CYC_*` in core cycles, `US_*` in microseconds):
 | Key | Level | Type | Description |
 |---|---|---|---|
 | `cross_validation.sil_on_pc` | HIL | `string\|null` | Path to the INT8 `.tflite` model evaluated on the PC over the exact captured camera frame. |
+| `cross_validation.sil_kernels` | HIL | `string\|null` | TFLite kernels that ran that model on the PC, as given with `--sil_kernels` (`"default"`, `"builtin"` or `"reference"`; same meaning as `model.kernels` of a SIL file); `null` without `--sil_model`. Written from November 2026 on; absent in earlier files, which used the default. |
 | `cross_validation.mil_on_pc` | HIL | `string\|null` | Path to the float `.keras` model evaluated on the PC over the exact captured camera frame. |
 | `cross_validation.n_with_sil` | HIL | `integer` | Number of frames successfully cross-evaluated against the PC SIL engine. |
 | `cross_validation.n_with_mil` | HIL | `integer` | Number of frames successfully cross-evaluated against the PC MIL engine. |
@@ -263,6 +264,7 @@ Alongside `metrics_*.json`, the HIL benchmark generates a standalone `conditions
 | `frame_dump` | `boolean` | `true` when the captured frames were sent back and saved (`--dump_frames`, also implied by `--sil_model` / `--mil_model`). |
 | `frames_dir` | `string\|null` | Folder where the dumped frames were written; `null` when `frame_dump` is `false`. |
 | `sil_model` | `string\|null` | Path to the companion INT8 model executed on the host for paired cross-validation. |
+| `sil_kernels` | `string\|null` | TFLite kernels that ran `sil_model` on the host (`--sil_kernels`); `null` without `--sil_model`. Written from November 2026 on; absent in earlier files, which used the default. |
 | `mil_model` | `string\|null` | Path to the companion float model executed on the host for paired cross-validation. |
 | `model_tag` | `string` | Experiment stem used to index all output artifacts. |
 | `illuminance_lux` | `float\|null` | Calibrated illuminance measured at the screen plane in lux. |

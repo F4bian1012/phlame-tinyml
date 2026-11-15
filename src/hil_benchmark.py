@@ -701,6 +701,14 @@ def read_frame(ser, timeout_s=20.0):
 # Cross-validation: PC-side SIL & MIL on the REAL captured camera frame
 # --------------------------------------------------------------------------
 
+# --sil_kernels: which TFLite kernels run the INT8 model on the PC (same names as sil_benchmark.py --kernels).
+SIL_KERNELS = {
+    "default": "AUTO",
+    "builtin": "BUILTIN_WITHOUT_DEFAULT_DELEGATES",
+    "reference": "BUILTIN_REF",
+}
+
+
 class SilModel:
     """
     Runs the EXACT SAME INT8 .tflite model on the host PC over the captured
@@ -715,11 +723,25 @@ class SilModel:
     is attributable to the physical FRONTEND (display, optics, sensor, lighting).
     """
 
-    def __init__(self, model_path):
+    def __init__(self, model_path, kernels="default"):
+        # kernels: "default" is what the interpreter picks (it includes the
+        # XNNPACK delegate, which refuses some valid INT8 files and does not give
+        # the chip's prediction for every image); "reference" are the kernels
+        # TFLite-Micro is derived from. Use the kernels of the SIL run that the
+        # captured-frame SIL is compared with.
         try:
             from tensorflow import lite as tflite_mod  # noqa
-            self._interp = tflite_mod.Interpreter(model_path=model_path)
+            if kernels == "default":
+                self._interp = tflite_mod.Interpreter(model_path=model_path)
+            else:
+                resolver = getattr(tflite_mod.experimental.OpResolverType, SIL_KERNELS[kernels])
+                self._interp = tflite_mod.Interpreter(model_path=model_path,
+                                                      experimental_op_resolver_type=resolver)
         except ImportError:
+            if kernels != "default":
+                print("ERROR: --sil_kernels %s needs tensorflow (tflite-runtime only has the "
+                      "default kernels). Run: pip install tensorflow" % kernels)
+                sys.exit(1)
             try:
                 import tflite_runtime.interpreter as tflite_rt
                 self._interp = tflite_rt.Interpreter(model_path=model_path)
@@ -727,7 +749,13 @@ class SilModel:
                 print("ERROR: tensorflow or tflite-runtime is required for "
                       "--sil_model. Run: pip install tensorflow")
                 sys.exit(1)
-        self._interp.allocate_tensors()
+        try:
+            self._interp.allocate_tensors()
+        except RuntimeError as exc:
+            print(f"ERROR: the TFLite interpreter could not prepare {model_path} with "
+                  f"--sil_kernels {kernels}: {str(exc).strip()}")
+            print("Try --sil_kernels reference (or builtin).")
+            sys.exit(1)
         self._in = self._interp.get_input_details()[0]
         self._out = self._interp.get_output_details()[0]
         shape = self._in['shape']  # [1, H, W, C]
@@ -1153,6 +1181,7 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag,
             },
             "cross_validation": {
                 "sil_on_pc": conditions.get('sil_model'),
+                "sil_kernels": conditions.get('sil_kernels'),
                 "mil_on_pc": conditions.get('mil_model'),
                 "n_with_sil": sum(1 for r in rows if r.get('sil_label') is not None),
                 "n_with_mil": sum(1 for r in rows if r.get('mil_label') is not None),
@@ -1334,7 +1363,7 @@ def run_benchmark(args):
                    or args.mil_model is not None)
     frames_dir = None
     if args.sil_model:
-        sil_model = SilModel(args.sil_model)
+        sil_model = SilModel(args.sil_model, args.sil_kernels)
     if args.mil_model:
         mil_model = MilModel(args.mil_model)
     if dump_frames:
@@ -1402,6 +1431,7 @@ def run_benchmark(args):
         'frame_dump': dump_frames,
         'sil_model': (_relpath_repo(args.sil_model)
                       if args.sil_model else None),
+        'sil_kernels': (args.sil_kernels if args.sil_model else None),
         'mil_model': (_relpath_repo(args.mil_model)
                       if args.mil_model else None),
         'frames_dir': (_relpath_repo(frames_dir) if frames_dir else None),
@@ -1654,6 +1684,11 @@ def parse_args():
                         help="Path to the SAME INT8 .tflite flashed on the MCU: "
                              "runs on the PC over each captured frame (implies "
                              "--dump_frames). Isolates MCU vs PC execution divergence.")
+    parser.add_argument('--sil_kernels', choices=sorted(SIL_KERNELS), default="default",
+                        help="TFLite kernels that run --sil_model on the PC, as in "
+                             "sil_benchmark.py --kernels: default (includes the XNNPACK "
+                             "delegate), builtin or reference. Use the kernels of the SIL "
+                             "run of this model; recorded in the conditions and metrics files.")
     parser.add_argument('--mil_model', default=None, metavar='KERAS',
                         help="Path to the original float .keras model: runs on "
                              "the PC over each captured frame (implies "

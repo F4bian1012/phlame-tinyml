@@ -115,6 +115,48 @@ def frame_dump_on(ser, timeout_s):
     return lines, hit is not None
 
 
+def reopen_port(ser, wait_s=20.0):
+    """Opens the same port again after it disappeared (the board was reset and
+    its USB port is enumerated again). Returns True when it is open again."""
+    try:
+        ser.close()
+    except (serial.SerialException, OSError):
+        pass
+    deadline = time.time() + wait_s
+    while time.time() < deadline:
+        try:
+            ser.open()
+            return True
+        except (serial.SerialException, OSError):
+            time.sleep(0.2)
+    return False
+
+
+def wait_for_boot(ser, timeout_s=90.0):
+    """Waits for the boot lines of the HIL firmware, up to READY_HIL.
+
+    Meant to run while the operator presses RESET: the port disappears for a
+    moment, and it is opened again at once, because the firmware waits only a
+    few seconds for the host before it boots without it. Returns (lines read,
+    "READY_HIL" | "CAM_INIT:FAIL" | None)."""
+    lines = []
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        try:
+            got, hit = hb.read_lines_until(ser, lambda l: l in ("READY_HIL", "CAM_INIT:FAIL"),
+                                           timeout_s=max(0.5, deadline - time.time()), echo=True)
+            lines += got
+            if hit:
+                return lines, hit
+        except (serial.SerialException, OSError):
+            print("[INFO] The port went away (the board is restarting); opening it again...", flush=True)
+            if not reopen_port(ser):
+                print("[ERROR] The port did not come back within 20 s.")
+                break
+            print("[INFO] Port open again; waiting for the firmware...", flush=True)
+    return lines, None
+
+
 def open_board(port, baud, board_key=boards.DEFAULT_BOARD):
     """Opens the port and turns the frame dump on.
 
@@ -122,9 +164,14 @@ def open_board(port, baud, board_key=boards.DEFAULT_BOARD):
     when the firmware was already running and its boot lines were not seen, or
     when it is a build that does not announce it. Stops when the firmware runs
     on a board other than board_key or does not accept the frame dump.
+
+    When the firmware does not answer (it is stuck, or it booted with nobody
+    listening), the operator is asked to press RESET; this program stays on
+    the port, opens it again when it comes back and waits for the boot lines.
     """
+    port = hb.normalize_port(port)
     try:
-        ser = serial.Serial(hb.normalize_port(port), baud, timeout=10)
+        ser = serial.Serial(port, baud, timeout=10)
     except serial.SerialException as exc:
         print(f"ERROR opening serial port: {exc}")
         sys.exit(1)
@@ -132,7 +179,26 @@ def open_board(port, baud, board_key=boards.DEFAULT_BOARD):
     # A firmware that is still booting answers after its boot lines; they are
     # read on the way and say which board this is. (The input is not flushed
     # first, or those lines could be lost.)
-    lines, accepted = frame_dump_on(ser, 6)
+    try:
+        lines, accepted = frame_dump_on(ser, 6)
+        if not accepted and "READY_HIL" in lines:
+            # It finished booting while the command was on its way: ask once more.
+            more, accepted = frame_dump_on(ser, 5)
+            lines += more
+    except (serial.SerialException, OSError):
+        lines, accepted = [], False          # the board was reset while we asked
+    if not accepted and "CAM_INIT:FAIL" not in lines:
+        print("[ACTION] The firmware does not answer. Press RESET on the board now; this program "
+              "waits for it (up to 90 s).", flush=True)
+        boot, hit = wait_for_boot(ser, timeout_s=90)
+        lines += boot
+        if hit == "READY_HIL":
+            _, accepted = frame_dump_on(ser, 5)
+        elif hit is None:
+            print("[ERROR] The firmware did not boot. Check that the HIL firmware "
+                  "(deployment/hil_firmware) is flashed: python src/compile_upload_arduino.py --target hil")
+            ser.close()
+            sys.exit(1)
     announced = boards.announced_board(lines)
     if "CAM_INIT:FAIL" in lines:
         print("[ERROR] The camera failed to initialize (CAM_INIT:FAIL). On the Portenta H7, "
@@ -140,15 +206,10 @@ def open_board(port, baud, board_key=boards.DEFAULT_BOARD):
         ser.close()
         sys.exit(1)
     if not accepted:
-        print("[INFO] No answer to the frame-dump command; waiting for the firmware to boot "
-              "(press RESET on the board if this does not move on)...")
-        _, announced = hb.wait_ready(ser, board_key, timeout_s=60)
-        _, accepted = frame_dump_on(ser, 5)
-        if not accepted:
-            print("[ERROR] The firmware does not accept the frame dump (F1). Is the HIL "
-                  "firmware (deployment/hil_firmware) flashed?")
-            ser.close()
-            sys.exit(1)
+        print("[ERROR] The firmware does not accept the frame dump (F1). Is the HIL "
+              "firmware (deployment/hil_firmware) flashed?")
+        ser.close()
+        sys.exit(1)
     problem = boards.mismatch(board_key, announced)
     if problem:
         print(f"[ERROR] Wrong board: {problem}")

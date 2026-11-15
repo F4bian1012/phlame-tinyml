@@ -31,6 +31,7 @@ DYNAMIC_CHILDREN = {
 # file has one of them it must leave this list: the last test of this file fails
 # until it does.
 NOT_YET_PUBLISHED_METRICS = {"run.completed", "dataset.n_stimuli_planned"}              # HIL
+NOT_YET_PUBLISHED_METRICS |= {"cross_validation.sil_kernels"}                            # HIL, --sil_kernels
 NOT_YET_PUBLISHED_PIL_METRICS = {"run.completed", "run.stopped_because", "run.input_shape_verified",
                                  "run.max_unanswered", "dataset.n_images_planned", "model.arena_used_bytes"}
 # The 'software' block (versions behind a result), which the four levels write and
@@ -43,7 +44,7 @@ NOT_YET_PUBLISHED_PIL_METRICS |= {"software", "software.python", "software.platf
                                   "software.scikit_learn", "software.pyserial", "software.pillow"}
 NOT_YET_PUBLISHED_CONDITIONS = {"n_stimuli_planned", "completed", "stopped_because", "stimulus_monitor",
                                 "stimulus_monitor.index", "stimulus_monitor.geometry",
-                                "stimulus_monitor.monitors"}
+                                "stimulus_monitor.monitors", "sil_kernels"}
 METRICS_HEADING = re.compile(r"^## .*`metrics_\*\.json`")
 CONDITIONS_HEADING = re.compile(r"^## .*`conditions_\*\.json`")
 KEY_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|")
