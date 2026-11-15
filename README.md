@@ -620,6 +620,9 @@ Memory configuration, upload troubleshooting, the serial protocol and porting to
 | [`docs/hardware.md`](docs/hardware.md) | Boards and memory, upload troubleshooting, serial protocol and porting |
 | [`docs/flash_budget_build.txt`](docs/flash_budget_build.txt) | Build record behind the flash budget of the two firmwares on the Portenta H7 |
 | [`docs/data_independence.md`](docs/data_independence.md) | How the independence of a test split is checked, and what the check found on each published partition |
+| [`docs/extending.md`](docs/extending.md) | How to add an architecture and how to add a board, and what has been tried of each |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to report a problem, how to run the tests and the conventions the repository follows |
+| [`CHANGELOG.md`](CHANGELOG.md) | What changed, grouped by what a user notices |
 
 ### Scripts
 
