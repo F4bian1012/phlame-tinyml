@@ -7,8 +7,8 @@ There is one sketch per ladder level (deployment/pil_firmware and
 deployment/hil_firmware) and each serves every board listed here: the sketch
 picks its board block at compile time and says which board it runs on with a
 BOARD:<name> line over serial. This module holds the other half: how to
-compile for each board, where its results go, and the text lines the two
-benches wait for.
+compile for each board, where its results go, the text lines the two
+benches wait for, and the lines in which the firmware says what it is running.
 
 Standard library only, so the tests can import it without the heavy packages.
 """
@@ -48,6 +48,65 @@ BOARD_PREFIX = "BOARD:"
 # flashed with an earlier build keeps working without being reflashed.
 END_MARKERS = ("next image", "next trigger")
 LEGACY_END_MARKERS = ("siguiente imagen", "siguiente trigger", "listo")
+
+
+# The PIL sketch closes its identity lines with this one, at boot and every
+# time the host asks for them with an empty packet (#@). The HIL sketch closes
+# its boot lines with READY_HIL.
+READY_PIL = "READY_PIL"
+READY_HIL = "READY_HIL"
+
+# Model fingerprint: 32-bit FNV-1a over the bytes of the .tflite. The firmware
+# computes it over g_model[] in flash (MODEL_FNV1A:<hex>) and the host over the
+# file; g_model[] is the file byte for byte (tflite_to_c.py), so the two are
+# equal exactly when the board carries that file.
+FNV1A32_OFFSET = 0x811C9DC5
+FNV1A32_PRIME = 0x01000193
+
+
+def fnv1a32_file(path, chunk=1 << 20):
+    """FNV-1a fingerprint of a file as the firmware prints it: 8 hex digits, lower case."""
+    h = FNV1A32_OFFSET
+    with open(path, "rb") as fh:
+        for block in iter(lambda: fh.read(chunk), b""):
+            for b in block:
+                h ^= b
+                h = (h * FNV1A32_PRIME) & 0xFFFFFFFF
+    return "%08x" % h
+
+
+def _integer(text):
+    try:
+        return int(text.strip())
+    except ValueError:
+        return None
+
+
+def identity(lines):
+    """What the firmware says about itself in its parseable lines.
+
+    Returns a dict with the board name (BOARD:), the input shape of the model
+    (INPUT_SHAPE:<H>x<W>x<C>), the size and fingerprint of the model in flash
+    (MODEL_BYTES:, MODEL_FNV1A:) and the part of the tensor arena it uses
+    (ARENA_USED:). A field the firmware did not print, or printed in a form
+    that cannot be read, is None: builds earlier than November 2026 print only
+    some of them.
+    """
+    found = {"board": announced_board(lines), "input_shape": None, "model_bytes": None,
+             "model_fnv1a": None, "arena_used_bytes": None}
+    for line in lines:
+        line = line.strip()
+        if line.startswith("INPUT_SHAPE:"):
+            parts = [_integer(p) for p in line.split(":", 1)[1].lower().split("x")]
+            if len(parts) == 3 and None not in parts:
+                found["input_shape"] = {"height": parts[0], "width": parts[1], "channels": parts[2]}
+        elif line.startswith("MODEL_BYTES:"):
+            found["model_bytes"] = _integer(line.split(":", 1)[1])
+        elif line.startswith("MODEL_FNV1A:"):
+            found["model_fnv1a"] = line.split(":", 1)[1].strip().lower().replace("0x", "") or None
+        elif line.startswith("ARENA_USED:"):
+            found["arena_used_bytes"] = _integer(line.split(":", 1)[1])
+    return found
 
 
 def is_end_of_inference(line):

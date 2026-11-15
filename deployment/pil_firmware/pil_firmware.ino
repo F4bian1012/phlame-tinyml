@@ -13,11 +13,21 @@
 //
 // Host companion: src/pil_benchmark.py
 //
-// Boot lines (human readable, plus two parseable ones):
+// Identity lines (parseable), printed at the end of the boot lines and again
+// every time the host sends an EMPTY packet (#@), which runs no inference:
 //   BOARD:<name>              PORTENTA_H7 | NICLA_VISION
+//   INPUT_SHAPE:<H>x<W>x<C>   geometry of the input tensor
+//   MODEL_BYTES:<int>         size of g_model[] in flash
+//   MODEL_FNV1A:<hex32>       FNV-1a fingerprint of g_model[]: the bench
+//                             compares it with the .tflite on the PC
 //   ARENA_USED:<bytes>        interpreter->arena_used_bytes()
+//   READY_PIL                 last line: ready to receive images
+// The boot lines are printed once, when the port is opened for the first time
+// after a reset, so a bench that opens the port later asks with #@. BOARD is
+// also printed early in the boot lines, so that the board is named even when
+// the set-up stops before the model is loaded.
 //
-// Answer to each image (#...@ packet):
+// Answer to each image (#...@ packet with at least one byte):
 //   BOARD:<name>              repeated here because the PIL bench opens the
 //                             port after the boot lines are gone
 //   TEMP_C:<int>              MCU temperature (outside the measured region)
@@ -113,10 +123,19 @@ tflite::AllOpsResolver resolver;
 // A raw '#' in the middle of a packet restarts the packet, so the host can
 // send an image again after a dropped link without corrupting it.
 
+// An EMPTY packet (#@) is not an image: it asks for the identity lines (see
+// printIdentity) and runs no inference. Because '#' restarts a packet, the
+// request is understood whatever the firmware was waiting for.
+
 // Buffer that receives the image over serial (IMAGE_BUFFER_BYTES bytes)
 uint8_t *image_buffer = nullptr;
 int image_bytes_received = 0;
 bool receiving = false;
+
+// Geometry of the input tensor and fingerprint of the model, worked out once
+// in setup() and reported in the identity lines
+int model_h = 0, model_w = 0, model_c = 0;
+uint32_t model_fnv1a = 0;
 
 #if !BOARD_HAS_SDRAM
 // Static storage in the internal RAM. Being static, the linker accounts for
@@ -176,8 +195,52 @@ bool allocateBuffers() {
   return true;
 }
 
-// ---- Function: read an image from the serial port ----
-// Returns true when a complete image has been received
+// ---------------------------------------------------------------------------
+// Model fingerprint. The PC bench computes the same FNV-1a over the .tflite
+// and stops if they differ: it turns "the board was carrying another model"
+// from a silent failure into a loud one. g_model[] is the .tflite byte for
+// byte (tflite_to_c.py), so the fingerprints must be identical. Same function
+// as in the HIL sketch. Cost: one pass over flash (~1-3 ms at 400 MHz per
+// MB), paid once in setup().
+// ---------------------------------------------------------------------------
+static uint32_t fnv1a32(const uint8_t *p, size_t n) {
+  uint32_t h = 2166136261u;
+  for (size_t i = 0; i < n; i++) {
+    h ^= p[i];
+    h *= 16777619u;
+  }
+  return h;
+}
+
+// ---- Function: say what is running, in parseable lines ----
+// Printed at the end of setup() and every time the host sends an empty packet
+// (#@). READY_PIL is the last line: the host reads until it sees it.
+static void printIdentity() {
+  Serial.print("BOARD:");
+  Serial.println(BOARD_NAME);
+  Serial.print("INPUT_SHAPE:");
+  Serial.print(model_h);
+  Serial.print("x");
+  Serial.print(model_w);
+  Serial.print("x");
+  Serial.println(model_c);
+  Serial.print("MODEL_BYTES:");
+  Serial.println(g_model_len);
+  Serial.print("MODEL_FNV1A:");
+  char hex[9];
+  snprintf(hex, sizeof(hex), "%08lx", (unsigned long)model_fnv1a);
+  Serial.println(hex);
+  // How much of the arena the model actually needs: the figure to size
+  // TENSOR_ARENA_KB with on a board without external RAM
+  Serial.print("ARENA_USED:");
+  Serial.println((unsigned long)interpreter->arena_used_bytes());
+  Serial.println("READY_PIL");
+  Serial.flush();
+}
+
+// ---- Function: read a packet from the serial port ----
+// Returns true when a complete packet has been received: an image, or an
+// empty packet (image_bytes_received == 0), which asks for the identity lines
 bool readImageFromSerial() {
   while (Serial.available() > 0) {
     uint8_t byte_in = (uint8_t)Serial.read();
@@ -432,13 +495,21 @@ void setup() {
   }
 
   Serial.println("AllocateTensors() OK.");
-  // How much of the arena the model actually needs: the figure to size
-  // TENSOR_ARENA_KB with on a board without external RAM
-  Serial.print("ARENA_USED:");
-  Serial.println((unsigned long)interpreter->arena_used_bytes());
 
   input = interpreter->input(0);
   output = interpreter->output(0);
+
+  // Geometry of the input tensor (NHWC), announced in the identity lines: the
+  // bench refuses to send images of another size
+  if (input->dims->size == 4) {
+    model_h = input->dims->data[1];
+    model_w = input->dims->data[2];
+    model_c = input->dims->data[3];
+  } else if (input->dims->size == 3) {
+    model_h = input->dims->data[0];
+    model_w = input->dims->data[1];
+    model_c = input->dims->data[2];
+  }
 
   // The image buffer holds one byte per input element. An input larger than
   // the buffer would be truncated and the model would predict on incomplete
@@ -467,15 +538,24 @@ void setup() {
     Serial.println(input->params.zero_point);
   }
 
+  // Identity of the loaded model: the bench compares it with the .tflite on
+  // the PC before it measures anything
+  model_fnv1a = fnv1a32(g_model, g_model_len);
+
   Serial.println("Setup completed successfully.");
-  Serial.print("Waiting for an image over serial (start='#', end='@') ...");
-  Serial.println();
-  Serial.flush();
+  Serial.println("Send an image as #...@ ; an empty packet (#@) prints the identity lines again.");
+  printIdentity();
 }
 
 void loop() {
-  // Read an image from the serial port using the #...@ protocol
+  // Read a packet from the serial port using the #...@ protocol
   if (readImageFromSerial()) {
+
+    // An empty packet is the host asking what is running: no inference
+    if (image_bytes_received == 0) {
+      printIdentity();
+      return;
+    }
 
     Serial.println("\n--- Image received. Starting inference... ---");
 
