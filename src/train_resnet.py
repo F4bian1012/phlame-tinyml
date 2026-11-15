@@ -1,16 +1,77 @@
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
-import numpy as np
-import matplotlib.pyplot as plt
 import os
 import sys
 import datetime
-import argparse
 
 import artifacts
 import cli
 import train_common
+
+
+def parse_args():
+    parser = cli.ArgumentParser(
+        description="ResNet training for TinyML (grayscale images)"
+    )
+    parser.add_argument(
+        "--base_model", type=str, default="ResNet18", choices=["ResNet8", "ResNet18"],
+        help="Base architecture (ResNet8 or ResNet18) (default: ResNet18)"
+    )
+    parser.add_argument(
+        "--width", type=int, default=160,
+        help="Image width in pixels (default: 160)"
+    )
+    parser.add_argument(
+        "--height", type=int, default=120,
+        help="Image height in pixels (default: 120)"
+    )
+    parser.add_argument(
+        "--batch_size", type=int, default=32,
+        help="Batch size (default: 32)"
+    )
+    parser.add_argument(
+        "--epochs", type=int, default=30,
+        help="Number of epochs (default: 30)"
+    )
+    parser.add_argument(
+        "--learning_rate", type=float, default=0.0001,
+        help="Adam learning rate (default: 0.0001)"
+    )
+    parser.add_argument(
+        "--splits_dir", type=str, default="data/splits",
+        help="Directory holding the train/val partitions produced by split_dataset.py (default: data/splits)"
+    )
+    parser.add_argument(
+        "--dropout_rate", type=float, default=0.5,
+        help="Dropout rate before the final layer (default: 0.5)"
+    )
+    parser.add_argument(
+        "--tag", type=artifacts.valid_tag, default=None,
+        help="Optional run name added after the architecture (e.g. the dataset: ResNet8_VWW+...), "
+             "so runs on different datasets do not share file names"
+    )
+    parser.add_argument(
+        "--overwrite", action="store_true",
+        help="Replace the checkpoint and the training curve if they already exist"
+    )
+    parser.add_argument(
+        "--seed", type=int, default=42,
+        help="Seed of the initial weights, the shuffling and the augmentation (default: 42). On a CPU it repeats a run bit for bit on the same machine and software; on a GPU two runs with the same seed still differ, because some GPU kernels are not deterministic"
+    )
+
+    train_common.add_recipe_arguments(parser)
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    # The command line is read before TensorFlow is imported, which takes
+    # several seconds: --help and a wrong option answer at once, and nothing is
+    # created in the working directory.
+    ARGS = parse_args()
+
+import tensorflow as tf  # noqa: E402
+from tensorflow import keras  # noqa: E402
+from tensorflow.keras import layers  # noqa: E402
+import numpy as np  # noqa: E402
+import matplotlib.pyplot as plt  # noqa: E402
 
 LOG_DIR = "tensorboard_logs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
@@ -336,58 +397,7 @@ def main(img_width, img_height, batch_size, epochs, learning_rate, dropout_rate,
 
 
 if __name__ == "__main__":
-    parser = cli.ArgumentParser(
-        description="ResNet training for TinyML (grayscale images)"
-    )
-    parser.add_argument(
-        "--base_model", type=str, default="ResNet18", choices=["ResNet8", "ResNet18"],
-        help="Base architecture (ResNet8 or ResNet18) (default: ResNet18)"
-    )
-    parser.add_argument(
-        "--width", type=int, default=160,
-        help="Image width in pixels (default: 160)"
-    )
-    parser.add_argument(
-        "--height", type=int, default=120,
-        help="Image height in pixels (default: 120)"
-    )
-    parser.add_argument(
-        "--batch_size", type=int, default=32,
-        help="Batch size (default: 32)"
-    )
-    parser.add_argument(
-        "--epochs", type=int, default=30,
-        help="Number of epochs (default: 30)"
-    )
-    parser.add_argument(
-        "--learning_rate", type=float, default=0.0001,
-        help="Adam learning rate (default: 0.0001)"
-    )
-    parser.add_argument(
-        "--splits_dir", type=str, default="data/splits",
-        help="Directory holding the train/val partitions produced by split_dataset.py (default: data/splits)"
-    )
-    parser.add_argument(
-        "--dropout_rate", type=float, default=0.5,
-        help="Dropout rate before the final layer (default: 0.5)"
-    )
-    parser.add_argument(
-        "--tag", type=artifacts.valid_tag, default=None,
-        help="Optional run name added after the architecture (e.g. the dataset: ResNet8_VWW+...), "
-             "so runs on different datasets do not share file names"
-    )
-    parser.add_argument(
-        "--overwrite", action="store_true",
-        help="Replace the checkpoint and the training curve if they already exist"
-    )
-    parser.add_argument(
-        "--seed", type=int, default=42,
-        help="Seed of the initial weights, the shuffling and the augmentation (default: 42). On a CPU it repeats a run bit for bit on the same machine and software; on a GPU two runs with the same seed still differ, because some GPU kernels are not deterministic"
-    )
-
-    train_common.add_recipe_arguments(parser)
-
-    args = parser.parse_args()
+    args = ARGS
 
     main(
         args.width, args.height, args.batch_size, args.epochs,
