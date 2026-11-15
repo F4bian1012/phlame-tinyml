@@ -155,8 +155,13 @@ Which of these have run on a board and which only against the simulated board of
   [`docs/usage.md`](docs/usage.md). No number changed.
 - [`docs/related_work.md`](docs/related_work.md) compares PHLAME with MLPerf Tiny and with other benchmarks and
   tools: what each measures, what PHLAME does that was not found in them, and what it does not do (no energy
-  measurement, one microcontroller, no standardised submission process, no release yet). Its sources were read in
-  their HTML versions and still have to be checked against the PDFs.
+  measurement, one microcontroller, no standardised submission process, no release yet). Each reference was then
+  looked up at its primary source and the statements that cite it were checked against it (full text in the HTML
+  rendering of arXiv, documentation and repositories; the PDF files were not opened, and three sources could not
+  be checked in full, as its status note says). That narrowed what the document says was not found elsewhere:
+  ST's `validate` command, ML-EXray and EdgeMark each measure some difference between a reference on the PC and
+  the device, so the claim is now the count, for a microcontroller and over the test set of a public benchmark,
+  of the images predicted differently.
 
 ### Renamed
 
