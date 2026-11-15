@@ -94,6 +94,9 @@ TEXT = {
         "live_line": "  [%03d] %s shift (%+.1f, %+.1f) px | scale %.3f | rot %+.2f deg | resid %.2f px -> %s",
         "live_none": "  [%03d] %s %s",
         "live_stop": "\n[LIVE] stopped.",
+        "port_lost": "  the port went away (board unplugged or restarting); waiting for it to come back...",
+        "port_back": "  port open again and the firmware answers; the live loop goes on.",
+        "port_gone": "[LIVE] the port did not come back, or the firmware does not answer; stopped.",
     },
     "es": {
         "too_few": "solo se ven %d cuadros brillantes: la cámara no ve el estímulo (apuntado o distancia)",
@@ -123,6 +126,9 @@ TEXT = {
                      "residuo %.2f px -> %s",
         "live_none": "  [%03d] %s %s",
         "live_stop": "\n[VIVO] detenido.",
+        "port_lost": "  el puerto desapareció (placa desconectada o reiniciándose); esperando a que vuelva...",
+        "port_back": "  puerto abierto de nuevo y el firmware responde; sigue el bucle.",
+        "port_gone": "[VIVO] el puerto no volvió, o el firmware no responde; detenido.",
     },
 }
 
@@ -277,6 +283,25 @@ def open_board(port, baud, board_key=boards.DEFAULT_BOARD):
         ser.close()
         sys.exit(2)
     return ser, announced
+
+
+def reconnect(ser, wait_s=60.0):
+    """After the port went away in the middle of the live loop (the board was unplugged, moved to
+    another USB socket or reset): opens it again, lets the firmware boot and turns the frame dump on.
+    Returns True when the firmware answers again."""
+    if not reopen_port(ser, wait_s=wait_s):
+        return False
+    try:
+        lines, accepted = frame_dump_on(ser, 8)
+        if not accepted and "READY_HIL" in lines:
+            _, accepted = frame_dump_on(ser, 5)      # it finished booting while the command was on its way
+        if not accepted and "CAM_INIT:FAIL" not in lines:
+            _, hit = wait_for_boot(ser, timeout_s=30)
+            if hit == "READY_HIL":
+                _, accepted = frame_dump_on(ser, 5)
+        return accepted
+    except (serial.SerialException, OSError):
+        return False
 
 
 def capture(ser, stimulus_path, settle):
@@ -573,7 +598,16 @@ def live_loop(ser, pattern_path, args, output_dir):
     k = 0
     try:
         while True:
-            frame = capture(ser, pattern_path, args.settle)
+            try:
+                frame = capture(ser, pattern_path, args.settle)
+            except (serial.SerialException, OSError):
+                # moving the board often unplugs it for a moment: stay on the port instead of ending
+                print(t["port_lost"], flush=True)
+                if not reconnect(ser):
+                    print(t["port_gone"])
+                    break
+                print(t["port_back"], flush=True)
+                continue
             if frame is None:
                 print(t["capture_failed"], flush=True)
                 continue

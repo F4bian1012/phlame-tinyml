@@ -129,6 +129,22 @@ class CalibratorRestartTest(unittest.TestCase):
         self.assertEqual(result.code, 1)
         self.assertIn("did not come back", log)
 
+    def test_a_port_lost_in_the_live_loop_is_opened_again(self):
+        port = RestartingPort()
+        port.state = "gone"                                   # unplugged while a frame was being read
+        with mock.patch.object(calib.time, "sleep"), contextlib.redirect_stdout(io.StringIO()):
+            self.assertTrue(calib.reconnect(port))
+        self.assertEqual(port.opens, 3)                       # two attempts before the port was back
+        self.assertEqual(port.written[-1], calib.hb.CMD_DUMP_ON)
+
+    def test_a_port_that_stays_away_ends_the_live_loop_without_a_traceback(self):
+        port = RestartingPort()
+        port.state = "gone"
+        with mock.patch.object(calib, "reopen_port", return_value=False):
+            self.assertFalse(calib.reconnect(port))
+        self.assertEqual(sorted(k for k in calib.TEXT["en"] if k.startswith("port_")),
+                         ["port_back", "port_gone", "port_lost"])
+
     def test_a_running_firmware_is_not_asked_to_reset(self):
         port = RestartingPort()
         port.state = "booted"
