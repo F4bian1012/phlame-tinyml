@@ -246,6 +246,9 @@ images of this test and must not be evaluated on it, and the two partitions must
 
 ## Plates (Secondary Benchmark)
 
+The plates partition is that of the vehicle application case; its results and its other caveats are in
+[`vehicle_benchmark.md`](vehicle_benchmark.md).
+
 **The test split of the plates partition is not independent of its training data.** The partition
 (`data/splits_plates`: 940 test images, 5,336 train and validation images) comes from a dataset that
 holds several copies of many of its photos (identical, rotated or mirrored), and the split separated

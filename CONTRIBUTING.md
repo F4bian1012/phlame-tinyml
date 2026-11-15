@@ -65,7 +65,8 @@ These are what the code and the history already follow.
   documents and commit messages.
 - **Run names.** Every file of a model derives from
   `{architecture}[_{tag}]+{batch}+{epochs}+{learning rate}+{width}+{height}` (`src/artifacts.py`). Give each
-  dataset its own `--tag`; the names without a tag belong to the published vehicle benchmark.
+  dataset its own `--tag`; the names without a tag belong to the vehicle application case
+  ([`docs/vehicle_benchmark.md`](docs/vehicle_benchmark.md)).
 - **Command line.** Scripts parse their options with `cli.ArgumentParser` (`src/cli.py`), which accepts every
   multi-word option with `_` or `-`. Declare options with `_`. The four benches share `--model_path`,
   `--splits_dir`, `--output_dir` and `--overwrite`; the two board benches also share `--port`, `--board`,

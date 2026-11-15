@@ -4,7 +4,7 @@ How to add an architecture and how to add a board. Both are written from what th
 section ends with what was checked by doing it and what only by reading the code.
 
 A dataset of your own needs no change to the code: follow [Usage](../README.md#usage-full-pipeline) in the README
-with your images and a `--tag`.
+with your images and a `--tag`; [`usage.md`](usage.md) explains each step.
 
 - [Adding an Architecture](#adding-an-architecture)
 - [Adding a Board](#adding-a-board)
@@ -194,7 +194,7 @@ Cortex-M, so a core without it needs another clock and that part of the sketches
 ### What Has Been Exercised
 
 - **PIL on the Nicla Vision: run on the board.** The runs are in `results/nicla/pil/`: the `MobileNetV2` of the
-  vehicle benchmark (940 images) and the COCO models that fit the board (5,000 test images each). For every COCO
+  vehicle application case (940 images, see [`vehicle_benchmark.md`](vehicle_benchmark.md#the-same-model-on-a-second-board)) and the COCO models that fit the board (5,000 test images each). For every COCO
   model measured on both boards, the two boards gave the same prediction for each of the 5,000 images
   (`python src/build_benchmark_table.py --tag COCO` recounts it). For the vehicle model see
   [Boards and Memory](hardware.md#boards-and-memory): the Portenta H7 run it is compared with there was not

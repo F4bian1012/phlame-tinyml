@@ -138,6 +138,13 @@ Which of these have run on a board and which only against the simulated board of
   and the build record of the flash budget, [`docs/flash_budget_build.txt`](docs/flash_budget_build.txt).
 - Several statements of the README were reworded to say what the data show, among them the significance of the
   PIL-to-HIL gap of `MobileNetV2`, which depends on the session.
+- The COCO benchmark is the benchmark of the repository. The vehicle benchmark, measured on private images, is
+  kept as an application case outside the main results: its four-level results, its paired decomposition, its
+  repeatability sessions and its limitations moved from the README to
+  [`docs/vehicle_benchmark.md`](docs/vehicle_benchmark.md). No result file, table, script or default changed:
+  `build_ladder_tables.py` with no option still rebuilds its eight tables in `results/tables/`.
+- The README is shorter. The detail of the seven usage steps and of the Arduino Nicla Vision moved to
+  [`docs/usage.md`](docs/usage.md); the README keeps the sequence of commands.
 
 ### Renamed
 

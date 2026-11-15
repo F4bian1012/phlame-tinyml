@@ -14,20 +14,21 @@ the top of each sketch, selected by the build target (`--board` in `compile_uplo
 | Image buffer | 400 KiB in external SDRAM (up to 320×320 RGB) | Static array: 19,200 bytes by default (one 160×120 grayscale image) |
 | Camera (HIL) | HM01B0 of the Vision Shield, monochrome, 160×120 | Built-in GC2145, colour: read as RGB565 at 160×120 and converted to luminance |
 | Announces | `BOARD:PORTENTA_H7` | `BOARD:NICLA_VISION` |
-| Status | Board behind every published result | PIL measured on the board; HIL builds, not run yet |
+| Status | PIL and HIL measured on the board | PIL measured on the board; HIL builds, not run yet |
 
 The Portenta H7 FQBN needs `:split=100_0` (2 MiB of flash for the M7 core): with the default split the firmware
 does not fit. Of those 2 MiB the first 256 KiB are the bootloader region; the sizes of the two sketches, read
 from a build, are in [`flash_budget_build.txt`](flash_budget_build.txt).
 
-**What has run on a board.** The published results were measured with the single-board sketches that preceded
-these. The two-board PIL sketch was then checked on a Portenta H7 against its predecessor, following steps 5 and 6
+**What has run on a board.** The results published before November 2026 (the Visual Wake Words run and the vehicle
+application case) were measured with the single-board sketches that preceded these. The two-board PIL sketch was then checked on a Portenta H7 against its predecessor, following steps 5 and 6
 of the README with the same model and the same 300 test images: both gave the same prediction for all 300 images,
-and the bench recorded `BOARD:PORTENTA_H7`. The two-board HIL sketch has not been run on a board yet.
+and the bench recorded `BOARD:PORTENTA_H7`. The two-board HIL sketch first ran on a
+Portenta H7 on 2026-11-15 (see [HIL Rig and Session](#hil-rig-and-session)), and has not been run on a Nicla Vision.
 
 **First runs on a Nicla Vision** (2026-11-14, `results/nicla/pil/`). The PIL sketch boots on the board, allocates
 the default 368 KiB arena (`MobileNetV2` uses 356,404 bytes of it, the same as on the Portenta H7) and reports the
-same 400 MHz clock. With the published `MobileNetV2` of the vehicle benchmark it answered the 940 test images
+same 400 MHz clock. With the `MobileNetV2` of the vehicle application case ([`vehicle_benchmark.md`](vehicle_benchmark.md)) it answered the 940 test images
 without a dropped link, and gave the same prediction as a Portenta H7 measured the same day for all 940 (937 of
 940 against the Portenta H7 file published in September, for the reason given under
 [Serial Protocol](#serial-protocol-pil-bench): the pixels the host sent were no longer the same for three files).
@@ -37,7 +38,9 @@ external SDRAM on the other, which is the likely cause; it has not been isolated
 
 **The COCO benchmark on both boards** (2026-11-14 and 15, `results/pil/` and `results/nicla/pil/`). The five
 models that fit were measured on each board over the 5,000 test images: ten runs, every image answered, no
-dropped link, and the two boards give the same prediction for every image of every model. Arena, flash and RAM
+dropped link, and the two boards give the same prediction for every image of every model. Both boards carry the same
+STM32H747, so that agreement is a consistency check between two boards, not evidence of portability to other
+microcontroller families. Arena, flash and RAM
 are those of each flashed build (`ARENA_USED` in the boot lines, sizes reported by the compiler):
 
 | Model | Arena used (bytes) | `--arena_kb` on the Nicla Vision | Nicla Vision: flash / RAM left (bytes) | `INF` Portenta H7 (ms) | `INF` Nicla Vision (ms) |
