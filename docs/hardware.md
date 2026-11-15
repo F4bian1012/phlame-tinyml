@@ -87,7 +87,7 @@ to give the benches.
 
 ## Portability
 
-Both host benches (`pil_benchmark.py` and `hil_benchmark.py`) and the wire protocols (`#...@` byte-escaped framing for PIL; `READY_HIL` / `MODEL_FNV1A:<hex>` / `'T'` / `'F1'` for HIL) do not assume a specific MCU or camera peripheral: they communicate over standard USB CDC serial. A port must keep the end-of-inference lines that the benches search for (see [Serial Protocol](#serial-protocol-pil-bench)). In the firmware sketches (`pil_firmware.ino` and `hil_firmware.ino`), the Cortex-M7 DWT cycle counter (`DWT->CYCCNT` / `SystemCoreClock`), the `FNV-1a` model hash, and the TFLite-Micro `Invoke()` loop are portable across ARM Cortex-M4/M7 targets. What is board-specific sits in the `BOARD SUPPORT` block of each sketch, and the Nicla Vision is the worked example of a second board:
+Both host benches (`pil_benchmark.py` and `hil_benchmark.py`) and the wire protocols (`#...@` byte-escaped framing, `READY_PIL` and `MODEL_FNV1A:<hex>` for PIL; `READY_HIL` / `MODEL_FNV1A:<hex>` / `'T'` / `'F1'` for HIL) do not assume a specific MCU or camera peripheral: they communicate over standard USB CDC serial. A port must keep the end-of-inference lines that the benches search for (see [Serial Protocol](#serial-protocol-pil-bench)). In the firmware sketches (`pil_firmware.ino` and `hil_firmware.ino`), the Cortex-M7 DWT cycle counter (`DWT->CYCCNT` / `SystemCoreClock`), the `FNV-1a` model hash, and the TFLite-Micro `Invoke()` loop are portable across ARM Cortex-M4/M7 targets. What is board-specific sits in the `BOARD SUPPORT` block of each sketch, and the Nicla Vision is the worked example of a second board:
 1. **Arena and buffers.** On the Portenta H7 they are allocated in external SDRAM (`SDRAM.begin()` / `ea_malloc()`); on the Nicla Vision, which shares the STM32H747 MCU but has no SDRAM chip, they are static arrays in internal RAM (see [Boards and Memory](#boards-and-memory)).
 2. **Camera.** The Portenta H7 reads its monochrome `HM01B0` as 8-bit grayscale. The Nicla Vision's `GC2145` is a colour sensor, and in the `arduino:mbed_nicla` 4.6.0 core its grayscale mode delivers raw Bayer data rather than luminance, so the sketch reads RGB565 and converts it in the MCU with the BT.601 weights in integer arithmetic. The conversion gives the same value as Pillow's `convert('L')` for every RGB565 input, so "grayscale" means the same on the board and on the host. Its time is counted in the `PRE` phase, and the frame-dump returns the luminance frame.
 
@@ -117,6 +117,7 @@ format is a framed raw-byte protocol:
 |----------------|------------------|------------------------------------------------|
 | Start marker   | `#` (`0x23`)     | Begin of image packet                          |
 | End marker     | `@` (`0x40`)     | End of image packet → triggers inference       |
+| Empty packet   | `#@`             | Asks for the identity lines; runs no inference |
 | Escape byte    | `ESC` (`0x1B`)   | Next byte is real data, recovered as `b ^ 0x20`|
 | Baud rate      | `115200`         | `Serial.begin(115200)`                         |
 
@@ -126,13 +127,45 @@ equals `#`, `@`, or `ESC`, the sender escapes it as `ESC` followed by
 reverses this on reception (`pil_benchmark.py` performs the escaping on the host
 side).
 
+**Identity lines and handshake.** The sketch says what it is running in six parseable lines:
+`BOARD:<name>`, `INPUT_SHAPE:<H>x<W>x<C>` (the input tensor of the model), `MODEL_BYTES:<int>` and
+`MODEL_FNV1A:<hex>` (size and 32-bit FNV-1a fingerprint of the model array in flash, which is the
+`.tflite` byte for byte), `ARENA_USED:<bytes>` and, last, `READY_PIL`. It prints them at the end of
+its boot lines, which appear once, when the port is opened for the first time after a reset, and
+again whenever the host sends an empty packet (`#@`). Because `#` restarts a packet, that request is
+understood whatever the firmware was waiting for. The bench reads the boot lines if they come and
+asks with `#@` otherwise, and then stops before sending any image unless the board is the one given
+with `--board`, the fingerprint and the size are those of the `.tflite` given with `--model_path`,
+and the images have the announced shape. A build earlier than November 2026 has no identity lines:
+it takes the empty packet for an image and answers with an inference, which is how the bench
+recognises it (it asks twice, since a board left in the middle of a packet by an interrupted run
+answers the first request the same way). Such a build is refused unless the run is allowed with
+`--allow_model_mismatch`; a board that answers nothing ends the run with exit code 1, and the HIL
+sketch is recognised by its `READY_HIL`.
+
+> **Not yet verified on a board.** The identity lines, the empty packet and the checks of the bench
+> were added in November 2026. The sketch builds for both boards and the bench is tested against a
+> simulated board (`tests/test_pil_session.py`); neither has run on a Portenta H7 or a Nicla Vision
+> yet. To be checked on each board: the boot lines end with the six identity lines; `#@` prints them
+> again, also in the middle of a run of images; the fingerprint equals the one the host computes for
+> the flashed `.tflite`; a board carrying another model stops the bench; a short run completes with
+> `model.identity_verified = true`.
+
 **Dropped link.** A USB serial link can disappear for a moment (cable, hub, the host's
 power management) while the board keeps running. When that happens the bench reopens the
 port and sends the same image again, up to five times, and counts it in `run.n_reconnects`;
-if the port does not come back it stops with a message instead of a traceback. On the
+if the port does not come back the run ends as described under "A run that ends early". On the
 firmware side a raw `#` in the middle of a packet restarts the packet, so the image sent
 again is not appended to what arrived before the drop. The latency is measured on the
 chip, so a repeated exchange is a valid measurement like any other.
+
+**A run that ends early.** Each image is written to the two CSV files as soon as it is measured. A
+board that stops answering makes every image wait 30 s, so after 5 images in a row without an
+answer (`--max_unanswered`; 0 never gives up) the run is given up. In that case, and when the link
+is lost for good, the operator presses Ctrl+C or an image cannot be read, the bench still writes
+`metrics_*.json`, marked `run.completed = false` with the reason in `run.stopped_because` and the
+number of images planned in `dataset.n_images_planned`, and ends with exit code 3. Its figures
+cover only the images recorded.
 
 **What the host sends depends on its decoder.** The bench decodes each image file on the host and sends the
 pixels. With JPEG files the pixels are not fixed by the file alone: the same Portenta H7, model and JPEG test
@@ -149,7 +182,8 @@ Nothing is hardcoded, so the same firmware is correct for any quantized model;
 FP32 model the firmware maps each pixel as `float = pixel / 255.0`; that branch is
 not validated (see [Known Limitations](../README.md#known-limitations)). If fewer bytes than
 the tensor expects arrive, the remainder is padded with `zero_point` (the
-quantized representation of a real 0), not with a raw 0.
+quantized representation of a real 0), not with a raw 0. The bench does not let that happen:
+it refuses to send images whose shape is not the one the firmware announces.
 
 > The value fed in is the **raw** pixel, because the shipped models are
 > converted without a `Rescaling` layer. This must match the preprocessing of
@@ -163,10 +197,10 @@ on-chip CPU temperature (`°C`, from STM32H7 factory calibration) are also print
 around each inference; `pil_benchmark.py` parses the integer class from the stream.
 
 **Board announcement.** Each sketch prints `BOARD:<name>` (`PORTENTA_H7` or
-`NICLA_VISION`): at boot in both, and again with every image in PIL, because the PIL
-bench opens the port after the boot lines are gone. The benches record the name in
-`run.board` and stop if it is not the board given with `--board`. A firmware that
-prints no such line is accepted and recorded as `null`.
+`NICLA_VISION`): at boot in both, and in PIL also among the identity lines and with every
+image, which is where a bench reads it when it opens the port after the boot lines are
+gone. The benches record the name in `run.board` and stop if it is not the board given
+with `--board`. A firmware that prints no such line is recorded as `null`.
 
 **End-of-inference markers (porting note).** Both benches detect the end of each
 inference by searching the firmware's text output, case-insensitively, for
