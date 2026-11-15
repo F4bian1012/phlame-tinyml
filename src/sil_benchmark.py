@@ -1,70 +1,15 @@
-import tensorflow as tf
-import numpy as np
-import matplotlib.pyplot as plt
-import argparse
-import csv
-import hashlib
-import json
 import os
 import sys
-from datetime import datetime, timezone
 
 import artifacts
 import cli
-import images
 
-try:
-    import seaborn as sns
-    from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, precision_recall_fscore_support
-except ImportError:
-    print("Please install scikit-learn and seaborn to compute the metrics.")
-    print("Run: pip install scikit-learn seaborn")
-    sys.exit(1)
-
-
-def _class_name(idx, class_names):
-    """Class name from the predicted or ground-truth index."""
-    if idx is None or idx < 0:
-        return ""
-    if idx < len(class_names):
-        return class_names[idx]
-    return "Invalid_%d" % idx
-
-
-def _sha256_file(path, chunk=1024 * 1024):
-    """SHA-256 of the model file, read in chunks.
-
-    In chunks because a model file can weigh tens of MB and there is no need
-    to hold it entirely in memory just to hash it.
-
-    Returns None if the path is not a file (e.g. a SavedModel, which is a
-    folder): a JSON without a checksum is preferable to losing the whole
-    evaluation on the last line, after having run the full inference.
-    """
-    if not os.path.isfile(path):
-        return None
-    h = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for block in iter(lambda: fh.read(chunk), b""):
-            h.update(block)
-    return h.hexdigest()
-
-
-def _json_safe(o):
-    """Converts numpy types to native Python types.
-
-    classification_report(output_dict=True) returns the "support" field as
-    np.int64 and the metrics as np.float64, and json.dump cannot serialize
-    them: without this the dump fails with TypeError after having run the
-    full inference.
-    """
-    if isinstance(o, np.integer):
-        return int(o)
-    if isinstance(o, np.floating):
-        return float(o)
-    if isinstance(o, np.ndarray):
-        return o.tolist()
-    raise TypeError("Cannot serialize to JSON: %r (%s)" % (o, type(o).__name__))
+# --kernels: which implementation of the operators runs the model on the PC.
+KERNELS = {
+    "default": "AUTO",
+    "builtin": "BUILTIN_WITHOUT_DEFAULT_DELEGATES",
+    "reference": "BUILTIN_REF",
+}
 
 
 def parse_args():
@@ -97,6 +42,19 @@ def parse_args():
 
     return args
 
+
+if __name__ == "__main__":
+    # The command line is read before TensorFlow is imported, which takes
+    # several seconds: --help and a wrong option answer at once.
+    ARGS = parse_args()
+
+import tensorflow as tf  # noqa: E402
+import numpy as np  # noqa: E402
+
+import evaluation  # noqa: E402  (the part shared with mil_benchmark.py)
+import images  # noqa: E402
+
+
 def quantize_input(data, input_details):
     """
     If the TFLite model expects integer inputs instead of float32 (e.g. a
@@ -118,13 +76,6 @@ def quantize_input(data, input_details):
         return data.astype(np.int8)
     # Return as float32 for non-INT8 input tensors
     return data.astype(np.float32)
-
-# --kernels: which implementation of the operators runs the model on the PC.
-KERNELS = {
-    "default": "AUTO",
-    "builtin": "BUILTIN_WITHOUT_DEFAULT_DELEGATES",
-    "reference": "BUILTIN_REF",
-}
 
 
 def make_interpreter(model_path, kernels="default"):
@@ -164,28 +115,18 @@ def dequantize_output(data, output_details):
             return dq_data
     return data.astype(np.float32)
 
-def main():
-    args = parse_args()
+
+def main(args=None):
+    if args is None:
+        args = parse_args()
 
     if not os.path.exists(args.model_path):
         print(f"Error: You must provide a valid TFLite model. Not found: {args.model_path}")
         sys.exit(1)
 
-    # Checked before loading anything: a run must not replace the results of
-    # another one (the published ones are tracked in results/).
-    stem = os.path.splitext(os.path.basename(args.model_path))[0]
-    artifacts.refuse_to_overwrite(
-        [os.path.join(args.output_dir, name) for name in
-         (f"confusion_matrix_{stem}.png", f"predictions_{stem}.csv", f"metrics_{stem}.json")],
-        args.overwrite,
-        hint="write somewhere else with --output_dir, or train with --tag NAME")
+    evaluation.refuse_to_replace_results(args.output_dir, args.model_path, args.overwrite)
 
-    class_names = []
-    class_names_path = artifacts.resolve_class_names_path(args.model_path, args.class_names_path)
-    if os.path.exists(class_names_path):
-        with open(class_names_path, 'r') as f:
-            class_names = [line.strip() for line in f.readlines() if line.strip()]
-        print(f"Class names loaded from {class_names_path}: {class_names}")
+    class_names, class_names_path = evaluation.read_class_names(args.model_path, args.class_names_path)
 
     print(f"\nInitializing TFLite Interpreter with {args.model_path}...")
     interpreter = make_interpreter(args.model_path, args.kernels)
@@ -219,25 +160,10 @@ def main():
             args.data_dir = fallback_path
 
     if not os.path.exists(args.data_dir):
-        print(f"ERROR: test split not found at {args.data_dir}")
-        print("Run the dataset split first:")
-        print(f"  python src/split_dataset.py"
-              f" --input_dir data/processed/{expected_width}x{expected_height}"
-              f" --output_dir {args.splits_dir}")
-        sys.exit(1)
+        evaluation.stop_without_test_split(args.data_dir, expected_width, expected_height, args.splits_dir)
 
     print(f"Loading the test dataset from {args.data_dir}...")
-    if class_names:
-        subdirs = sorted(
-            d for d in os.listdir(args.data_dir)
-            if os.path.isdir(os.path.join(args.data_dir, d)) and not d.startswith(".")
-        )
-        if subdirs and set(subdirs) != set(class_names):
-            print(
-                f"[WARN] The subfolders of {args.data_dir} ({subdirs}) do not match "
-                f"{class_names_path} ({class_names}); the class names will be inferred from the directory."
-            )
-            class_names = []
+    class_names = evaluation.class_names_of_this_split(class_names, class_names_path, args.data_dir)
     # Read with the loader shared by MIL and the PIL bench (images.py), so the
     # three levels receive the same bytes for the same file. The order is fixed
     # (classes, then file names), which keeps inputs aligned with file names and labels.
@@ -245,11 +171,7 @@ def main():
     test_images, y_true, rel_paths, class_names = images.load_folder(
         args.data_dir, args.width, args.height, class_names if class_names else None,
         grayscale=(expected_channels == 1))
-    if inferred:
-        print(f"Class names inferred from the directory: {class_names}")
-    print(f"Found {len(rel_paths)} files belonging to {len(class_names)} classes.")
-
-    num_classes = len(class_names)
+    evaluation.describe_test_split(rel_paths, class_names, inferred)
 
     predictions = []
 
@@ -272,145 +194,20 @@ def main():
         predictions.append(output_data[0])
 
     predictions = np.array(predictions)
+    y_pred = evaluation.predicted_labels(predictions, len(class_names))
 
-    if num_classes == 1:
-        # Single-output binary classification
-        y_pred = (predictions > 0.5).astype(int).reshape(-1)
-    elif num_classes == 2 and predictions.shape[1] == 1:
-        # Sigmoid binary classification
-        y_pred = (predictions > 0.5).astype(int).reshape(-1)
-    else:
-        # Multiclass argmax (softmax output)
-        y_pred = np.argmax(predictions, axis=1)
-
-    print("\n" + "="*50)
-    print("              METRICS REPORT (TFLite)")
-    print("="*50)
-
-    accuracy = accuracy_score(y_true, y_pred)
-    precision, recall, f1, _ = precision_recall_fscore_support(y_true, y_pred, average='weighted', zero_division=0)
-    # 'macro' averages classes without weighting by support. With an imbalanced
-    # dataset, 'weighted' F1 is dominated by the majority class and can hide
-    # poor minority-class performance; macro weights them equally. Reporting
-    # both makes that gap visible instead of averaging it away.
-    _, _, f1_macro, _ = precision_recall_fscore_support(y_true, y_pred, average='macro', zero_division=0)
-
-    print(f"Accuracy:             {accuracy:.4f}")
-    print(f"Precision:            {precision:.4f}")
-    print(f"Recall:               {recall:.4f}")
-    print(f"F1-Score (weighted):  {f1:.4f}")
-    print(f"F1-Score (macro):     {f1_macro:.4f}")
-
-    print("\nDetailed Classification Report:")
-    # Requested twice: text for the console and dict for the JSON. Both come
-    # from the exact same call with output_dict, so the figures cannot diverge.
-    print(classification_report(y_true, y_pred, target_names=class_names, labels=range(len(class_names)), zero_division=0))
-    report_dict = classification_report(y_true, y_pred, target_names=class_names, labels=range(len(class_names)), zero_division=0, output_dict=True)
-
-    print("\nGenerating Confusion Matrix...")
-    cm = confusion_matrix(y_true, y_pred, labels=range(len(class_names)))
-
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=class_names, yticklabels=class_names)
-    plt.title(f'SIL Confusion Matrix - {os.path.splitext(os.path.basename(args.model_path))[0]}')
-    plt.ylabel('True Label')
-    plt.xlabel('Predicted Label')
-    plt.tight_layout()
-
-    # SIL-level matrices live alongside the rest of the ladder outputs
-    # (results/mil, results/pil, results/hil), not next to the .tflite file.
-    # Filenames derive from the model name, just as in mil_benchmark.py and
-    # pil_benchmark.py, so runs with different models do not overwrite each other.
-    out_dir = args.output_dir
-    os.makedirs(out_dir, exist_ok=True)
-
-    model_basename = os.path.basename(args.model_path)
-    model_name_without_ext = os.path.splitext(model_basename)[0]
-    cm_plot_name = f"confusion_matrix_{model_name_without_ext}.png"
-    cm_plot_path = os.path.join(out_dir, cm_plot_name)
-
-    plt.savefig(cm_plot_path)
-    print(f"\nConfusion matrix plot saved to {cm_plot_path}")
-
-    # Per-image predictions CSV using the exact same schema as pil_benchmark.py
-    # (Image;RelPath;TrueLabel;TrueClass;PredLabel;PredClass;Correct) so that
-    # MIL, SIL, PIL and the HIL subset (hil_subset==1) can be joined image by image.
-    pred_csv_path = os.path.join(out_dir, f"predictions_{model_name_without_ext}.csv")
-    with open(pred_csv_path, "w", newline="", encoding="utf-8") as pred_file:
-        pred_writer = csv.writer(pred_file, delimiter=";")
-        pred_writer.writerow(["Image", "RelPath", "TrueLabel", "TrueClass",
-                              "PredLabel", "PredClass", "Correct"])
-        # RelPath is written with '/' on every operating system
-        for rel, t_lbl, p_lbl in zip(rel_paths, y_true, y_pred):
-            t_int = int(t_lbl)
-            p_int = int(p_lbl)
-            pred_writer.writerow([
-                rel.split("/")[-1],
-                rel,
-                t_int,
-                _class_name(t_int, class_names),
-                p_int,
-                _class_name(p_int, class_names),
-                1 if t_int == p_int else 0,
-            ])
-    print(f"Per-image predictions saved to {pred_csv_path}")
-
-    # Alongside the PNG, a JSON with the exact same figures is written. The PNG
-    # is for visual inspection, whereas the JSON enables automated comparisons
-    # across ladder levels. Same model-derived naming convention as confusion_matrix_*.png.
-    metrics_path = os.path.join(out_dir, f"metrics_{model_name_without_ext}.json")
-
-    # The checksum binds these metrics to the exact model artifact that produced
-    # them. If a later run diverges, the hash immediately tells whether the
-    # model binary changed or something else did (data, preprocessing, split).
-    model_sha256 = _sha256_file(args.model_path)
-    model_bytes = os.path.getsize(args.model_path) if os.path.isfile(args.model_path) else None
-    print(f"Model SHA-256:        {model_sha256}")
-
-    results = {
-        "level": "SIL",
-        "generated_utc": datetime.now(timezone.utc).isoformat(),
-        "model": {
-            "path": args.model_path,
-            "name": model_name_without_ext,
-            "sha256": model_sha256,
-            "bytes": model_bytes,
-            "kernels": args.kernels,
-        },
-        "dataset": {
-            "splits_dir": args.splits_dir,
-            "data_dir": args.data_dir,
-            "n_samples": int(len(y_true)),
-            "class_names": list(class_names),
-            "image_size": {"width": args.width, "height": args.height},
-        },
-        "global_metrics": {
-            "accuracy": float(accuracy),
-            "precision_weighted": float(precision),
-            "recall_weighted": float(recall),
-            "f1_weighted": float(f1),
-            "f1_macro": float(f1_macro),
-        },
-        "per_class_metrics": report_dict,
-        "confusion_matrix": {
-            "labels": list(class_names),
-            "matrix": cm.tolist(),
-            "order": "rows = true label, columns = predicted label",
-        },
+    evaluation.write_level_results(
+        level="SIL", model_path=args.model_path, output_dir=args.output_dir,
+        y_true=y_true, y_pred=y_pred, rel_paths=rel_paths, class_names=class_names,
+        dataset={"splits_dir": args.splits_dir, "data_dir": args.data_dir},
+        image_size=(args.width, args.height),
         # What ran the INT8 model and computed the figures (see artifacts.software_versions).
         # The TFLite kernels are chosen with --kernels and recorded in model.kernels.
-        "software": artifacts.software_versions(["tensorflow", "numpy", "scikit_learn", "pillow"]),
-        "artifacts": {
-            "confusion_matrix_png": cm_plot_path,
-            "predictions_csv": pred_csv_path,
-        },
-    }
-
-    with open(metrics_path, "w", encoding="utf-8") as fh:
-        # Output schema documented in docs/results_schema.md - update it if you add, rename or remove keys.
-        json.dump(results, fh, indent=2, ensure_ascii=False, default=_json_safe)
-    print(f"JSON metrics saved to {metrics_path}")
+        software=artifacts.software_versions(["tensorflow", "numpy", "scikit_learn", "pillow"]),
+        report_title="              METRICS REPORT (TFLite)",
+        plot_title=f'SIL Confusion Matrix - {evaluation.model_name(args.model_path)}',
+        model_extra={"kernels": args.kernels})
 
 
 if __name__ == "__main__":
-    main()
+    main(ARGS)
