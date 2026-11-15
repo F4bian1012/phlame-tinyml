@@ -1,0 +1,79 @@
+{
+  "level": "SIL",
+  "generated_utc": "2026-11-15T05:32:24.131537+00:00",
+  "model": {
+    "path": "models/tflite/ResNet18_COCO+32+50+0.0003+160+120_int8.tflite",
+    "name": "ResNet18_COCO+32+50+0.0003+160+120_int8",
+    "sha256": "98d9f32446cdcbd41f8090a9a98fe877ad6086fb79381643805bc1648f829e26",
+    "bytes": 11322672,
+    "kernels": "reference"
+  },
+  "dataset": {
+    "splits_dir": "data/splits_coco",
+    "data_dir": "data/splits_coco\\test",
+    "n_samples": 5000,
+    "class_names": [
+      "non_person",
+      "person"
+    ],
+    "image_size": {
+      "width": 160,
+      "height": 120
+    }
+  },
+  "global_metrics": {
+    "accuracy": 0.8548,
+    "precision_weighted": 0.856628819722801,
+    "recall_weighted": 0.8548,
+    "f1_weighted": 0.8542122512261547,
+    "f1_macro": 0.8534380052452237
+  },
+  "per_class_metrics": {
+    "non_person": {
+      "precision": 0.8358523725834798,
+      "recall": 0.9017823284034888,
+      "f1-score": 0.8675665815395841,
+      "support": 2637.0
+    },
+    "person": {
+      "precision": 0.8798143851508121,
+      "recall": 0.8023698688108337,
+      "f1-score": 0.8393094289508632,
+      "support": 2363.0
+    },
+    "accuracy": 0.8548,
+    "macro avg": {
+      "precision": 0.857833378867146,
+      "recall": 0.8520760986071613,
+      "f1-score": 0.8534380052452237,
+      "support": 5000.0
+    },
+    "weighted avg": {
+      "precision": 0.856628819722801,
+      "recall": 0.8548,
+      "f1-score": 0.8542122512261547,
+      "support": 5000.0
+    }
+  },
+  "confusion_matrix": {
+    "labels": [
+      "non_person",
+      "person"
+    ],
+    "matrix": [
+      [
+        2378,
+        259
+      ],
+      [
+        467,
+        1896
+      ]
+    ],
+    "order": "rows = true label, columns = predicted label"
+  },
+  "artifacts": {
+    "confusion_matrix_png": "results/sil\\confusion_matrix_ResNet18_COCO+32+50+0.0003+160+120_int8.png",
+    "predictions_csv": "results/sil\\predictions_ResNet18_COCO+32+50+0.0003+160+120_int8.csv"
+  }
+}

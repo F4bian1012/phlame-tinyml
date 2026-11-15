@@ -1,0 +1,77 @@
+{
+  "level": "MIL",
+  "generated_utc": "2026-11-15T05:17:27.732542+00:00",
+  "model": {
+    "path": "models/checkpoints/ResNet18_COCO+32+50+0.0003+160+120.keras",
+    "name": "ResNet18_COCO+32+50+0.0003+160+120",
+    "sha256": "0b450aa274638773376957afda3cd36d105744ec175ce089b147c94f035ef0b1",
+    "bytes": 134470962
+  },
+  "dataset": {
+    "data_dir": "data/splits_coco\\test",
+    "n_samples": 5000,
+    "class_names": [
+      "non_person",
+      "person"
+    ],
+    "image_size": {
+      "width": 160,
+      "height": 120
+    }
+  },
+  "global_metrics": {
+    "accuracy": 0.8524,
+    "precision_weighted": 0.8540779974960387,
+    "recall_weighted": 0.8524,
+    "f1_weighted": 0.8518271266176205,
+    "f1_macro": 0.8510500607425118
+  },
+  "per_class_metrics": {
+    "non_person": {
+      "precision": 0.8344487495597042,
+      "recall": 0.8983693591202123,
+      "f1-score": 0.8652300949598247,
+      "support": 2637.0
+    },
+    "person": {
+      "precision": 0.8759833410458121,
+      "recall": 0.8011002962336013,
+      "f1-score": 0.8368700265251989,
+      "support": 2363.0
+    },
+    "accuracy": 0.8524,
+    "macro avg": {
+      "precision": 0.8552160453027582,
+      "recall": 0.8497348276769068,
+      "f1-score": 0.8510500607425118,
+      "support": 5000.0
+    },
+    "weighted avg": {
+      "precision": 0.8540779974960387,
+      "recall": 0.8524,
+      "f1-score": 0.8518271266176205,
+      "support": 5000.0
+    }
+  },
+  "confusion_matrix": {
+    "labels": [
+      "non_person",
+      "person"
+    ],
+    "matrix": [
+      [
+        2369,
+        268
+      ],
+      [
+        470,
+        1893
+      ]
+    ],
+    "order": "rows = true label, columns = predicted label"
+  },
+  "artifacts": {
+    "confusion_matrix_png": "results\\mil\\confusion_matrix_ResNet18_COCO+32+50+0.0003+160+120.png",
+    "predictions_csv": "results\\mil\\predictions_ResNet18_COCO+32+50+0.0003+160+120.csv"
+  }
+}

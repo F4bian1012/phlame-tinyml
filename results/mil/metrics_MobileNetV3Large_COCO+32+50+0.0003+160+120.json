@@ -1,0 +1,77 @@
+{
+  "level": "MIL",
+  "generated_utc": "2026-11-15T03:54:07.790427+00:00",
+  "model": {
+    "path": "models/checkpoints/MobileNetV3Large_COCO+32+50+0.0003+160+120.keras",
+    "name": "MobileNetV3Large_COCO+32+50+0.0003+160+120",
+    "sha256": "6012cd5ca4281de8f0a2d0774fdb215031020a7956930f7ad33529aecfa6c1a5",
+    "bytes": 22384339
+  },
+  "dataset": {
+    "data_dir": "data/splits_coco\\test",
+    "n_samples": 5000,
+    "class_names": [
+      "non_person",
+      "person"
+    ],
+    "image_size": {
+      "width": 160,
+      "height": 120
+    }
+  },
+  "global_metrics": {
+    "accuracy": 0.8816,
+    "precision_weighted": 0.8830573367396881,
+    "recall_weighted": 0.8816,
+    "f1_weighted": 0.8812218457505796,
+    "f1_macro": 0.8806331283395503
+  },
+  "per_class_metrics": {
+    "non_person": {
+      "precision": 0.8634909349448987,
+      "recall": 0.9211224876753887,
+      "f1-score": 0.8913761467889908,
+      "support": 2637.0
+    },
+    "person": {
+      "precision": 0.9048925468678555,
+      "recall": 0.8374947101142616,
+      "f1-score": 0.8698901098901098,
+      "support": 2363.0
+    },
+    "accuracy": 0.8816,
+    "macro avg": {
+      "precision": 0.8841917409063771,
+      "recall": 0.8793085988948252,
+      "f1-score": 0.8806331283395503,
+      "support": 5000.0
+    },
+    "weighted avg": {
+      "precision": 0.8830573367396881,
+      "recall": 0.8816,
+      "f1-score": 0.8812218457505796,
+      "support": 5000.0
+    }
+  },
+  "confusion_matrix": {
+    "labels": [
+      "non_person",
+      "person"
+    ],
+    "matrix": [
+      [
+        2429,
+        208
+      ],
+      [
+        384,
+        1979
+      ]
+    ],
+    "order": "rows = true label, columns = predicted label"
+  },
+  "artifacts": {
+    "confusion_matrix_png": "results\\mil\\confusion_matrix_MobileNetV3Large_COCO+32+50+0.0003+160+120.png",
+    "predictions_csv": "results\\mil\\predictions_MobileNetV3Large_COCO+32+50+0.0003+160+120.csv"
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "level": "SIL",
+  "generated_utc": "2026-11-15T04:04:15.765583+00:00",
+  "model": {
+    "path": "models/tflite/MobileNetV3Large_COCO+32+50+0.0003+160+120_int8.tflite",
+    "name": "MobileNetV3Large_COCO+32+50+0.0003+160+120_int8",
+    "sha256": "9641191e0cb1e226d94eb034a63cf303f590bb03eb74990cc213e42c5c1f070e",
+    "bytes": 2231816,
+    "kernels": "builtin"
+  },
+  "dataset": {
+    "splits_dir": "data/splits_coco",
+    "data_dir": "data/splits_coco\\test",
+    "n_samples": 5000,
+    "class_names": [
+      "non_person",
+      "person"
+    ],
+    "image_size": {
+      "width": 160,
+      "height": 120
+    }
+  },
+  "global_metrics": {
+    "accuracy": 0.8618,
+    "precision_weighted": 0.8650347122822984,
+    "recall_weighted": 0.8618,
+    "f1_weighted": 0.8610191578583198,
+    "f1_macro": 0.8601994231961729
+  },
+  "per_class_metrics": {
+    "non_person": {
+      "precision": 0.8357487922705314,
+      "recall": 0.9184679560106181,
+      "f1-score": 0.8751580849141825,
+      "support": 2637.0
+    },
+    "person": {
+      "precision": 0.8977164605137964,
+      "recall": 0.7985611510791367,
+      "f1-score": 0.8452407614781635,
+      "support": 2363.0
+    },
+    "accuracy": 0.8618,
+    "macro avg": {
+      "precision": 0.866732626392164,
+      "recall": 0.8585145535448775,
+      "f1-score": 0.8601994231961729,
+      "support": 5000.0
+    },
+    "weighted avg": {
+      "precision": 0.8650347122822984,
+      "recall": 0.8618,
+      "f1-score": 0.8610191578583198,
+      "support": 5000.0
+    }
+  },
+  "confusion_matrix": {
+    "labels": [
+      "non_person",
+      "person"
+    ],
+    "matrix": [
+      [
+        2422,
+        215
+      ],
+      [
+        476,
+        1887
+      ]
+    ],
+    "order": "rows = true label, columns = predicted label"
+  },
+  "artifacts": {
+    "confusion_matrix_png": "results/sil_kernels/builtin\\confusion_matrix_MobileNetV3Large_COCO+32+50+0.0003+160+120_int8.png",
+    "predictions_csv": "results/sil_kernels/builtin\\predictions_MobileNetV3Large_COCO+32+50+0.0003+160+120_int8.csv"
+  }
+}

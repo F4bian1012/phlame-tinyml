@@ -12,10 +12,12 @@ ec0b08afc09dd04edeccefd9f3913a865b60c2088eea085de989d60e436f703e  models/checkpo
 393919fd8f11d394b9e96a4597d26e55ce7f6b0209a1928306698f23c31c139e  models/checkpoints/MobileNetV2_COCO+32+50+0.0003+160+120.keras
 fee4f016baaef4ee26cd142952dc00ec4382507c2071d9714a5836dc22779422  models/checkpoints/MobileNetV2_VWW+32+20+0.0001+160+120.keras
 ce29e18ecbebb9f4a97b5be70f7eff1211751a851299ecaf12a518b82fea9ca4  models/checkpoints/MobileNetV3Large+32+20+0.0001+160+120.keras
+6012cd5ca4281de8f0a2d0774fdb215031020a7956930f7ad33529aecfa6c1a5  models/checkpoints/MobileNetV3Large_COCO+32+50+0.0003+160+120.keras
 518e226df0d054a83d5d1184372dda46e69227b00f9438c8fc6423fad1aa1137  models/checkpoints/MobileNetV3Small+32+20+0.0001+160+120.keras
 a5e7b24c1f6776245143bc7c5b6a53de23ef4b22130f6bd6691154703033bd0f  models/checkpoints/MobileNetV3Small_COCO+32+50+0.0003+160+120.keras
 490e4d7e106d9aa7b943edb535b77e84b5a99b52dedce91abc1b5120db716a99  models/checkpoints/MobileNet_COCO+32+50+0.0003+160+120.keras
 5842b8db2df3407fd18115c940a7914936f6141c8d08610341ee23a7ab78a0de  models/checkpoints/ResNet18+32+20+0.0001+160+120.keras
+0b450aa274638773376957afda3cd36d105744ec175ce089b147c94f035ef0b1  models/checkpoints/ResNet18_COCO+32+50+0.0003+160+120.keras
 02bea298a7721583d7ac605e05c402bb8e88764b6e0005de33226411de8b802f  models/checkpoints/ResNet8+32+20+0.0001+160+120.keras
 0890feaaca71f06f0e8fc6e36e9c46211b36889324fe627038d535aea22cfcd3  models/checkpoints/ResNet8_COCO+32+50+0.0003+160+120.keras
 a5450053fe23c671605ec8238f97d6c4334759e96a27e7e97c2637e8d0d04940  models/checkpoints/SqueezeNet+32+20+0.0001+160+120.keras
@@ -25,10 +27,12 @@ eaf083dd1baad4958d842c41407ca09189bd9789420801f92c490a76d8d49180  models/tflite/
 dc09c7c071de5180525e0e6cd7929410b1a34cd200362759849df81a4063d9a9  models/tflite/MobileNetV2_COCO+32+50+0.0003+160+120_int8.tflite
 57a30e52f320cb6bbcab37796c869986a8fdb2fef655dd58fe57813a4e3e4eb1  models/tflite/MobileNetV2_VWW+32+20+0.0001+160+120_int8.tflite
 9a89f28e6880f10c42e2162aa12380ec82bedccad7c23156dcc455e40b8f5c91  models/tflite/MobileNetV3Large+32+20+0.0001+160+120_int8.tflite
+9641191e0cb1e226d94eb034a63cf303f590bb03eb74990cc213e42c5c1f070e  models/tflite/MobileNetV3Large_COCO+32+50+0.0003+160+120_int8.tflite
 a1124c8f199ae177032f3000392de7c01fbed9f595bb405076c1cd8952206598  models/tflite/MobileNetV3Small+32+20+0.0001+160+120_int8.tflite
 0284063a90ddb6c7d16686c94eaa6f39ef50a6c38c65bf8a83647978c1235f83  models/tflite/MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.tflite
 9d5c1a566ec13afc3c27d2ffcea23d39ae9c72e0d69202808eff3795288b2afe  models/tflite/MobileNet_COCO+32+50+0.0003+160+120_int8.tflite
 b03ed25da26315aece75c8fdf8e1d87868da4de498cdfc8c5edfe9d44b543186  models/tflite/ResNet18+32+20+0.0001+160+120_int8.tflite
+98d9f32446cdcbd41f8090a9a98fe877ad6086fb79381643805bc1648f829e26  models/tflite/ResNet18_COCO+32+50+0.0003+160+120_int8.tflite
 f0f293903dd31efc964ad5c4f74a6898b134558272139676bc9e374338ceeac4  models/tflite/ResNet8+32+20+0.0001+160+120_int8.tflite
 e833b04eaab7afa702e167065cc1805d7a788a6ba3261e61680aa4a5a7acbec0  models/tflite/ResNet8_COCO+32+50+0.0003+160+120_int8.tflite
 d3e401a1bcc81a53b7cbd4bac824054a642ccbcfa032f9417bea9b853c84a857  models/tflite/SqueezeNet+32+20+0.0001+160+120_int8.tflite
