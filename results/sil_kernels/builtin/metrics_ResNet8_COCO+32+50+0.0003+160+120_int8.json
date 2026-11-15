@@ -1,0 +1,79 @@
+{
+  "level": "SIL",
+  "generated_utc": "2026-11-15T02:59:01.385792+00:00",
+  "model": {
+    "path": "models/tflite/ResNet8_COCO+32+50+0.0003+160+120_int8.tflite",
+    "name": "ResNet8_COCO+32+50+0.0003+160+120_int8",
+    "sha256": "e833b04eaab7afa702e167065cc1805d7a788a6ba3261e61680aa4a5a7acbec0",
+    "bytes": 1279176,
+    "kernels": "builtin"
+  },
+  "dataset": {
+    "splits_dir": "data/splits_coco",
+    "data_dir": "data/splits_coco\\test",
+    "n_samples": 5000,
+    "class_names": [
+      "non_person",
+      "person"
+    ],
+    "image_size": {
+      "width": 160,
+      "height": 120
+    }
+  },
+  "global_metrics": {
+    "accuracy": 0.8374,
+    "precision_weighted": 0.8414001763423815,
+    "recall_weighted": 0.8374,
+    "f1_weighted": 0.8362475518394543,
+    "f1_macro": 0.8352054039979048
+  },
+  "per_class_metrics": {
+    "non_person": {
+      "precision": 0.810204081632653,
+      "recall": 0.9032992036405005,
+      "f1-score": 0.8542227003765466,
+      "support": 2637.0
+    },
+    "person": {
+      "precision": 0.8762135922330098,
+      "recall": 0.7638595006347862,
+      "f1-score": 0.816188107619263,
+      "support": 2363.0
+    },
+    "accuracy": 0.8374,
+    "macro avg": {
+      "precision": 0.8432088369328314,
+      "recall": 0.8335793521376433,
+      "f1-score": 0.8352054039979048,
+      "support": 5000.0
+    },
+    "weighted avg": {
+      "precision": 0.8414001763423815,
+      "recall": 0.8374,
+      "f1-score": 0.8362475518394543,
+      "support": 5000.0
+    }
+  },
+  "confusion_matrix": {
+    "labels": [
+      "non_person",
+      "person"
+    ],
+    "matrix": [
+      [
+        2382,
+        255
+      ],
+      [
+        558,
+        1805
+      ]
+    ],
+    "order": "rows = true label, columns = predicted label"
+  },
+  "artifacts": {
+    "confusion_matrix_png": "results/sil_kernels/builtin\\confusion_matrix_ResNet8_COCO+32+50+0.0003+160+120_int8.png",
+    "predictions_csv": "results/sil_kernels/builtin\\predictions_ResNet8_COCO+32+50+0.0003+160+120_int8.csv"
+  }
+}

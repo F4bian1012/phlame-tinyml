@@ -1,0 +1,79 @@
+{
+  "level": "SIL",
+  "generated_utc": "2026-11-15T02:24:40.617960+00:00",
+  "model": {
+    "path": "models/tflite/MobileNetV2_COCO+32+50+0.0003+160+120_int8.tflite",
+    "name": "MobileNetV2_COCO+32+50+0.0003+160+120_int8",
+    "sha256": "dc09c7c071de5180525e0e6cd7929410b1a34cd200362759849df81a4063d9a9",
+    "bytes": 644648,
+    "kernels": "builtin"
+  },
+  "dataset": {
+    "splits_dir": "data/splits_coco",
+    "data_dir": "data/splits_coco\\test",
+    "n_samples": 5000,
+    "class_names": [
+      "non_person",
+      "person"
+    ],
+    "image_size": {
+      "width": 160,
+      "height": 120
+    }
+  },
+  "global_metrics": {
+    "accuracy": 0.8578,
+    "precision_weighted": 0.8614286766500993,
+    "recall_weighted": 0.8578,
+    "f1_weighted": 0.8569211852626774,
+    "f1_macro": 0.8560518883744954
+  },
+  "per_class_metrics": {
+    "non_person": {
+      "precision": 0.8304735758407688,
+      "recall": 0.9177095183921122,
+      "f1-score": 0.871914970275626,
+      "support": 2637.0
+    },
+    "person": {
+      "precision": 0.8959731543624161,
+      "recall": 0.7909437156157427,
+      "f1-score": 0.8401888064733648,
+      "support": 2363.0
+    },
+    "accuracy": 0.8578,
+    "macro avg": {
+      "precision": 0.8632233651015924,
+      "recall": 0.8543266170039274,
+      "f1-score": 0.8560518883744954,
+      "support": 5000.0
+    },
+    "weighted avg": {
+      "precision": 0.8614286766500993,
+      "recall": 0.8578,
+      "f1-score": 0.8569211852626774,
+      "support": 5000.0
+    }
+  },
+  "confusion_matrix": {
+    "labels": [
+      "non_person",
+      "person"
+    ],
+    "matrix": [
+      [
+        2420,
+        217
+      ],
+      [
+        494,
+        1869
+      ]
+    ],
+    "order": "rows = true label, columns = predicted label"
+  },
+  "artifacts": {
+    "confusion_matrix_png": "results/sil_kernels/builtin\\confusion_matrix_MobileNetV2_COCO+32+50+0.0003+160+120_int8.png",
+    "predictions_csv": "results/sil_kernels/builtin\\predictions_MobileNetV2_COCO+32+50+0.0003+160+120_int8.csv"
+  }
+}
