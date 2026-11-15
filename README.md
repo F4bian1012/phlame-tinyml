@@ -635,6 +635,7 @@ All scripts live in `src/`. Detailed descriptions, output artifacts and usage no
 | Analysis | `build_ladder_tables.py` | Rebuild the eight statistical tables of the paper in `results/tables/`; `--tag`, `--run_suffix` and `--splits_dir` build them for another benchmark that has the four levels. |
 | Analysis | `build_benchmark_table.py` | Rebuild the summary table of a benchmark measured up to PIL (MIL, SIL, PIL on each board) from the result files. |
 | Analysis | `compare_results.py` | Check a reproduced run against the published result, image by image. |
+| Analysis | `count_macs.py` | Count the multiply-accumulate operations (MACs) of `.tflite` models, per operator type and in total. |
 | Analysis | `find_near_duplicates.py` | Look for test images that are copies or near-copies of train/val images. |
 | Analysis | `independence_report.py` | Recompute the published results without the test images shared with train/val. |
 | Models | `verify_models.py` | Check the model files against `models/checksums.sha256`, or fetch them from a release. |
@@ -654,7 +655,7 @@ phlame-tinyml/
 ├── results/               # mil/, sil/, pil/, hil/, tables/, training_curves/
 ├── src/                   # Python source code (see Scripts)
 ├── tensorboard_logs/      # TensorBoard event logs from training
-├── tests/                 # test_results_schema.py, test_own_dataset.py, test_cli.py, test_boards.py, test_release.py, test_compare_results.py, test_near_duplicates.py, test_images.py, test_training_recipe.py, test_sil_kernels.py, test_benchmark_table.py, test_hil_session.py, test_calibration.py, test_statistics.py, test_published_tables.py, test_serial_framing.py, test_split_properties.py, test_ladder_benchmarks.py, test_pil_session.py
+├── tests/                 # test_results_schema.py, test_own_dataset.py, test_cli.py, test_boards.py, test_release.py, test_compare_results.py, test_near_duplicates.py, test_images.py, test_training_recipe.py, test_sil_kernels.py, test_benchmark_table.py, test_hil_session.py, test_calibration.py, test_statistics.py, test_published_tables.py, test_serial_framing.py, test_split_properties.py, test_ladder_benchmarks.py, test_pil_session.py, test_software_versions.py, test_count_macs.py
 ├── CITATION.cff
 ├── LICENSE.txt
 ├── README.md
