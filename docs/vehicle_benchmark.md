@@ -164,6 +164,7 @@ portability to another microcontroller family. The COCO benchmark was then measu
 - **Non-interchangeability of PIL and HIL inference cycle counts:** Across all evaluated models, `CYC_INF` in HIL is systematically 0.81%–2.77% lower than in PIL despite an identical `400.0 MHz` clock and SDRAM arena layout (cause not identified: arena and cache configuration are the same in both firmwares). PIL and HIL latency baselines should therefore be reported separately rather than mixed.
 - **One board and one rig.** Every PIL and HIL result of the tables comes from one Arduino Portenta H7 with the
   Vision Shield, in one rig configuration (10 lux, 24 cm, 24 °C, `--settle 1.5`).
+- **Results measured before the single image loader:** This benchmark and the Visual Wake Words run were measured with two JPEG decoders (TensorFlow at MIL and SIL, Pillow at PIL), which do not give the same pixels, and with the default TFLite interpreter at SIL, whose kernels do not always give the chip's prediction. Their SIL-to-PIL differences therefore mix the decoder and the PC kernels with the chip, and a re-run of those MIL or SIL results differs from the published file by the decoder effect; the files are kept as measured. Size of both effects: [usage notes](scripts.md#usage-notes), [notes on the COCO results](coco_benchmark.md#notes-on-the-results).
 
 ## Data Availability
 

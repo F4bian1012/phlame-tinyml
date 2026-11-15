@@ -120,6 +120,37 @@ class RebuiltCocoTablesTest(unittest.TestCase):
 
 
 @unittest.skipUnless(READY, "build_ladder_tables.py needs numpy and scipy")
+class RebuiltNiclaTablesTest(unittest.TestCase):
+    """The tables of the COCO benchmark on the Nicla Vision: PIL and HIL of the three models measured
+    at HIL on that board."""
+
+    OPTIONS = ("--board", "nicla", "--deployable", "MobileNetV2,MobileNet,MobileNetV3Small")
+    FOLDER = REPO / "results" / "nicla" / "tables" / "coco"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.out = Path(cls.tmp.name) / "tables"
+        cls.rebuilt = rebuild(cls.out, *cls.OPTIONS, benchmark=())
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def test_the_rebuild_gives_the_published_tables(self):
+        self.assertEqual(self.rebuilt.returncode, 0, self.rebuilt.stdout[-3000:])
+        found, _rounded = tables_check.differences(str(self.FOLDER), str(self.out))
+        self.assertEqual(found, [], "\n".join(found[:20]))
+
+    def test_models_without_an_hil_run_on_the_board_are_not_said_to_exceed_the_flash(self):
+        text = (self.FOLDER / "ladder_tables.md").read_text(encoding="utf-8")
+        table1 = text.split("## Table 2")[0]
+        labels = {line.split("|")[1].strip(): line.split("|")[7].strip() for line in table1.splitlines()
+                  if line.startswith(("| SqueezeNet", "| ResNet8", "| ResNet18"))}
+        self.assertEqual(labels, {"SqueezeNet": "no HIL run", "ResNet8": "no HIL run", "ResNet18": "does not fit"})
+
+
+@unittest.skipUnless(READY, "build_ladder_tables.py needs numpy and scipy")
 class BootstrapSeedTest(unittest.TestCase):
     """With fewer resamples than the published tables use, so that three rebuilds stay short."""
 

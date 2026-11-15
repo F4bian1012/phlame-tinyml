@@ -201,8 +201,9 @@ Cortex-M, so a core without it needs another clock and that part of the sketches
   (`python src/build_benchmark_table.py --tag COCO` recounts it). For the vehicle model see
   [Boards and Memory](hardware.md#boards-and-memory): the Portenta H7 run it is compared with there was not
   published.
-- **HIL on the Nicla Vision: builds, not run.** What stays open until it runs is listed under
-  [Portability](hardware.md#portability): the byte order of the RGB565 frame, the field of view at 160×120 and
-  the RAM left for the camera frame.
+- **HIL on the Nicla Vision: measured for three models.** `MobileNetV2`, `MobileNet` and `MobileNetV3Small` ran
+  the 200 images of the COCO HIL subset on 2026-11-15 (`results/nicla/hil/`). With the arena that `SqueezeNet`
+  or `ResNet8` needs (`--arena_kb 408` and `392`), the HIL sketch does not start on this board: it prints its
+  board line and stops before the camera is ready, the RAM left being too little for the camera.
 - **A third board: not done.** The steps above are what adding the second one took; they have not been repeated
   for another MCU family, and a core other than `arduino:mbed_*` may need more than the two places named here.

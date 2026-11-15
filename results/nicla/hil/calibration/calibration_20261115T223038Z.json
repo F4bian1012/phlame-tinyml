@@ -1,0 +1,153 @@
+{
+  "utc": "2026-11-15T22:30:38.669211+00:00",
+  "port": "COM8",
+  "board": "NICLA_VISION",
+  "settle_s": 1.5,
+  "windowed": false,
+  "stimulus_monitor": {
+    "index": 1,
+    "geometry": [
+      -1920,
+      -193,
+      1920,
+      1080
+    ],
+    "monitors": [
+      [
+        0,
+        0,
+        2560,
+        1440
+      ],
+      [
+        -1920,
+        -193,
+        1920,
+        1080
+      ]
+    ]
+  },
+  "frame_size": {
+    "width": 160,
+    "height": 120
+  },
+  "criteria": {
+    "shift_px": 2.0,
+    "scale_err": 0.03,
+    "rot_deg": 1.0,
+    "resid_px": 1.5,
+    "range_min": 150,
+    "vignette_min": 0.6,
+    "exposure_sd_max": 2.0,
+    "focus_ratio_min": 0.5,
+    "clip_pct_max": 2.0
+  },
+  "notes": "COCO HIL on the Nicla Vision, 2026-11-15: report taken right before the session of MobileNet. 94 cm, 4 lux (phone app Physics Toolbox), 24 C as measured in the morning.",
+  "geometry": {
+    "ok": true,
+    "shift_x_px": 0.96,
+    "shift_y_px": 1.47,
+    "scale": 0.9796,
+    "rotation_deg": 0.54,
+    "residual_px": 1.29,
+    "corners_px": [
+      [
+        16.0,
+        16.2
+      ],
+      [
+        146.3,
+        15.5
+      ],
+      [
+        16.3,
+        104.1
+      ],
+      [
+        144.7,
+        107.6
+      ],
+      [
+        79.0,
+        61.4
+      ]
+    ],
+    "extra_bright_blobs": 0,
+    "missing": [],
+    "pass": true,
+    "advice": "geometry within tolerance"
+  },
+  "gray": {
+    "levels_in": [
+      0,
+      36,
+      73,
+      109,
+      146,
+      182,
+      219,
+      255
+    ],
+    "levels_captured": [
+      3.0,
+      10.0,
+      43.0,
+      97.0,
+      140.0,
+      171.0,
+      191.0,
+      205.0
+    ],
+    "monotonic": true,
+    "dynamic_range": 202.0,
+    "clipped_pct": 0.01,
+    "pass": true
+  },
+  "flat": {
+    "centre_mean": 124.2,
+    "corner_means": [
+      97.5,
+      87.9,
+      90.4,
+      75.3
+    ],
+    "vignetting_ratio": 0.606,
+    "exposure_means": [
+      97.8,
+      98.5,
+      97.3,
+      98.3,
+      97.7
+    ],
+    "exposure_sd": 0.45,
+    "saturated_pct": 0.0,
+    "n_captures": 5,
+    "pass": true
+  },
+  "focus": {
+    "contrast_coarse": 0.912,
+    "contrast_fine": 0.819,
+    "fine_to_coarse": 0.898,
+    "pass": true
+  },
+  "images": [
+    {
+      "image": "000000229221.png",
+      "ncc": 0.826
+    },
+    {
+      "image": "000000140076.png",
+      "ncc": 0.7758
+    },
+    {
+      "image": "000000185950.png",
+      "ncc": 0.7722
+    },
+    {
+      "image": "000000265816.png",
+      "ncc": 0.722
+    }
+  ],
+  "images_ncc_mean": 0.774,
+  "all_pass": true
+}

@@ -72,6 +72,12 @@ DOI yet (see [Citation](README.md#citation)).
   firmware announced (`run.board`). A bench stops when that is not the board given with `--board`.
 - `compile_upload_arduino.py` takes `--arena_kb`, `--image_buffer_bytes` and `--compile_only` (build and report
   the sizes without a board).
+- HIL of the COCO benchmark on the Nicla Vision: `MobileNetV2`, `MobileNet` and `MobileNetV3Small` over the 200
+  images of the HIL subset, with the report of the calibrator before each session (`results/nicla/hil/`,
+  tables in `results/nicla/tables/coco/`). With that camera, from 94 cm, no model loses a distinguishable amount
+  from PIL to HIL; on the Portenta H7 two do. `SqueezeNet` and `ResNet8` cannot run HIL on this board.
+- A first attempt on the Nicla Vision was discarded: the board crept on its mount during three sessions measured
+  behind a single calibration report. The documents now ask for a report before every session.
 - Why the Nicla Vision needs fewer cycles than the Portenta H7 for the same model was measured: with the tensor
   arena in internal RAM (`--arena_memory internal`) the Portenta H7 runs `MobileNet` within 0.2% of the cycles
   of the Nicla Vision; the external SDRAM costs about 18% of the inference time of that model

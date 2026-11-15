@@ -90,3 +90,5 @@ jobs:
           python tests/tables_check.py results/tables results/smoke_test/ci/tables
           python src/build_ladder_tables.py --output_dir results/smoke_test/ci/tables_coco
           python tests/tables_check.py results/tables/coco results/smoke_test/ci/tables_coco
+          python src/build_ladder_tables.py --board nicla --deployable MobileNetV2,MobileNet,MobileNetV3Small --output_dir results/smoke_test/ci/tables_nicla
+          python tests/tables_check.py results/nicla/tables/coco results/smoke_test/ci/tables_nicla
