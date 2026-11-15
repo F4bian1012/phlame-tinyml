@@ -4,7 +4,8 @@ title: "PHLAME: A Phase-Level Hardware-in-the-Loop Framework for Reproducible Fi
 abstract: >-
   An open-source, reproducible framework for evaluating TinyML vision
   classifiers across the four-level MIL–SIL–PIL–HIL fidelity ladder on ARM
-  Cortex-M7 microcontrollers (Arduino Portenta H7 + Vision Shield HM01B0).
+  Cortex-M7 microcontrollers (Arduino Portenta H7 + Vision Shield HM01B0, and
+  Arduino Nicla Vision).
   PHLAME couples deterministic dataset partitioning and INT8 post-training
   quantization with cycle-accurate DWT phase-level latency profiling
   (CAPTURE, PRE, INF, POST, TOTAL), on-chip FNV-1a model-identity

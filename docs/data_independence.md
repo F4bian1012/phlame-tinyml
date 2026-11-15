@@ -169,7 +169,12 @@ are the same photograph.
 - **Labels.** The two photos have the same label in 128 pairs. In one, the same cake is
   `non_person` in train and `person` in the test, where the frame includes an arm.
 - **`hil_subset`.** One of its 200 images is among the 129 (`000000273712.png`, a refrigerator in a
-  room; `review` for the detector, 15 inliers).
+  room; `review` for the detector, 15 inliers). It is kept in the subset, and the published PIL and HIL
+  figures on the 200 images include it. It is a `non_person` image that every model classifies
+  correctly at PIL and at HIL on both boards, so leaving it out lowers each macro-F1 slightly: by
+  0.0006 to 0.0014 over the sixteen figures (PIL and HIL of five models on the Portenta H7 and of three
+  on the Nicla Vision), computed from the published prediction files on the other 199 images. The
+  differences between PIL and HIL change by 0.0005 at most.
 - **Agreement with the first partition.** Its test was a part of this one, and the four pairs
   confirmed there are all among the 129, with the same train/val image.
 

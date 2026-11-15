@@ -163,6 +163,9 @@ Which of these have run on a board and which only against the simulated board of
 
 ### Documentation
 
+- PHLAME is a name: the README no longer expands it as an acronym.
+- [`docs/data_independence.md`](docs/data_independence.md) says what the one image of the HIL subset that shares
+  its scene with a training image does to the PIL and HIL figures (0.0014 of macro-F1 at most).
 - [`docs/extending.md`](docs/extending.md): how to add an architecture and a board.
   [`CONTRIBUTING.md`](CONTRIBUTING.md): tests and conventions.
 - [`docs/hardware.md`](docs/hardware.md), [`docs/scripts.md`](docs/scripts.md),
