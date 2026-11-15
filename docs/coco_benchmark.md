@@ -46,7 +46,7 @@ The last command rebuilds the table of this benchmark (`results/tables/benchmark
 
 ### Board Levels
 
-PIL and HIL use the commands of steps 5 to 7 of [Usage](../README.md#usage-full-pipeline) with `--splits_dir data/splits_coco`, on either board. The published PIL files of these models are protected against replacement, so add `--output_dir` (or `--overwrite`). A PIL run of the 5,000 images takes from 65 minutes (`MobileNet` on the Nicla Vision) to almost 5 hours (`ResNet8` on the Portenta H7). Which levels have been measured on this benchmark so far is stated in the first note of [Results](../README.md#results), section 1, in the README.
+PIL and HIL use the commands of steps 5 to 7 of [Usage](../README.md#usage-full-pipeline) with `--splits_dir data/splits_coco`, on either board. The published PIL files of these models are protected against replacement, so add `--output_dir` (or `--overwrite`). A PIL run of the 5,000 images takes from 65 minutes (`MobileNet` on the Nicla Vision) to almost 5 hours (`ResNet8` on the Portenta H7). The published HIL sessions are those of the Portenta H7 on the 200 images of the `hil_subset` ([Results](../README.md#results), section 1); an earlier set, measured before the camera was aligned, is in `results/hil/before_rig_adjustment/`.
 
 ### Training
 
@@ -58,8 +58,8 @@ The other six differ only in the script and its first options: `train_mobilenet.
 
 ## Notes on the Results
 
-These are the notes on the two tables of [Results](../README.md#results), section 1, in full. The first note of the
-README, on the levels that have been measured, is kept there only.
+These are the notes on the two tables of MIL, SIL and PIL of [Results](../README.md#results), section 1, in full.
+The notes on the HIL table are in the README only.
 
 - **The two boards give the same answers.** For each of the five models that fit, the Portenta H7 and the Nicla Vision give the same prediction for all 5,000 images. Every run answered the 5,000 images without a dropped serial link.
 - **SIL = PIL when the PC uses the same arithmetic.** MIL, SIL and the PIL bench read each image through one loader, and the partition is lossless PNG, so the three levels receive the same bytes. The SIL column uses the reference kernels of TFLite (`sil_benchmark.py --kernels reference`), the ones TFLite-Micro is derived from. With them the PC and the chip agree on 4,999 of 5,000 images for `MobileNetV2` (the one that differs is an exact tie at the output), 4,996 for `SqueezeNet`, 4,993 for `ResNet8` and 4,975 for `MobileNet`. The default interpreter of TFLite (XNNPACK delegate), which every earlier result of this repository was measured with, differs from the chip in 27 to 80 images of the same files, and the built-in kernels without the delegate in 9 to 53: most of what a SIL-to-PIL comparison shows with the default interpreter is the PC, not the chip. The runs with the other kernels are in `results/sil_kernels/`, and the second table of `benchmark_COCO.md` compares them. On the chip, the convolutions, fully connected layers, additions, multiplications, pooling and softmax run the CMSIS-NN kernels of the library, whose headers describe them as bit-accurate with TensorFlow Lite Micro (see [Boards and Memory](hardware.md#boards-and-memory)); these figures are a check of that on real hardware.

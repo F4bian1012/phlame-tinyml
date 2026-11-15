@@ -39,10 +39,10 @@ below before any number on this page.
 
 ## Why It Is Kept
 
-- It is, so far, the only benchmark of the repository measured at the four levels for several architectures, and
-  the only one with repeated HIL sessions and with the eight statistical tables. The Visual Wake Words run
-  ([Results](../README.md#results), section 2) has the four levels for one model, and the COCO benchmark stops at
-  PIL.
+- It was the first benchmark of the repository measured at the four levels for several architectures, with
+  repeated HIL sessions and the eight statistical tables, and the one those tables were designed on. The COCO
+  benchmark has them since 2026-11-15 ([Results](../README.md#results), section 1), and the Visual Wake Words run
+  (section 2) has the four levels for one model.
 - For traceability: the framework, its result format and its statistics were developed on it, its result files
   and tables are in the repository as they were measured, `python src/build_ladder_tables.py --benchmark vehicle`
   rebuilds its tables, and the test suite recomputes them (`tests/test_published_tables.py`).
