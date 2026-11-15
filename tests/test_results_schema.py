@@ -11,6 +11,7 @@ Run from anywhere with: python -m unittest discover -s tests -v
 import glob
 import json
 import re
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -84,10 +85,24 @@ def collect_paths(node, prefix, paths):
 SCRATCH_DIR = RESULTS_DIR / "smoke_test"
 
 
+def published(files):
+    """The published result files: those git tracks, so that runs of a user's own models (which the
+    usage steps of the README write next to the published ones) are not held to this check. Without
+    git, every file outside the scratch folder."""
+    try:
+        out = subprocess.run(["git", "-C", str(REPO_ROOT), "ls-files", "-z", "--", "results"],
+                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=True).stdout
+        tracked = {REPO_ROOT / name for name in out.decode("utf-8", "replace").split("\0") if name}
+    except (OSError, subprocess.CalledProcessError):
+        tracked = set()
+    if tracked:
+        return [name for name in files if Path(name) in tracked]
+    return [name for name in files if SCRATCH_DIR not in Path(name).parents]
+
+
 def real_paths(pattern):
     """Return (paths, n_files) for the published JSON files matching pattern under results/."""
-    files = [name for name in glob.glob(str(RESULTS_DIR / "**" / pattern), recursive=True)
-             if SCRATCH_DIR not in Path(name).parents]
+    files = published(glob.glob(str(RESULTS_DIR / "**" / pattern), recursive=True))
     paths = set()
     for name in files:
         with open(name, encoding="utf-8") as fh:

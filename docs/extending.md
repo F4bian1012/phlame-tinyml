@@ -101,8 +101,9 @@ The commands are those of [Usage](../README.md#usage-full-pipeline), unchanged. 
 
 **Results in the repository.** A result file records the SHA-256 of the model it used, and
 `models/checksums.sha256` lists every model file behind a published result. `python src/verify_models.py --results`
-and `tests/test_release.py` fail while a result names a model that is not in the list, so add the two files of the
-model (`.keras` and `_int8.tflite`) in the `sha256sum` format, sorted by path. The archive a model is released in
+and `tests/test_release.py` fail while a published result (one that git tracks) names a model that is not in the
+list. `python src/verify_models.py --update_list --set coco` (or `vww`, `plates`) rewrites the entries of that set
+from the model files its published results name, sorted by path. The archive a model is released in
 follows its tag: `_COCO` and `_VWW` have their own, every other name goes with the vehicle benchmark. If the new
 files are the first published ones to carry a key that `tests/test_results_schema.py` lists as not yet
 published, that test asks for the key to be taken off its list.

@@ -42,6 +42,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import urllib.error
@@ -135,8 +136,29 @@ def manifest_path_of(model_path):
     return "models/%s/%s" % ("checkpoints" if name.endswith(".keras") else "tflite", name)
 
 
+def tracked_files(root, folder="results"):
+    """Paths under folder that git tracks, relative to root with '/', or None when root is not a git
+    checkout (a source archive) or git is not installed."""
+    try:
+        out = subprocess.run(["git", "-C", root, "ls-files", "-z", "--", folder],
+                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    files = {name for name in out.decode("utf-8", "replace").split("\0") if name}
+    return files or None
+
+
 def _published(paths, results):
-    """Result files that are not in results/smoke_test, the git-ignored scratch folder the README writes to."""
+    """The result files that are published, out of those found under results/.
+
+    In a git checkout they are the files git tracks: runs of a user's own models, which the usage
+    steps of the README write next to the published ones, are theirs and are not checked against
+    the list. Without git, every file counts except those in results/smoke_test, the scratch folder
+    the README writes to."""
+    root = os.path.dirname(results)
+    tracked = tracked_files(root)
+    if tracked is not None:
+        return [p for p in paths if os.path.relpath(p, root).replace(os.sep, "/") in tracked]
     scratch = os.path.join(results, "smoke_test") + os.sep
     return [p for p in paths if not os.path.normpath(p).startswith(scratch)]
 
@@ -179,6 +201,47 @@ def verify_results(entries, root):
     print("Result files: %d references agree with the list, %d disagree, %d record no model file."
           % (ok, bad, skipped))
     return bad
+
+
+def update_list(entries, root, which, manifest_file):
+    """Maintainer: rewrites the entries of one set from the published result files.
+
+    Every model file that a published result of the set names gets one entry, with the digest the
+    result records; a file that is present must have that digest. Entries of the set that no result
+    names any more are dropped; the other sets and the header of the list are kept."""
+    named = {}
+    for rel_json, _, model_path, digest in result_references(root):
+        if not model_path or not digest:
+            continue
+        rel = manifest_path_of(model_path)
+        if set_of(rel) != which:
+            continue
+        if named.get(rel, digest) != digest:
+            fail(1, "two digests for %s: %s records %s" % (rel, rel_json, digest))
+        named[rel] = digest
+    if not named:
+        fail(1, "no published result names a model of set '%s'; the list was left as it is." % which)
+    for rel, digest in sorted(named.items()):
+        path = os.path.join(root, rel)
+        if os.path.isfile(path) and sha256_file(path) != digest:
+            fail(1, "%s is not the file its results were obtained with; the list was left as it is." % rel)
+    kept = {rel: d for rel, d in entries.items() if set_of(rel) != which}
+    dropped = sorted(rel for rel in entries if set_of(rel) == which and rel not in named)
+    added = sorted(rel for rel in named if rel not in entries)
+    kept.update(named)
+    with open(manifest_file, encoding="utf-8", newline="") as fh:
+        raw = fh.read()
+    eol = "\r\n" if "\r\n" in raw else "\n"
+    header = [line for line in raw.replace("\r\n", "\n").split("\n") if line.startswith("#")]
+    body = ["%s  %s" % (kept[rel], rel) for rel in sorted(kept)]
+    with open(manifest_file, "w", encoding="utf-8", newline="") as fh:
+        fh.write(eol.join(header + body) + eol)
+    for rel in added:
+        print("ADDED    %s" % rel)
+    for rel in dropped:
+        print("DROPPED  %s" % rel)
+    print("Set '%s': %d entries (%d added, %d dropped); %d entries in the list."
+          % (which, len(named), len(added), len(dropped), len(kept)))
 
 
 def archive_name(which, tag):
@@ -300,6 +363,9 @@ def parse_args():
                         help="Maintainer: write phlame-models-<set>-<tag>.zip and SHA256SUMS.txt into DIR")
     parser.add_argument("--tag", default=None,
                         help="Release tag used in the archive names, for --bundle (e.g. v1.0.0)")
+    parser.add_argument("--update_list", action="store_true",
+                        help="Maintainer: rewrite the entries of one --set (coco, vww or plates) in the "
+                             "checksum list from the model files that its published results name")
     parser.add_argument("--root", default=REPO_ROOT,
                         help="Folder that holds models/ and results/ (default: the repository)")
     parser.add_argument("--manifest", default=None,
@@ -307,8 +373,10 @@ def parse_args():
     args = parser.parse_args()
     if args.bundle and not args.tag:
         parser.error("--bundle needs --tag (it names the archives)")
-    if sum(bool(x) for x in (args.results, args.download, args.bundle)) > 1:
-        parser.error("--results, --download and --bundle are separate actions; give one")
+    if sum(bool(x) for x in (args.results, args.download, args.bundle, args.update_list)) > 1:
+        parser.error("--results, --download, --bundle and --update_list are separate actions; give one")
+    if args.update_list and args.which == "all":
+        parser.error("--update_list rewrites one set: give --set coco, vww or plates")
     return args
 
 
@@ -317,6 +385,9 @@ def main():
     manifest_file = args.manifest or os.path.join(args.root, MANIFEST)
     entries = read_manifest(manifest_file)
     chosen = select(entries, args.which)
+    if args.update_list:
+        update_list(entries, args.root, args.which, manifest_file)
+        sys.exit(0)
     if not chosen:
         fail(2, "the list has no model in set '%s'" % args.which)
 
