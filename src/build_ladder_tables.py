@@ -762,7 +762,9 @@ def main():
             row += [num(r["PIL_f1"]), f"{e['agreement_pct']:.1f} %", num(r["PIL200_f1"]), num(r["HIL_f1"]),
                     f"{num(h['d_f1'])} {ci(h['ci_lo'], h['ci_hi'])}", pval(h["p_holm"])]
         else:
-            row += ["does not fit"] + ["\u2014"] * 5
+            # Not among the models with board levels: because its file is larger than the flash, or
+            # (a board with less RAM for the camera sketch) because it was not measured at HIL there.
+            row += ["does not fit" if r["tflite_bytes"] > FLASH_BYTES else "no HIL run"] + ["\u2014"] * 5
         rows.append(row)
         g = lambda fam, k: r[fam][k] if fam in r else ""
         crows.append([a, r["tflite_bytes"], r["tflite_bytes"] > FLASH_BYTES, r["MIL_f1"], r["MIL_errors"], r["SIL_f1"], r["SIL_errors"],
@@ -772,8 +774,12 @@ def main():
                       r.get("PIL200_f1", ""), r.get("HIL_f1", ""), r.get("HIL_errors", ""), g("frontend", "d_f1"),
                       g("frontend", "ci_lo"), g("frontend", "ci_hi"), g("frontend", "only_a"), g("frontend", "only_b"),
                       g("frontend", "p"), g("frontend", "p_holm"), g("frontend", "agreement_pct")])
-    big = ", ".join(f"{a} {tfl[a][0]:,} B" for a in archs if a not in dep)
+    big = ", ".join(f"{a} {tfl[a][0]:,} B" for a in archs if a not in dep and tfl[a][0] > FLASH_BYTES)
+    no_hil = ", ".join(a for a in archs if a not in dep and tfl[a][0] <= FLASH_BYTES)
     does_not_fit = f"'does not fit': the .tflite alone exceeds the 2 MiB internal flash ({big}). " if big else ""
+    if no_hil:
+        does_not_fit += (f"'no HIL run': the model fits the flash but was not measured at HIL on this board, so its "
+                         f"board levels are left out of these tables ({no_hil}). ")
     emit(1, "Fidelity ladder MIL \u2192 SIL \u2192 PIL \u2192 HIL (macro-F1)",
          ["Architecture", ".tflite (KiB)", "MIL", "SIL", "\u0394 MIL\u2192SIL [95% CI]", "p Holm", "PIL",
           "SIL\u2013PIL agreement", f"PIL ({n_rig})", f"HIL ({n_rig})", "\u0394 PIL\u2192HIL [95% CI]", "p Holm"],

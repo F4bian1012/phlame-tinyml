@@ -212,6 +212,21 @@ class SecondBenchmarkTest(unittest.TestCase):
         expected = macro_f1(rig_true, [self.pred[("SILc", "Small")][name] for name in RIG])
         self.assertAlmostEqual(float(frames["Small"]["f1_SILc"]), expected, places=12)
 
+    def test_a_model_without_board_levels_says_why(self):
+        # Huge is larger than the flash; Small fits it, and is left out of the board levels on purpose
+        out = self.root / "fewer_tables"            # not under results/tables: another test lists that folder
+        options = [("Tiny" if value == ",".join(DEPLOYABLE) else value) for value in OPTIONS]
+        result = run_script(self.root, *options, "--output_dir", str(out))
+        self.assertEqual(result.returncode, 0, result.stdout[-3000:])
+        text = (out / "ladder_tables.md").read_text(encoding="utf-8")
+        table1 = text.split("## Table 2")[0]
+        self.assertEqual([line.split("|")[7].strip() for line in table1.splitlines() if line.startswith(("| Small", "| Huge"))],
+                         ["no HIL run", "does not fit"])
+        self.assertIn("'no HIL run': the model fits the flash but was not measured at HIL on this board", table1)
+        self.assertIn("(Small)", table1)
+        published = (self.out / "ladder_tables.md").read_text(encoding="utf-8")
+        self.assertNotIn("no HIL run", published)
+
     def test_alternative_sil_runs_are_not_read(self):
         with open(self.out / "ladder_summary.json", encoding="utf-8") as fh:
             inputs = json.load(fh)["inputs_sha256"]
