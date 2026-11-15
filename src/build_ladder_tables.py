@@ -9,25 +9,51 @@ Run from the repository root:
     python src/build_ladder_tables.py
     python src/build_ladder_tables.py --output_dir results/tables --bootstrap 10000
 
-Inputs (all tracked in git; <tag> = <Architecture>+32+20+0.0001+160+120):
-  results/mil/predictions_<tag>.csv           MIL: float model on the host        (n = 940)
-  results/sil/predictions_<tag>_int8.csv      SIL: INT8 model on the host         (n = 940)
-  results/sil/metrics_<tag>_int8.json         exact .tflite size and SHA-256
-  results/pil/predictions_<tag>_int8.csv      PIL: INT8 on the MCU, images sent over serial (n = 940)
-  results/pil/metrics_<tag>_int8.json         PIL per-phase latency (DWT cycle counter)
-  results/hil/latency_metrics_<tag>_int8.csv    HIL: INT8 on the MCU, camera frames (n = 200), plus the
-                                              host float/INT8 re-classification of the same frame
-  results/hil/metrics_<tag>_int8.json         HIL per-phase latency
-  results/hil/conditions_<tag>_int8.json  firmware fingerprint and tensor-arena usage
-  results/hil/rep*/                           HIL repeatability runs of the reference architecture
-  data/splits_plates/test_manifest.csv        hil_subset flag (the 200 rig images)
+Without options it rebuilds the tables of the vehicle benchmark, the one the
+paper reports. Another benchmark that has the four levels is one command:
 
-Outputs (in --output_dir, default results/tables/):
+    python src/build_ladder_tables.py --tag COCO --run_suffix +32+50+0.0003+160+120 --splits_dir data/splits_coco
+
+  --tag          tag of the runs, as given to the training scripts: the runs are named
+                 <Architecture>_<tag><run_suffix>; without it, <Architecture><run_suffix>
+  --run_suffix   the rest of the run name: +batch+epochs+learning rate+width+height
+  --splits_dir   partition of the benchmark; its test_manifest.csv gives the rig subset
+                 (hil_subset) and the class names
+  --archs, --deployable   architectures at MIL and SIL, and those that also run on the board
+  --board        board of the PIL and HIL runs: results/{pil,hil} for the Portenta H7,
+                 results/nicla/{pil,hil} for the Nicla Vision
+  --output_dir   default results/tables for the vehicle benchmark and
+                 results/tables/<tag in lower case> with --tag, so that two benchmarks
+                 do not replace each other's tables
+
+Inputs (all tracked in git; <run> = <Architecture>[_<tag>]<run_suffix>, by default
+<Architecture>+32+20+0.0001+160+120; n is given for the vehicle benchmark):
+  results/mil/predictions_<run>.csv           MIL: float model on the host        (n = 940)
+  results/sil/predictions_<run>_int8.csv      SIL: INT8 model on the host         (n = 940)
+  results/sil/metrics_<run>_int8.json         exact .tflite size and SHA-256
+  results/pil/predictions_<run>_int8.csv      PIL: INT8 on the MCU, images sent over serial (n = 940)
+  results/pil/metrics_<run>_int8.json         PIL per-phase latency (DWT cycle counter)
+  results/hil/latency_metrics_<run>_int8.csv  HIL: INT8 on the MCU, camera frames (n = 200), plus the
+                                              host float/INT8 re-classification of the same frame
+  results/hil/metrics_<run>_int8.json         HIL per-phase latency
+  results/hil/conditions_<run>_int8.json      firmware fingerprint and tensor-arena usage
+  results/hil/rep*/                           HIL repeatability runs of the reference architecture,
+                                              named <Architecture>[_<tag>]_<rep folder>; a rep folder
+                                              without a run of this benchmark is left out
+  <splits_dir>/test_manifest.csv              hil_subset flag (the rig images) and class names
+
+Only these folders are read: the SIL of record is the one in results/sil/, and the
+alternative SIL runs of results/sil_kernels/ are never taken for a level. The script
+stops with the list of what is missing when a level has not been measured; a
+benchmark measured up to PIL is summarised by build_benchmark_table.py instead.
+
+Outputs (in --output_dir):
   ladder_tables.md          the eight tables, formatted
   ladder_tables.tex         the same tables in LaTeX (booktabs)
   table<k>_<name>.csv       unrounded values of every table
   ladder_summary.json       headline numbers and provenance (input SHA-256, seeds,
-                            library versions, git commit)
+                            library versions, git commit; and, for a benchmark other
+                            than the default one, the options that define it)
 
 Methods
   * Metric: binary macro-averaged F1. Differences are computed from unrounded values.
@@ -62,10 +88,14 @@ import numpy as np
 import scipy
 from scipy.stats import binomtest, fisher_exact
 from scipy.stats import t as t_dist
+import boards
 import cli
 
+# The defaults describe the vehicle benchmark, the one the tables of the paper report.
 DEFAULT_ARCHS = "MobileNetV2,MobileNetV3Large,ResNet18,MobileNet,MobileNetV3Small,SqueezeNet,ResNet8"
 DEFAULT_DEPLOYABLE = "MobileNetV2,MobileNet,MobileNetV3Small,SqueezeNet,ResNet8"
+DEFAULT_RUN_SUFFIX = "+32+20+0.0001+160+120"
+DEFAULT_SPLITS_DIR = "data/splits_plates"
 FLASH_BYTES = 2 * 1024 * 1024  # STM32H747XI internal flash: 2 MiB
 
 
@@ -75,23 +105,43 @@ FLASH_BYTES = 2 * 1024 * 1024  # STM32H747XI internal flash: 2 MiB
 def parse_args():
     p = cli.ArgumentParser(
         description="Rebuild the fidelity-ladder tables (paired bootstrap CIs, exact McNemar, "
-                    "Holm) from the per-image result files in results/.")
+                    "Holm) from the per-image result files in results/. Without options: the "
+                    "vehicle benchmark of the paper; --tag, --run_suffix and --splits_dir name "
+                    "another benchmark that has the four levels.")
     p.add_argument("--root", default=".",
                    help="Repository root; all other paths are relative to it (default: .)")
-    p.add_argument("--output_dir", default=os.path.join("results", "tables"),
-                   help="Output folder (default: results/tables)")
+    p.add_argument("--output_dir", default=None,
+                   help="Output folder (default: results/tables; results/tables/<tag in lower case> "
+                        "with --tag; under results/nicla/ with --board nicla)")
+    p.add_argument("--tag", default=None,
+                   help="Tag of the runs, as given to the training scripts with --tag (e.g. COCO): the "
+                        "runs are named {architecture}_{tag}{run_suffix}. Default: no tag, the runs are "
+                        "named {architecture}{run_suffix}")
+    p.add_argument("--run_suffix", default=DEFAULT_RUN_SUFFIX,
+                   help="Rest of the run name after the architecture and the tag: "
+                        "+batch+epochs+learning rate+width+height (default: %s)" % DEFAULT_RUN_SUFFIX)
+    # Name of --run_suffix until November 2026; still accepted.
+    p.add_argument("--tag_suffix", dest="run_suffix", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     p.add_argument("--archs", default=DEFAULT_ARCHS,
                    help="Comma-separated architectures evaluated at MIL and SIL. The first one "
                         "defines the image order of the test set.")
     p.add_argument("--deployable", default=DEFAULT_DEPLOYABLE,
                    help="Comma-separated architectures that fit on the MCU (have PIL and HIL runs). "
                         "The first one is the reference for the rig subset and the repeatability runs.")
-    p.add_argument("--tag_suffix", default="+32+20+0.0001+160+120",
-                   help="Model-name suffix after the architecture (batch+epochs+lr+W+H)")
-    p.add_argument("--manifest", default=os.path.join("data", "splits_plates", "test_manifest.csv"),
-                   help="Test manifest with the hil_subset column (checked if present)")
-    p.add_argument("--class_names", default=os.path.join("models", "class_names.txt"),
-                   help="Class names, one per line, in label order")
+    p.add_argument("--splits_dir", default=DEFAULT_SPLITS_DIR,
+                   help="Partition folder of the benchmark, as written by split_dataset.py; its "
+                        "test_manifest.csv gives the rig subset (hil_subset) and the class names "
+                        "(default: %s)" % DEFAULT_SPLITS_DIR)
+    p.add_argument("--manifest", default=None,
+                   help="Test manifest with the hil_subset column, when it is not "
+                        "<splits_dir>/test_manifest.csv (checked if present)")
+    p.add_argument("--class_names", default=None,
+                   help="File with the two class names, one per line, in label order. Default: the "
+                        "names in the test manifest, else those recorded in the result files")
+    p.add_argument("--board", choices=sorted(boards.BOARDS), default=boards.DEFAULT_BOARD,
+                   help="Board of the PIL and HIL runs (default: %s). It sets the folders they are read "
+                        "from: results/{pil,hil}, or results/nicla/{pil,hil} for the Nicla Vision"
+                        % boards.DEFAULT_BOARD)
     p.add_argument("--bootstrap", type=int, default=10000,
                    help="Number of paired bootstrap resamples (default: 10000)")
     p.add_argument("--seed", type=int, default=20261016,
@@ -214,6 +264,102 @@ def load_hil(io, rel, order):
     return [by[n] for n in order]
 
 
+def run_name(arch, tag, suffix):
+    """Name of a run: {architecture}[_{tag}]{suffix}, as the training scripts write it."""
+    return f"{arch}_{tag}{suffix}" if tag else f"{arch}{suffix}"
+
+
+def level_dir(board, level):
+    """Folder of a board level relative to the root, with '/' on every operating system."""
+    return boards.results_dir(board, level).replace(os.sep, "/")
+
+
+def required_inputs(archs, dep, name, pil_dir, hil_dir):
+    """(level, architecture, path) of every result file the tables cannot be built without."""
+    out = []
+    for a in archs:
+        out += [("MIL", a, f"results/mil/predictions_{name(a)}.csv"),
+                ("SIL", a, f"results/sil/predictions_{name(a)}_int8.csv"),
+                ("SIL", a, f"results/sil/metrics_{name(a)}_int8.json")]
+    for a in dep:
+        out += [("PIL", a, f"{pil_dir}/predictions_{name(a)}_int8.csv"),
+                ("PIL", a, f"{pil_dir}/metrics_{name(a)}_int8.json"),
+                ("HIL", a, f"{hil_dir}/latency_metrics_{name(a)}_int8.csv"),
+                ("HIL", a, f"{hil_dir}/metrics_{name(a)}_int8.json"),
+                ("HIL", a, f"{hil_dir}/conditions_{name(a)}_int8.json")]
+    return out
+
+
+def stop_if_levels_are_missing(root, required, archs, tag, suffix):
+    """Ends the run with the list of what is missing, instead of failing on the first file.
+
+    The tables compare the four levels image by image, so a benchmark whose HIL
+    (or any other level) has not been measured cannot be tabulated here."""
+    missing = [(lv, a, rel) for lv, a, rel in required if not os.path.isfile(os.path.join(root, rel))]
+    if not missing:
+        return
+    lines = ["[ERROR] These tables need the four levels (MIL, SIL, PIL, HIL) of every architecture, and "
+             f"{len(missing)} result file(s) are missing:"]
+    for lv in ("MIL", "SIL", "PIL", "HIL"):
+        of_level = [(a, rel) for level, a, rel in missing if level == lv]
+        if of_level:
+            who = sorted({a for a, _ in of_level}, key=[a for a in archs].index)
+            lines.append(f"  {lv}: {', '.join(who)}  (e.g. {of_level[0][1]})")
+    # The most common cause is a run name that does not match: say which runs there are.
+    mil_dir = os.path.join(root, "results", "mil")
+    prefix = f"predictions_{archs[0]}_{tag}+" if tag else f"predictions_{archs[0]}+"
+    found = sorted(f[len("predictions_"):-len(".csv")] for f in (os.listdir(mil_dir) if os.path.isdir(mil_dir) else [])
+                   if f.startswith(prefix) and f.endswith(".csv"))
+    wanted = run_name(archs[0], tag, suffix)
+    if found and wanted not in found:
+        lines.append(f"  No MIL run is named {wanted}; results/mil has: {', '.join(found)}. "
+                     "Check --tag and --run_suffix.")
+    lines.append("  A benchmark measured up to PIL is summarised by src/build_benchmark_table.py instead.")
+    sys.exit("\n".join(lines))
+
+
+def read_class_names(io, args, manifest_rows, mil_rel):
+    """The two class names in label order, and where they were taken from.
+
+    --class_names wins; otherwise the test manifest (columns label and
+    class_name), otherwise the names the reference MIL run recorded for each
+    label. The names of the result files must agree with the ones chosen: a
+    partition of another benchmark would label the tables wrongly."""
+    def from_pairs(pairs):
+        by_label = {}
+        for label, name in pairs:
+            if name not in (None, "") and str(label).strip() != "":
+                by_label.setdefault(int(float(label)), set()).add(name.strip())
+        if sorted(by_label) == [0, 1] and all(len(v) == 1 for v in by_label.values()):
+            return [next(iter(by_label[0])), next(iter(by_label[1]))]
+        return None
+
+    recorded = from_pairs((r.get("TrueLabel"), r.get("TrueClass")) for r in io.rows(mil_rel, ";"))
+    if args.class_names:
+        path = os.path.join(args.root, args.class_names)
+        if not os.path.isfile(path):
+            sys.exit(f"[ERROR] --class_names: {args.class_names} not found")
+        with open(path, encoding="utf-8") as f:
+            names, source = f.read().split(), args.class_names
+        if len(names) != 2:
+            sys.exit(f"[ERROR] This script handles binary tasks; {args.class_names} lists {len(names)} classes")
+    else:
+        names = None
+        if manifest_rows and "label" in manifest_rows[0] and "class_name" in manifest_rows[0]:
+            names, source = from_pairs((r["label"], r["class_name"]) for r in manifest_rows), "the test manifest"
+            if names is None:
+                sys.exit("[ERROR] This script handles binary tasks with labels 0 and 1; the test manifest "
+                         "does not describe one")
+        if names is None:
+            names, source = recorded, mil_rel
+        if names is None:
+            names, source = ["class0", "class1"], "no source (generic names)"
+    if recorded is not None and recorded != names:
+        sys.exit(f"[ERROR] Class names differ: {source} says {names} and {mil_rel} recorded {recorded}. "
+                 "Check --splits_dir (or --class_names): is it the partition of this benchmark?")
+    return names, source
+
+
 # ----------------------------------------------------------------------------
 # Formatting
 # ----------------------------------------------------------------------------
@@ -276,16 +422,25 @@ def main():
     dep = [a.strip() for a in args.deployable.split(",") if a.strip()]
     if not set(dep) <= set(archs):
         sys.exit("[ERROR] Every --deployable architecture must also be in --archs")
+    if not dep:
+        sys.exit("[ERROR] --deployable is empty: the tables need at least one architecture with PIL and HIL runs")
     ref = dep[0]
     io = Inputs(args.root)
-    tag = lambda a: f"{a}{args.tag_suffix}"
+    tag = lambda a: run_name(a, args.tag, args.run_suffix)   # the full name of the run of an architecture
 
-    # ---- class names --------------------------------------------------------
-    cn_path = os.path.join(args.root, args.class_names)
-    class_names = (open(cn_path, encoding="utf-8").read().split()
-                   if os.path.isfile(cn_path) else ["class0", "class1"])
-    if len(class_names) != 2:
-        sys.exit(f"[ERROR] This script handles binary tasks; {args.class_names} lists {len(class_names)} classes")
+    # ---- what defines the benchmark: run names, partition, board -------------
+    pil_dir, hil_dir = level_dir(args.board, "pil"), level_dir(args.board, "hil")
+    board = boards.BOARDS[args.board]
+    manifest_given = args.manifest is not None
+    manifest = (args.manifest if manifest_given else os.path.join(args.splits_dir, "test_manifest.csv")).replace(os.sep, "/")
+    default_manifest = f"{DEFAULT_SPLITS_DIR}/test_manifest.csv"
+    # The benchmark the script builds without options: the vehicle benchmark of the paper.
+    paper_benchmark = (not args.tag and args.run_suffix == DEFAULT_RUN_SUFFIX
+                       and args.board == boards.DEFAULT_BOARD and manifest == default_manifest)
+    if args.output_dir is None:
+        args.output_dir = os.path.join(boards.results_dir(args.board, "tables"), *([args.tag.lower()] if args.tag else []))
+    stop_if_levels_are_missing(args.root, required_inputs(archs, dep, tag, pil_dir, hil_dir), archs,
+                               args.tag, args.run_suffix)
 
     # ---- full test set: MIL, SIL, PIL ---------------------------------------
     order, y_full, _ = load_predictions(io, f"results/mil/predictions_{tag(archs[0])}.csv")
@@ -296,32 +451,39 @@ def main():
         if not ((y_m == y_full).all() and (y_s == y_full).all()):
             sys.exit(f"[ERROR] Ground truth differs between levels for {a}")
         if a in dep:
-            _, y_p, pred[("PIL", a)] = load_predictions(io, f"results/pil/predictions_{tag(a)}_int8.csv", order)
+            _, y_p, pred[("PIL", a)] = load_predictions(io, f"{pil_dir}/predictions_{tag(a)}_int8.csv", order)
             if not (y_p == y_full).all():
                 sys.exit(f"[ERROR] Ground truth differs at PIL for {a}")
     n_full = len(order)
     pos = {name: i for i, name in enumerate(order)}
 
     # ---- rig subset: HIL and host re-classification of the same frames ------
-    rel_ref = f"results/hil/latency_metrics_{tag(ref)}_int8.csv"
+    rel_ref = f"{hil_dir}/latency_metrics_{tag(ref)}_int8.csv"
     rig = [r["image"] for r in io.rows(rel_ref, ",")]
     if not set(rig) <= set(order):
         sys.exit("[ERROR] Some rig images are not in the test set")
-    man_path = os.path.join(args.root, args.manifest)
+    man_path = os.path.join(args.root, manifest)
     subset_check = None
+    man = []
     if os.path.isfile(man_path):
-        man = io.rows(args.manifest, ",")
+        man = io.rows(manifest, ",")
+        key = "filename" if man and "filename" in man[0] else (list(man[0])[0] if man else None)
+        if man and {os.path.basename(r[key]) for r in man} != set(order):
+            sys.exit(f"[ERROR] {manifest} does not list the {n_full} test images of the result files. "
+                     "Check --splits_dir: is it the partition of this benchmark?")
         if man and "hil_subset" in man[0]:
-            key = "filename" if "filename" in man[0] else list(man[0])[0]
             flagged = {os.path.basename(r[key]) for r in man if str(r["hil_subset"]).strip() in ("1", "1.0", "True")}
             subset_check = flagged == {os.path.basename(n) for n in rig}
             if not subset_check:
                 sys.exit("[ERROR] The rig images do not match hil_subset == 1 in the manifest")
+    elif manifest_given or args.splits_dir.replace(os.sep, "/") != DEFAULT_SPLITS_DIR:
+        sys.exit(f"[ERROR] Test manifest not found: {manifest}")
+    class_names, class_names_source = read_class_names(io, args, man, f"results/mil/predictions_{tag(archs[0])}.csv")
     rig_pos = np.array([pos[n] for n in rig])
     y_rig = y_full[rig_pos]
     n_rig = len(rig)
     for a in dep:
-        rel = f"results/hil/latency_metrics_{tag(a)}_int8.csv"
+        rel = f"{hil_dir}/latency_metrics_{tag(a)}_int8.csv"
         rows = load_hil(io, rel, rig)
         if not (as_int(rows, "true_label", rel) == y_rig).all():
             sys.exit(f"[ERROR] Ground truth of the rig subset differs for {a}")
@@ -394,9 +556,16 @@ def main():
     # ======================================================================
     t3 = {}
     for a in dep:
-        P = io.json(f"results/pil/metrics_{tag(a)}_int8.json")["latency"]["per_field"]
-        H = io.json(f"results/hil/metrics_{tag(a)}_int8.json")["latency"]["per_field"]
-        fw = io.json(f"results/hil/conditions_{tag(a)}_int8.json")["firmware_model"]
+        pil_rel, hil_rel = f"{pil_dir}/metrics_{tag(a)}_int8.json", f"{hil_dir}/metrics_{tag(a)}_int8.json"
+        pil_doc, hil_doc = io.json(pil_rel), io.json(hil_rel)
+        for rel, doc in ((pil_rel, pil_doc), (hil_rel, hil_doc)):
+            # A run filed under the folder of one board but measured on the other would mix two boards.
+            measured_on = (doc.get("run") or {}).get("board")
+            if measured_on not in (None, board["announces"]):
+                sys.exit(f"[ERROR] {rel} was measured on {measured_on}, not on the board given with --board "
+                         f"({board['announces']})")
+        P, H = pil_doc["latency"]["per_field"], hil_doc["latency"]["per_field"]
+        fw = io.json(f"{hil_dir}/conditions_{tag(a)}_int8.json")["firmware_model"]
         ms = lambda d, k: d[k]["mean"] / 1000.0
         t3[a] = {"tflite_KiB": tfl[a][0] / 1024.0, "arena_KiB": fw["arena_used_bytes"] / 1024.0,
                  "PIL_pre_ms": ms(P, "US_PRE"), "PIL_inf_ms": ms(P, "US_INF"), "PIL_post_ms": ms(P, "US_POST"),
@@ -415,16 +584,30 @@ def main():
     # ======================================================================
     # Table 4 - HIL repeatability of the reference architecture
     # ======================================================================
-    rep_dirs = sorted(d for d in os.listdir(os.path.join(args.root, "results", "hil"))
-                      if d.startswith("rep") and os.path.isdir(os.path.join(args.root, "results", "hil", d)))
-    ref_cond = io.json(f"results/hil/conditions_{tag(ref)}_int8.json")
+    hil_root = os.path.join(args.root, *hil_dir.split("/"))
+    rep_stem = lambda d: f"{ref}_{args.tag}_{d}" if args.tag else f"{ref}_{d}"
+    rep_dirs, rep_dirs_of_other_runs = [], []
+    for d in sorted(os.listdir(hil_root)):
+        if d.startswith("rep") and os.path.isdir(os.path.join(hil_root, d)):
+            # The rep folders are shared by the benchmarks: one that holds no run of this
+            # benchmark's reference architecture is left out; one that holds half of it is an error below.
+            has_run = any(os.path.isfile(os.path.join(hil_root, d, name % rep_stem(d)))
+                          for name in ("conditions_%s.json", "latency_metrics_%s.csv"))
+            (rep_dirs if has_run else rep_dirs_of_other_runs).append(d)
+    ref_cond = io.json(f"{hil_dir}/conditions_{tag(ref)}_int8.json")
     pil_rig = on_rig("PIL", ref)
     pil_rig_f1 = float(f1_macro(y_rig, pil_rig))
     runs = [{"run": "original", "seed": ref_cond.get("seed"), "frame_dump": bool(ref_cond.get("frame_dump")),
              "pred": pred[("HIL", ref)]}]
+    # "original" is the HIL run of the ladder (the one in the HIL folder itself). In the vehicle
+    # benchmark it was measured before the protocol of the repeatability runs was fixed, which is
+    # what its role says; in another benchmark it is simply the run the other tables use.
+    original_role = ("original (different protocol, excluded from the mean)" if paper_benchmark
+                     else "run of the ladder (not in the mean of the repeatability runs)" if rep_dirs
+                     else "run of the ladder")
     for d in rep_dirs:
-        cond = io.json(f"results/hil/{d}/conditions_{ref}_{d}.json")
-        rel = f"results/hil/{d}/latency_metrics_{ref}_{d}.csv"
+        cond = io.json(f"{hil_dir}/{d}/conditions_{rep_stem(d)}.json")
+        rel = f"{hil_dir}/{d}/latency_metrics_{rep_stem(d)}.csv"
         runs.append({"run": d, "seed": cond.get("seed"), "frame_dump": bool(cond.get("frame_dump")),
                      "pred": as_int(load_hil(io, rel, rig), "pred_label", rel)})
     for r in runs:
@@ -432,7 +615,7 @@ def main():
         r["errors"] = int((r["pred"] != y_rig).sum())
         r["gap"] = r["f1"] - pil_rig_f1
         r["agreement_with_original_pct"] = 100.0 * float((r["pred"] == runs[0]["pred"]).mean())
-        r["role"] = ("original (different protocol, excluded from the mean)" if r["run"] == "original"
+        r["role"] = (original_role if r["run"] == "original"
                      else "strict replicate" if r["seed"] == runs[0]["seed"] else "presentation-order control")
     reps = [r for r in runs if r["run"] != "original"]
     rep_summary = None
@@ -467,7 +650,7 @@ def main():
             pp = on_rig(lv, a) if sub else pred[(lv, a)]
             e1, e2 = int(((yy == 0) & (pp != 0)).sum()), int(((yy == 1) & (pp != 1)).sum())
             n1, n2 = int((yy == 0).sum()), int((yy == 1).sum())
-            t5.append({"arch": a, "level": lv + (" (200)" if sub and lv != "HIL" else ""), "n": len(yy),
+            t5.append({"arch": a, "level": lv + (f" ({n_rig})" if sub and lv != "HIL" else ""), "n": len(yy),
                        "recall_0": 1 - e1 / n1, "recall_1": 1 - e2 / n2, "errors_0": e1, "errors_1": e2,
                        "p": float(fisher_exact([[e1, n1 - e1], [e2, n2 - e2]])[1])})
     for r, q in zip(t5, holm([r["p"] for r in t5])):
@@ -521,10 +704,14 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
     c0, c1 = class_names
     md, tex = [], []
+    # What tells this benchmark from the default one, for the title and the LaTeX labels
+    # (tab:ladder1 for the vehicle benchmark, tab:ladder-coco-1 for a benchmark tagged COCO).
+    marks = ([args.tag] if args.tag else []) + ([board["label"]] if args.board != boards.DEFAULT_BOARD else [])
+    label_stem = "ladder" + "".join("-" + m.lower().replace(" ", "") for m in marks) + ("-" if marks else "")
 
     def emit(k, title, header, rows, note, csv_name, csv_header, csv_rows):
         md.append(f"## Table {k} - {title}\n\n{md_table(header, rows)}\n\n*{note}*\n")
-        tex.append(tex_table(f"{title}. {note}", f"tab:ladder{k}", header, rows))
+        tex.append(tex_table(f"{title}. {note}", f"tab:{label_stem}{k}", header, rows))
         write_csv(os.path.join(out_dir, f"table{k}_{csv_name}.csv"), csv_header, csv_rows)
 
     # Table 1
@@ -549,12 +736,13 @@ def main():
                       g("frontend", "ci_lo"), g("frontend", "ci_hi"), g("frontend", "only_a"), g("frontend", "only_b"),
                       g("frontend", "p"), g("frontend", "p_holm"), g("frontend", "agreement_pct")])
     big = ", ".join(f"{a} {tfl[a][0]:,} B" for a in archs if a not in dep)
+    does_not_fit = f"'does not fit': the .tflite alone exceeds the 2 MiB internal flash ({big}). " if big else ""
     emit(1, "Fidelity ladder MIL \u2192 SIL \u2192 PIL \u2192 HIL (macro-F1)",
          ["Architecture", ".tflite (KiB)", "MIL", "SIL", "\u0394 MIL\u2192SIL [95% CI]", "p Holm", "PIL",
-          "SIL\u2013PIL agreement", "PIL (200)", "HIL (200)", "\u0394 PIL\u2192HIL [95% CI]", "p Holm"],
+          "SIL\u2013PIL agreement", f"PIL ({n_rig})", f"HIL ({n_rig})", "\u0394 PIL\u2192HIL [95% CI]", "p Holm"],
          rows,
-         f"MIL, SIL and PIL on the full test set (n = {n_full}); PIL (200) and HIL on the rig subset (n = {n_rig}), "
-         f"same images. 'does not fit': the .tflite alone exceeds the 2 MiB internal flash ({big}). "
+         f"MIL, SIL and PIL on the full test set (n = {n_full}); PIL ({n_rig}) and HIL on the rig subset (n = {n_rig}), "
+         f"same images. {does_not_fit}"
          "SIL\u2013PIL agreement: share of images with the same prediction in the INT8 simulator and on the MCU. "
          f"95% CI: paired bootstrap ({args.bootstrap:,} resamples); p: exact McNemar, Holm within each column.",
          "ladder",
@@ -581,7 +769,7 @@ def main():
           "Camera \u00b7 host float", "Camera \u00b7 host INT8", "Camera \u00b7 MCU",
           "Quantization \u00b7 dataset", "Quantization \u00b7 camera", "Physical front end \u00b7 MCU", "MCU vs host INT8 \u00b7 camera"],
          rows,
-         "The six F1 columns use the same rig images. 'Camera' = the frame captured by the HM01B0 from the on-screen "
+         f"The six F1 columns use the same rig images. 'Camera' = the frame captured by the {board['camera']} from the on-screen "
          "stimulus, re-classified on the host (float and INT8) and on the MCU. In brackets: b/c (images correct only in "
          "the first / only in the second condition) and exact McNemar p, Holm within each effect. The CSV also holds "
          "the optical effects at every engine, the dataset-input execution effect and the quantization \u00d7 input interaction.",
@@ -665,10 +853,14 @@ def main():
     except (OSError, subprocess.SubprocessError):
         commit = None
     stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    head = (f"# PHLAME - fidelity-ladder tables\n\nGenerated by `src/build_ladder_tables.py` on {stamp}"
+    which = f" ({', '.join(marks)})" if marks else ""
+    head = (f"# PHLAME - fidelity-ladder tables{which}\n\nGenerated by `src/build_ladder_tables.py` on {stamp}"
             f"{f' (commit {commit[:10]})' if commit else ''}. Macro-F1 throughout; n = {n_full} test images "
             f"and {n_rig} rig images ({k0}/{k1} per class). Paired bootstrap: "
             f"{args.bootstrap:,} resamples, seed {args.seed}.\n")
+    if marks:
+        head += (f"\nRuns named `{tag('<architecture>')}`; partition `{manifest}`; classes `{c0}` (0) and "
+                 f"`{c1}` (1); PIL and HIL measured on the {board['label']} (`{pil_dir}`, `{hil_dir}`).\n")
     with open(os.path.join(out_dir, "ladder_tables.md"), "w", encoding="utf-8") as f:
         f.write(head + "\n" + "\n".join(md))
     with open(os.path.join(out_dir, "ladder_tables.tex"), "w", encoding="utf-8") as f:
@@ -686,9 +878,23 @@ def main():
                         "platform": platform.platform()},
         "inputs_sha256": dict(sorted(io.read.items())),
     }
+    # The options that define the benchmark are recorded when it is not the default one, so the
+    # summary of the vehicle benchmark keeps the keys of the published file.
+    if not paper_benchmark or args.class_names:
+        summary["parameters"]["benchmark"] = {
+            "tag": args.tag, "run_suffix": args.run_suffix, "board": board["announces"], "manifest": manifest,
+            "class_names": [c0, c1], "class_names_from": class_names_source,
+            "results_dirs": {"MIL": "results/mil", "SIL": "results/sil", "PIL": pil_dir, "HIL": hil_dir},
+            "repeatability_runs": rep_dirs,
+        }
     with open(os.path.join(out_dir, "ladder_summary.json"), "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2, default=float)
 
+    print(f"[INFO] Benchmark: runs {tag('<architecture>')} | classes {c0}, {c1} (from {class_names_source}) | "
+          f"PIL and HIL on the {board['label']}")
+    if rep_dirs_of_other_runs:
+        print(f"[INFO] Repeatability folders without a run named {rep_stem('<rep>')}, left out: "
+              f"{', '.join(rep_dirs_of_other_runs)}")
     print(f"[INFO] Test set: {n_full} images | rig subset: {n_rig} ({k0}/{k1}) | "
           f"architectures: {len(archs)} ({len(dep)} deployable)")
     if rep_summary:
