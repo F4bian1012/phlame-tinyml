@@ -1,0 +1,231 @@
+{
+  "level": "HIL",
+  "generated_utc": "2026-11-15T16:53:49.936417+00:00",
+  "model": {
+    "path": "models/tflite/SqueezeNet_COCO+32+50+0.0003+160+120_int8.tflite",
+    "name": "SqueezeNet_COCO+32+50+0.0003+160+120_int8",
+    "sha256": "1c9c04a27f2435a58a4478dfdffba85a12ae0b7df2b7f0df502f594f0175c95f",
+    "bytes": 828768,
+    "fnv1a_tflite": "bfa0fe07",
+    "fnv1a_chip": "bfa0fe07",
+    "identity_verified": true,
+    "note": "identity_verified=true means that the FNV-1a fingerprint of g_model[] on the board matches that of the given .tflite: the chip ran exactly that file."
+  },
+  "run": {
+    "port": "COM3",
+    "board": "PORTENTA_H7",
+    "baud": 115200,
+    "completed": true,
+    "settle_s": 1.5,
+    "gap_s": 0.5,
+    "seed": 42,
+    "frame_dump": true,
+    "conditions_complete": true,
+    "illuminance_lux": 11.0,
+    "camera_to_screen_distance_cm": 23.0,
+    "ambient_temp_c": 24.0
+  },
+  "dataset": {
+    "stimulus_source": "manifest:data/splits_coco/test_manifest.csv",
+    "manifest_subset": "hil_subset==1",
+    "class_names": [
+      "non_person",
+      "person"
+    ],
+    "n_stimuli_planned": 200,
+    "n_stimuli": 200,
+    "n_answered": 200,
+    "n_unanswered": 0
+  },
+  "global_metrics": {
+    "accuracy": 0.755,
+    "precision_weighted": 0.7605559058427912,
+    "recall_weighted": 0.755,
+    "f1_weighted": 0.7521364365562374,
+    "precision_macro": 0.7621899957965532,
+    "recall_macro": 0.750125313283208,
+    "f1_macro": 0.7504519874716712
+  },
+  "per_class_metrics": {
+    "non_person": {
+      "precision": 0.7295081967213115,
+      "recall": 0.8476190476190476,
+      "f1-score": 0.7841409691629956,
+      "support": 105.0
+    },
+    "person": {
+      "precision": 0.7948717948717948,
+      "recall": 0.6526315789473685,
+      "f1-score": 0.7167630057803468,
+      "support": 95.0
+    },
+    "accuracy": 0.755,
+    "macro avg": {
+      "precision": 0.7621899957965532,
+      "recall": 0.750125313283208,
+      "f1-score": 0.7504519874716712,
+      "support": 200.0
+    },
+    "weighted avg": {
+      "precision": 0.7605559058427912,
+      "recall": 0.755,
+      "f1-score": 0.7521364365562374,
+      "support": 200.0
+    }
+  },
+  "confusion_matrix": {
+    "labels": [
+      "non_person",
+      "person"
+    ],
+    "matrix": [
+      [
+        89,
+        16
+      ],
+      [
+        33,
+        62
+      ]
+    ],
+    "order": "rows = true label, columns = predicted label"
+  },
+  "latency": {
+    "source": "DWT->CYCCNT cycle counter of the Cortex-M7, reported by the firmware in the CYC_*/US_* lines; includes the CAPTURE phase",
+    "n_images_measured": 200,
+    "p95_method": "nearest rank on the sorted sample, no interpolation",
+    "per_field": {
+      "TS_MS": {
+        "n": 200,
+        "mean": 438334.45,
+        "median": 438289.5,
+        "std": 247909.26020879872,
+        "min": 11808.0,
+        "max": 864574.0,
+        "p95": 821695.0
+      },
+      "TEMP_C": {
+        "n": 200,
+        "mean": 31.735,
+        "median": 32.0,
+        "std": 0.668588102086222,
+        "min": 30.0,
+        "max": 33.0,
+        "p95": 33.0
+      },
+      "CYC_CAPTURE": {
+        "n": 200,
+        "mean": 784130.435,
+        "median": 828787.0,
+        "std": 152901.304050349,
+        "min": 487710.0,
+        "max": 984036.0,
+        "p95": 969470.0
+      },
+      "CYC_PRE": {
+        "n": 200,
+        "mean": 1358626.9,
+        "median": 1358264.0,
+        "std": 3387.1944632185337,
+        "min": 1343735.0,
+        "max": 1370571.0,
+        "p95": 1364748.0
+      },
+      "CYC_INF": {
+        "n": 200,
+        "mean": 450915022.8,
+        "median": 450908635.0,
+        "std": 60056.20089624761,
+        "min": 450756991.0,
+        "max": 451068629.0,
+        "p95": 451016171.0
+      },
+      "CYC_POST": {
+        "n": 200,
+        "mean": 258.375,
+        "median": 249.0,
+        "std": 107.84315045705273,
+        "min": 237.0,
+        "max": 1349.0,
+        "p95": 253.0
+      },
+      "CYC_TOTAL": {
+        "n": 200,
+        "mean": 453058038.51,
+        "median": 453089848.5,
+        "std": 173069.59765066978,
+        "min": 452646048.0,
+        "max": 453381523.0,
+        "p95": 453302100.0
+      },
+      "US_CAPTURE": {
+        "n": 200,
+        "mean": 1960.3260750000002,
+        "median": 2071.9674999999997,
+        "std": 382.25329440162295,
+        "min": 1219.275,
+        "max": 2460.09,
+        "p95": 2423.675
+      },
+      "US_PRE": {
+        "n": 200,
+        "mean": 3396.5672400000003,
+        "median": 3395.66,
+        "std": 8.467977232755896,
+        "min": 3359.337,
+        "max": 3426.427,
+        "p95": 3411.87
+      },
+      "US_INF": {
+        "n": 200,
+        "mean": 1127287.55875,
+        "median": 1127271.625,
+        "std": 150.14404249644195,
+        "min": 1126892.5,
+        "max": 1127671.625,
+        "p95": 1127540.375
+      },
+      "US_POST": {
+        "n": 200,
+        "mean": 0.6459249999999999,
+        "median": 0.623,
+        "std": 0.26955882321091673,
+        "min": 0.592,
+        "max": 3.372,
+        "p95": 0.632
+      },
+      "US_TOTAL": {
+        "n": 200,
+        "mean": 1132645.10125,
+        "median": 1132724.625,
+        "std": 432.67692491651735,
+        "min": 1131615.125,
+        "max": 1133453.875,
+        "p95": 1133255.25
+      }
+    }
+  },
+  "cross_validation": {
+    "sil_on_pc": "models/tflite/SqueezeNet_COCO+32+50+0.0003+160+120_int8.tflite",
+    "sil_kernels": "reference",
+    "mil_on_pc": "models/checkpoints/SqueezeNet_COCO+32+50+0.0003+160+120.keras",
+    "n_with_sil": 200,
+    "n_with_mil": 200
+  },
+  "software": {
+    "python": "3.13.14",
+    "numpy": "2.5.3",
+    "opencv": "5.0.0",
+    "pyserial": "3.5",
+    "scikit_learn": "1.9.1",
+    "tensorflow": "2.21.0",
+    "keras": "3.15.1",
+    "gpus": [],
+    "platform": "Windows-11-10.0.26300-SP0"
+  },
+  "artifacts": {
+    "confusion_matrix_png": "results/hil/confusion_matrix_SqueezeNet_COCO+32+50+0.0003+160+120_int8.png",
+    "latency_csv": "results/hil/latency_metrics_SqueezeNet_COCO+32+50+0.0003+160+120_int8.csv",
+    "conditions_json": "results/hil/conditions_SqueezeNet_COCO+32+50+0.0003+160+120_int8.json"
+  }
+}

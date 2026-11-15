@@ -25,27 +25,20 @@ DYNAMIC_CHILDREN = {
     "per_class_metrics": "<CLASS>",
     "prediction_counts": "<CLASS>",
 }
-# Keys the HIL and PIL benches write that no published file carries yet: they
-# gained them in November 2026 and nothing has been measured with them since.
-# They are documented from what the benches write, which tests/test_hil_session.py
-# and tests/test_pil_session.py check against a simulated board. When a published
-# file has one of them it must leave this list: the last test of this file fails
-# until it does.
-NOT_YET_PUBLISHED_METRICS = {"run.completed", "dataset.n_stimuli_planned"}              # HIL
-NOT_YET_PUBLISHED_METRICS |= {"cross_validation.sil_kernels"}                            # HIL, --sil_kernels
-NOT_YET_PUBLISHED_PIL_METRICS = {"run.completed", "run.stopped_because", "run.input_shape_verified",
+# Keys the PIL bench writes that no published file carries yet: it gained them in
+# November 2026 and no PIL run has been measured with them since. They are
+# documented from what the bench writes, which tests/test_pil_session.py checks
+# against a simulated board. When a published file has one of them it must leave
+# this list: the last test of this file fails until it does. The keys the HIL
+# bench gained at the same time (the state of the session, the kernels of the
+# PC-side SIL, the stimulus monitor and the 'software' block with the versions
+# behind a result) left these lists with the COCO HIL sessions of 2026-11-15.
+NOT_YET_PUBLISHED_METRICS = set()                                                        # HIL
+NOT_YET_PUBLISHED_PIL_METRICS = {"run.stopped_because", "run.input_shape_verified",
                                  "run.max_unanswered", "dataset.n_images_planned", "model.arena_used_bytes"}
-# The 'software' block (versions behind a result), which the four levels write and
-# tests/test_software_versions.py checks. Each list holds the keys of its own bench; the
-# keys MIL and SIL write are all among them.
-NOT_YET_PUBLISHED_METRICS |= {"software", "software.python", "software.platform", "software.numpy",
-                              "software.scikit_learn", "software.pyserial", "software.opencv",
-                              "software.tensorflow", "software.keras", "software.gpus"}            # HIL
-NOT_YET_PUBLISHED_PIL_METRICS |= {"software", "software.python", "software.platform", "software.numpy",
-                                  "software.scikit_learn", "software.pyserial", "software.pillow"}
-NOT_YET_PUBLISHED_CONDITIONS = {"n_stimuli_planned", "completed", "stopped_because", "stimulus_monitor",
-                                "stimulus_monitor.index", "stimulus_monitor.geometry",
-                                "stimulus_monitor.monitors", "sil_kernels"}
+# 'software.pillow' is the one key of the 'software' block that only the PIL bench writes.
+NOT_YET_PUBLISHED_PIL_METRICS |= {"software.pillow"}
+NOT_YET_PUBLISHED_CONDITIONS = set()
 METRICS_HEADING = re.compile(r"^## .*`metrics_\*\.json`")
 CONDITIONS_HEADING = re.compile(r"^## .*`conditions_\*\.json`")
 KEY_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|")
