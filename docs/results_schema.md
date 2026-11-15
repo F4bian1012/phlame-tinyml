@@ -100,6 +100,7 @@ Every evaluation script writes a `metrics_{model}[_int8].json` file capturing cl
 | `model.fnv1a_chip` | HIL | `string` | 8-character hex 32-bit FNV-1a hash computed by the Portenta H7 firmware over the compiled `g_model[]` in flash and emitted at boot (`MODEL_FNV1A:<hex>`). |
 | `model.identity_verified` | HIL | `boolean` | `true` if the on-chip fingerprint and size match the host `.tflite` file. Confirms that the physical board ran the expected compiled model (a non-cryptographic check against stale or wrongly flashed firmware). |
 | `model.note` | PIL, HIL | `string` | Explanatory note detailing the verification method and scope of the checksum. |
+| `model.kernels` | SIL | `string` | TFLite kernels that ran the model on the PC, as given with `--kernels`: `"default"` (the interpreter's own choice, which includes the XNNPACK delegate), `"builtin"` (built-in optimized kernels without that delegate) or `"reference"` (reference kernels). Written from November 2026 on; absent in earlier files, which were all measured with the default. |
 
 ### 3. Dataset & Sampling (`dataset`)
 | Key | Level | Type | Description |

@@ -79,6 +79,11 @@ def parse_args():
     parser.add_argument('--class_names_path', type=str, default=None, help="Path to the txt file with the class names (default: the .classes.txt next to the model, else models/class_names.txt)")
     parser.add_argument('--output_dir', type=str, default=os.path.join("results", "sil"), help="Output directory for the matrix, JSON and CSV (default: results/sil)")
     parser.add_argument('--overwrite', action='store_true', help="Replace the matrix, JSON and CSV if they already exist")
+    parser.add_argument('--kernels', choices=sorted(KERNELS), default="default",
+                        help="TFLite kernels that run the model on the PC. default: what the interpreter picks, "
+                             "which includes the XNNPACK delegate. builtin: the built-in optimized kernels without "
+                             "that delegate. reference: the reference kernels, the ones TFLite-Micro is derived "
+                             "from. The choice is recorded in metrics_*.json (model.kernels)")
 
     args = parser.parse_args()
 
@@ -113,6 +118,35 @@ def quantize_input(data, input_details):
         return data.astype(np.int8)
     # Return as float32 for non-INT8 input tensors
     return data.astype(np.float32)
+
+# --kernels: which implementation of the operators runs the model on the PC.
+KERNELS = {
+    "default": "AUTO",
+    "builtin": "BUILTIN_WITHOUT_DEFAULT_DELEGATES",
+    "reference": "BUILTIN_REF",
+}
+
+
+def make_interpreter(model_path, kernels="default"):
+    """TFLite interpreter for model_path with the kernels asked for, tensors allocated.
+
+    The default interpreter hands most of the graph to the XNNPACK delegate, which
+    refuses some valid INT8 files (seen with a tensor that is constant over the
+    calibration images and so gets a degenerate scale). The run stops with what
+    to try instead of a traceback: the other kernels accept such a file.
+    """
+    resolver = getattr(tf.lite.experimental.OpResolverType, KERNELS[kernels])
+    interpreter = tf.lite.Interpreter(model_path=model_path, experimental_op_resolver_type=resolver)
+    try:
+        interpreter.allocate_tensors()
+    except RuntimeError as exc:
+        print(f"ERROR: the TFLite interpreter could not prepare {model_path} with --kernels {kernels}:")
+        print(f"  {str(exc).strip()}")
+        others = [name for name in sorted(KERNELS) if name != kernels]
+        print(f"Try --kernels {others[0]} (or {others[1]}); the kernels used are recorded in the metrics file.")
+        sys.exit(1)
+    return interpreter
+
 
 def dequantize_output(data, output_details):
     """
@@ -154,8 +188,8 @@ def main():
         print(f"Class names loaded from {class_names_path}: {class_names}")
 
     print(f"\nInitializing TFLite Interpreter with {args.model_path}...")
-    interpreter = tf.lite.Interpreter(model_path=args.model_path)
-    interpreter.allocate_tensors()
+    interpreter = make_interpreter(args.model_path, args.kernels)
+    print(f"TFLite kernels: {args.kernels}")
 
     input_details = interpreter.get_input_details()[0]
     output_details = interpreter.get_output_details()[0]
@@ -341,6 +375,7 @@ def main():
             "name": model_name_without_ext,
             "sha256": model_sha256,
             "bytes": model_bytes,
+            "kernels": args.kernels,
         },
         "dataset": {
             "splits_dir": args.splits_dir,
