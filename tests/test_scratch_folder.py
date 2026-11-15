@@ -45,10 +45,15 @@ class ScratchFolderTest(unittest.TestCase):
         self.assertEqual(scratch, REPO / "results" / "smoke_test")
         ignored = (REPO / ".gitignore").read_text(encoding="utf-8")
         self.assertIn("results/smoke_test/", ignored)
-        # whatever is in the scratch folder now, the schema check counts the published files only
+        # whatever is in the scratch folder now, the schema check counts the published files only:
+        # none of the scratch folder, and (in a git checkout) none that git does not track, such as
+        # the results of a session that is being measured
         _, n_files = test_results_schema.real_paths("metrics_*.json")
-        published = [p for p in (REPO / "results").rglob("metrics_*.json") if scratch not in p.parents]
+        on_disk = [str(p) for p in (REPO / "results").rglob("metrics_*.json")]
+        published = test_results_schema.published(on_disk)
         self.assertEqual(n_files, len(published))
+        self.assertEqual([p for p in published if scratch in Path(p).parents], [])
+        self.assertLessEqual(len(published), len([p for p in on_disk if scratch not in Path(p).parents]))
 
 
 if __name__ == "__main__":
