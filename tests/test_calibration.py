@@ -123,6 +123,69 @@ class PatternMetricsTest(unittest.TestCase):
 
 
 @unittest.skipIf(calibrate is None, "calibrate_hil_rig needs pyserial, OpenCV, numpy and Pillow")
+class LiveLanguageTest(unittest.TestCase):
+    """--lang: the live mode (preview window and its lines) in another language; the report stays in English."""
+
+    def seen(self):
+        return calibrate.geometry_metrics(moved(calibrate.pattern_geometry(), scale=0.92, degrees=3.0, shift=(5.0, -3.0)))
+
+    def test_every_language_has_every_message_with_the_same_arguments(self):
+        import re
+        fields = re.compile(r"%[-+0-9.]*[a-z]")
+        english = calibrate.TEXT["en"]
+        for lang, text in calibrate.TEXT.items():
+            self.assertEqual(sorted(text), sorted(english), lang)
+            for key, message in text.items():
+                if isinstance(message, str):
+                    self.assertEqual(fields.findall(message), fields.findall(english[key]), (lang, key))
+        self.assertEqual(sorted(calibrate.TEXT["es"]["squares"]), sorted(calibrate.SQUARE_NAMES))
+
+    def test_advice_in_spanish_says_the_same_as_in_english(self):
+        g = self.seen()
+        spanish = calibrate.advice(g, "es")
+        for expected in ("ACERCA la cámara", "a la DERECHA", "hacia ARRIBA", "sentido horario"):
+            self.assertIn(expected, spanish)
+        self.assertEqual(len(spanish.split("; ")), len(calibrate.advice(g).split("; ")))
+        self.assertEqual(calibrate.advice(calibrate.geometry_metrics(calibrate.pattern_geometry()), "es"),
+                         "geometría dentro de la tolerancia")
+
+    def test_frame_without_the_pattern_in_spanish_and_unchanged_in_english(self):
+        import numpy as np
+        dark = calibrate.geometry_metrics(np.zeros((H, W), np.uint8))
+        self.assertEqual(calibrate.advice(dark), dark["hint"])          # what the report stores
+        self.assertIn("la cámara no ve el estímulo", calibrate.advice(dark, "es"))
+        self.assertEqual(calibrate.advice({"ok": False}, "es"), "")     # no capture at all
+
+    def test_a_missing_square_is_named_in_the_language(self):
+        g = dict(self.seen(), missing=["top-left"])
+        self.assertIn("top-left", calibrate.advice(g))
+        self.assertIn("arriba-izquierda", calibrate.advice(g, "es"))
+        self.assertNotIn("top-left", calibrate.advice(g, "es"))
+
+    def test_preview_picture_is_drawn_in_both_languages(self):
+        frame = moved(calibrate.pattern_geometry(), scale=0.92, degrees=3.0, shift=(5.0, -3.0))
+        g = calibrate.geometry_metrics(frame)
+        pictures = {lang: calibrate.preview_picture(frame, g, 1, lang) for lang in ("en", "es")}
+        for picture in pictures.values():
+            self.assertEqual(picture.shape, (H * 6 + calibrate.BAR_H, W * 6, 3))
+            self.assertGreater(int(picture[H * 6:].max()), 150)         # the bar has text
+        self.assertTrue((pictures["en"][:H * 6] == pictures["es"][:H * 6]).all())   # same frame and marks
+        self.assertFalse((pictures["en"][H * 6:] == pictures["es"][H * 6:]).all())  # another text
+
+    def test_advice_is_wrapped_between_two_pieces_of_advice(self):
+        lines = calibrate.wrap_advice("one; two; three", columns=9)
+        self.assertEqual(lines, ["one; two;", "three"])
+        self.assertEqual(calibrate.wrap_advice("a" * 30, columns=10, lines=3), ["a" * 10])
+        self.assertLessEqual(len(calibrate.wrap_advice("; ".join(["piece"] * 40), columns=20, lines=3)), 3)
+
+    def test_language_option(self):
+        self.assertEqual(calibrate.parse_args(["--live"]).lang, "en")
+        self.assertEqual(calibrate.parse_args(["--live", "--lang", "es"]).lang, "es")
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+            calibrate.parse_args(["--live", "--lang", "xx"])
+
+
+@unittest.skipIf(calibrate is None, "calibrate_hil_rig needs pyserial, OpenCV, numpy and Pillow")
 class CalibrationRunTest(unittest.TestCase):
     """A --report run. The simulated camera returns what the window shows, reduced to 160x120."""
 

@@ -65,6 +65,67 @@ CRITERIA = {"shift_px": 2.0, "scale_err": 0.03, "rot_deg": 1.0, "resid_px": 1.5,
             "range_min": 150, "vignette_min": 0.60, "exposure_sd_max": 2.0,
             "focus_ratio_min": 0.50, "clip_pct_max": 2.0}
 
+# What the live mode says (the preview window and its lines in the terminal), per --lang. The
+# report, its JSON and every other message are in English whatever the language.
+TEXT = {
+    "en": {
+        "too_few": "only %d bright squares visible: the camera does not see the stimulus (aim/distance)",
+        "no_layout": "%d bright spots but not the square layout: reflections of a lamp/window (darken the room) "
+                     "or the stimulus is far off the frame",
+        "small": "image too small in the frame: move the camera CLOSER",
+        "large": "image too large (cropped): move the camera AWAY",
+        "shift_right": "image shifted right by %.1f px: aim the camera to the RIGHT",
+        "shift_left": "image shifted left by %.1f px: aim the camera to the LEFT",
+        "shift_down": "image shifted down by %.1f px: aim the camera DOWN",
+        "shift_up": "image shifted up by %.1f px: aim the camera UP",
+        "rot_ccw": "rotated %.1f deg: roll the camera counter-clockwise (seen from behind it)",
+        "rot_cw": "rotated %.1f deg: roll the camera clockwise (seen from behind it)",
+        "resid": "residual %.1f px: camera not parallel to the screen (tilt) or lens distortion",
+        "missing": "square(s) not seen: %s (cut off by the frame edge?)",
+        "extra": "%d extra bright spot(s): reflection of a lamp/window on the screen",
+        "ok": "geometry within tolerance",
+        "squares": {},
+        "pass": "PASS", "adjust": "ADJUST", "warn": "WARN",
+        "bar": "[%03d] %s  shift (%+.1f, %+.1f) px  scale %.3f  rot %+.2f deg  resid %.2f px",
+        "bar_none": "[%03d] %s  %d of 5 squares found",
+        "window": "PHLAME calibration preview (camera frame)",
+        "live_start": "[LIVE] Geometry loop. Adjust the camera; Ctrl+C to stop.",
+        "capture_failed": "  capture failed",
+        "live_line": "  [%03d] %s shift (%+.1f, %+.1f) px | scale %.3f | rot %+.2f deg | resid %.2f px -> %s",
+        "live_none": "  [%03d] %s %s",
+        "live_stop": "\n[LIVE] stopped.",
+    },
+    "es": {
+        "too_few": "solo se ven %d cuadros brillantes: la cámara no ve el estímulo (apuntado o distancia)",
+        "no_layout": "%d puntos brillantes, pero no en la disposición de los cuadros: reflejos de una lámpara o "
+                     "ventana (oscurece la sala) o el estímulo está muy fuera del fotograma",
+        "small": "imagen muy pequeña: ACERCA la cámara",
+        "large": "imagen muy grande (recortada): ALEJA la cámara",
+        "shift_right": "desplazada %.1f px a la derecha: apunta la cámara a la DERECHA",
+        "shift_left": "desplazada %.1f px a la izquierda: apunta la cámara a la IZQUIERDA",
+        "shift_down": "desplazada %.1f px hacia abajo: apunta la cámara hacia ABAJO",
+        "shift_up": "desplazada %.1f px hacia arriba: apunta la cámara hacia ARRIBA",
+        "rot_ccw": "girada %.1f grados: gírala en sentido antihorario (vista desde atrás)",
+        "rot_cw": "girada %.1f grados: gírala en sentido horario (vista desde atrás)",
+        "resid": "residuo %.1f px: cámara no paralela a la pantalla (inclinación) o distorsión de la lente",
+        "missing": "cuadro(s) que no se ven: %s (¿cortados por el borde del fotograma?)",
+        "extra": "%d punto(s) brillante(s) de más: reflejo de una lámpara o ventana en la pantalla",
+        "ok": "geometría dentro de la tolerancia",
+        "squares": {"top-left": "arriba-izquierda", "top-right": "arriba-derecha", "bottom-left": "abajo-izquierda",
+                    "bottom-right": "abajo-derecha", "centre": "centro"},
+        "pass": "CORRECTO", "adjust": "AJUSTAR", "warn": "AJUSTAR",
+        "bar": "[%03d] %s  desplazamiento (%+.1f, %+.1f) px  escala %.3f  giro %+.2f grados  residuo %.2f px",
+        "bar_none": "[%03d] %s  %d de 5 cuadros encontrados",
+        "window": "PHLAME: vista previa del calibrador (fotograma)",     # ASCII: a window title, not drawn text
+        "live_start": "[VIVO] Bucle de geometría. Ajusta la cámara; Ctrl+C para detener.",
+        "capture_failed": "  falló la captura",
+        "live_line": "  [%03d] %s desplazamiento (%+.1f, %+.1f) px | escala %.3f | giro %+.2f grados | "
+                     "residuo %.2f px -> %s",
+        "live_none": "  [%03d] %s %s",
+        "live_stop": "\n[VIVO] detenido.",
+    },
+}
+
 
 # ----------------------------------------------------------------------------- patterns
 def pattern_geometry():
@@ -295,32 +356,32 @@ def geometry_metrics(frame):
     return out
 
 
-def advice(g):
+def advice(g, lang="en"):
+    """What to do about the geometry g, in one line. The report keeps it in English (lang "en")."""
+    t = TEXT[lang]
     if not g.get("ok"):
-        return g.get("hint", "")
+        if "found" not in g:
+            return g.get("hint", "")
+        # the two ways geometry_metrics gives up, in the order it tests them
+        return t["too_few" if g["found"] < 3 else "no_layout"] % g["found"]
     tips = []
     if g["scale"] < 1 - CRITERIA["scale_err"]:
-        tips.append("image too small in the frame: move the camera CLOSER")
+        tips.append(t["small"])
     elif g["scale"] > 1 + CRITERIA["scale_err"]:
-        tips.append("image too large (cropped): move the camera AWAY")
+        tips.append(t["large"])
     if abs(g["shift_x_px"]) > CRITERIA["shift_px"]:
-        tips.append("image shifted %s by %.1f px: aim the camera %s" % (
-            "right" if g["shift_x_px"] > 0 else "left", abs(g["shift_x_px"]),
-            "to the RIGHT" if g["shift_x_px"] > 0 else "to the LEFT"))
+        tips.append(t["shift_right" if g["shift_x_px"] > 0 else "shift_left"] % abs(g["shift_x_px"]))
     if abs(g["shift_y_px"]) > CRITERIA["shift_px"]:
-        tips.append("image shifted %s by %.1f px: aim the camera %s" % (
-            "down" if g["shift_y_px"] > 0 else "up", abs(g["shift_y_px"]),
-            "DOWN" if g["shift_y_px"] > 0 else "UP"))
+        tips.append(t["shift_down" if g["shift_y_px"] > 0 else "shift_up"] % abs(g["shift_y_px"]))
     if abs(g["rotation_deg"]) > CRITERIA["rot_deg"]:
-        tips.append("rotated %.1f deg: roll the camera %s (seen from behind it)" % (
-            g["rotation_deg"], "counter-clockwise" if g["rotation_deg"] < 0 else "clockwise"))
+        tips.append(t["rot_ccw" if g["rotation_deg"] < 0 else "rot_cw"] % g["rotation_deg"])
     if g["residual_px"] > CRITERIA["resid_px"]:
-        tips.append("residual %.1f px: camera not parallel to the screen (tilt) or lens distortion" % g["residual_px"])
+        tips.append(t["resid"] % g["residual_px"])
     if g.get("missing"):
-        tips.insert(0, "square(s) not seen: %s (cut off by the frame edge?)" % ", ".join(g["missing"]))
+        tips.insert(0, t["missing"] % ", ".join(t["squares"].get(name, name) for name in g["missing"]))
     if g.get("extra_bright_blobs"):
-        tips.append("%d extra bright spot(s): reflection of a lamp/window on the screen" % g["extra_bright_blobs"])
-    return "; ".join(tips) if tips else "geometry within tolerance"
+        tips.append(t["extra"] % g["extra_bright_blobs"])
+    return "; ".join(tips) if tips else t["ok"]
 
 
 def warp_to_nominal(frame, g):
@@ -378,21 +439,80 @@ def image_ncc(stimulus, frame):
 
 
 # ----------------------------------------------------------------------------- preview
-PREVIEW = "PHLAME calibration preview (camera frame)"
+PREVIEW = TEXT["en"]["window"]
+BAR_H = 108                               # status bar under the frame: one line of figures, three of advice
+ADVICE_COLUMNS = 104                      # characters of advice that fit in one line of the bar
 
 
-def open_preview(stimulus_monitor):
+def open_preview(stimulus_monitor, lang="en"):
     """Preview window, on a monitor other than the stimulus one when there is one."""
-    cv2.namedWindow(PREVIEW, cv2.WINDOW_NORMAL)
+    name = TEXT[lang]["window"]
+    cv2.namedWindow(name, cv2.WINDOW_NORMAL)
     monitors = hb.list_monitors()
     others = [m for i, m in enumerate(monitors) if i != (stimulus_monitor if stimulus_monitor >= 0 else 0)]
     if others:
         x, y, _, _ = others[0]
-        cv2.moveWindow(PREVIEW, x + 40, y + 40)
-    cv2.resizeWindow(PREVIEW, W * 6, H * 6 + 60)
+        cv2.moveWindow(name, x + 40, y + 40)
+    cv2.resizeWindow(name, W * 6, H * 6 + BAR_H)
 
 
-def show_preview(frame, g, k):
+def wrap_advice(text, columns=ADVICE_COLUMNS, lines=3):
+    """The advice in at most `lines` lines of `columns` characters, cut between two pieces of advice
+    where it can be (they are joined by '; ')."""
+    out, current = [], ""
+    for piece in text.split("; "):
+        candidate = piece if not current else current + "; " + piece
+        if len(candidate) <= columns or not current:
+            current = candidate
+        else:
+            out.append(current + ";")
+            current = piece
+    out.append(current)
+    out = [line[:columns] for line in out[:lines]]
+    return out
+
+
+def _font(pixels):
+    """A TrueType font for text the built-in font of OpenCV cannot draw (it is ASCII only), or None."""
+    try:
+        from PIL import ImageFont
+    except ImportError:
+        return None
+    for name in ("arial.ttf", "DejaVuSans.ttf", "LiberationSans-Regular.ttf"):
+        try:
+            return ImageFont.truetype(name, pixels)
+        except OSError:
+            continue
+    try:
+        return ImageFont.load_default(size=pixels)     # Pillow 10.1 or later
+    except (TypeError, OSError):
+        return None
+
+
+def draw_text(image, text, origin, scale, colour, truetype=False):
+    """Draws one line of text on a BGR image, in place. origin is the left end of the baseline, as in
+    cv2.putText, which draws it when the text is ASCII and truetype is not asked for; text with
+    accents goes through Pillow, and loses them when no TrueType font is at hand."""
+    if text.isascii() and not truetype:
+        cv2.putText(image, text, origin, cv2.FONT_HERSHEY_SIMPLEX, scale, colour, 1, cv2.LINE_AA)
+        return
+    pixels = int(round(30 * scale))
+    font = _font(pixels)
+    if font is None:
+        import unicodedata
+        plain = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
+        cv2.putText(image, plain, origin, cv2.FONT_HERSHEY_SIMPLEX, scale, colour, 1, cv2.LINE_AA)
+        return
+    from PIL import Image, ImageDraw
+    picture = Image.fromarray(image[:, :, ::-1])       # BGR -> RGB
+    ImageDraw.Draw(picture).text((origin[0], origin[1]), text, font=font, fill=tuple(colour[::-1]), anchor="ls")
+    image[:, :, :] = np.asarray(picture)[:, :, ::-1]
+
+
+def preview_picture(frame, g, k, lang="en"):
+    """The picture of the preview window: the frame enlarged, the target squares (green), the squares
+    found (red) and a bar with the figures and what to do about them."""
+    t = TEXT[lang]
     s = 6
     big = cv2.cvtColor(cv2.resize(frame, (W * s, H * s), interpolation=cv2.INTER_NEAREST), cv2.COLOR_GRAY2BGR)
     for cx, cy in NOMINAL:                            # target positions (green)
@@ -401,17 +521,22 @@ def show_preview(frame, g, k):
     if g.get("ok"):
         for cx, cy in g["corners_px"]:                # detected squares (red)
             cv2.drawMarker(big, (int(cx * s), int(cy * s)), (0, 0, 255), cv2.MARKER_CROSS, 30, 2)
-    bar = np.zeros((60, W * s, 3), np.uint8)
+    bar = np.zeros((BAR_H, W * s, 3), np.uint8)
     if g.get("ok"):
-        txt1 = "[%03d] %s  shift (%+.1f, %+.1f) px  scale %.3f  rot %+.2f deg  resid %.2f px" % (
-            k, "PASS" if g["pass"] else "ADJUST", g["shift_x_px"], g["shift_y_px"], g["scale"],
-            g["rotation_deg"], g["residual_px"])
+        txt1 = t["bar"] % (k, t["pass"] if g["pass"] else t["adjust"], g["shift_x_px"], g["shift_y_px"], g["scale"],
+                           g["rotation_deg"], g["residual_px"])
     else:
-        txt1 = "[%03d] ADJUST  %d of 5 squares found" % (k, g.get("found", 0))
+        txt1 = t["bar_none"] % (k, t["adjust"], g.get("found", 0))
     col = (0, 200, 0) if g.get("pass") else (0, 165, 255)
-    cv2.putText(bar, txt1, (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.6, col, 1, cv2.LINE_AA)
-    cv2.putText(bar, advice(g)[:110], (8, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (220, 220, 220), 1, cv2.LINE_AA)
-    cv2.imshow(PREVIEW, np.vstack([big, bar]))
+    truetype = lang != "en"                           # one font for the whole bar when a line may have accents
+    draw_text(bar, txt1, (8, 24), 0.6, col, truetype)
+    for row, line in enumerate(wrap_advice(advice(g, lang))):
+        draw_text(bar, line, (8, 50 + 24 * row), 0.5, (220, 220, 220), truetype)
+    return np.vstack([big, bar])
+
+
+def show_preview(frame, g, k, lang="en"):
+    cv2.imshow(TEXT[lang]["window"], preview_picture(frame, g, k, lang))
     cv2.waitKey(1)
 
 
@@ -440,28 +565,29 @@ def resolve_image(name, manifest):
 
 def live_loop(ser, pattern_path, args, output_dir):
     """Repeats the geometry pattern and says how to move the camera, until Ctrl+C."""
-    print("[LIVE] Geometry loop. Adjust the camera; Ctrl+C to stop.")
-    open_preview(args.monitor)
+    lang = getattr(args, "lang", "en")
+    t = TEXT[lang]
+    print(t["live_start"])
+    open_preview(args.monitor, lang)
     reference = pattern_geometry()
     k = 0
     try:
         while True:
             frame = capture(ser, pattern_path, args.settle)
             if frame is None:
-                print("  capture failed", flush=True)
+                print(t["capture_failed"], flush=True)
                 continue
             g = geometry_metrics(frame)
             k += 1
             if g["ok"]:
-                print("  [%03d] %s shift (%+.1f, %+.1f) px | scale %.3f | rot %+.2f deg | resid %.2f px -> %s"
-                      % (k, "PASS" if g["pass"] else "WARN", g["shift_x_px"], g["shift_y_px"], g["scale"],
-                         g["rotation_deg"], g["residual_px"], advice(g)), flush=True)
+                print(t["live_line"] % (k, t["pass"] if g["pass"] else t["warn"], g["shift_x_px"], g["shift_y_px"],
+                                        g["scale"], g["rotation_deg"], g["residual_px"], advice(g, lang)), flush=True)
             else:
-                print("  [%03d] WARN %s" % (k, advice(g)), flush=True)
-            show_preview(frame, g, k)
+                print(t["live_none"] % (k, t["warn"], advice(g, lang)), flush=True)
+            show_preview(frame, g, k, lang)
             side_by_side([(reference, frame)], os.path.join(output_dir, "live_latest.png"))
     except KeyboardInterrupt:
-        print("\n[LIVE] stopped.")
+        print(t["live_stop"])
 
 
 def build_report(ser, patterns, args, announced, stimulus_monitor):
@@ -561,6 +687,9 @@ def parse_args(argv=None):
     parser.add_argument("--monitor", type=int, default=-1, metavar="N",
                         help="Monitor that shows the patterns; same as hil_benchmark.py --monitor")
     parser.add_argument("--notes", default="", help="Free-form notes kept in the report")
+    parser.add_argument("--lang", choices=sorted(TEXT), default="en",
+                        help="Language of the live mode, that is, of the preview window and of its lines in the "
+                             "terminal (default: en). The report is in English whatever the language")
     args = parser.parse_args(argv)
     if not (args.live or args.report):
         parser.error("choose --live and/or --report")
