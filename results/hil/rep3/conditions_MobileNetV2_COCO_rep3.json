@@ -1,0 +1,69 @@
+{
+  "rig": "monitor-controlled-stimulus (checklist Phase 1C, option a)",
+  "utc_start": "2026-11-15T19:31:45.950478+00:00",
+  "model_tag": "MobileNetV2_COCO_rep3",
+  "firmware_model": {
+    "model_bytes": 644648,
+    "model_fnv1a": "ad34723a",
+    "arena_used_bytes": 356404
+  },
+  "expected_model": {
+    "path": "models/tflite/MobileNetV2_COCO+32+50+0.0003+160+120_int8.tflite",
+    "bytes": 644648,
+    "fnv1a": "ad34723a",
+    "sha256": "dc09c7c071de5180525e0e6cd7929410b1a34cd200362759849df81a4063d9a9"
+  },
+  "model_identity_verified": true,
+  "conditions_complete": true,
+  "port": "COM3",
+  "board": "PORTENTA_H7",
+  "baud": 115200,
+  "stimulus_source": "manifest:data/splits_coco/test_manifest.csv",
+  "manifest": "data/splits_coco/test_manifest.csv",
+  "manifest_subset": "hil_subset==1",
+  "dataset_folder": null,
+  "class_names": [
+    "non_person",
+    "person"
+  ],
+  "n_stimuli_planned": 200,
+  "n_stimuli": 200,
+  "completed": true,
+  "stopped_because": null,
+  "stimulus_monitor": {
+    "index": 1,
+    "geometry": [
+      -1920,
+      -193,
+      1920,
+      1080
+    ],
+    "monitors": [
+      [
+        0,
+        0,
+        2560,
+        1440
+      ],
+      [
+        -1920,
+        -193,
+        1920,
+        1080
+      ]
+    ]
+  },
+  "settle_s": 1.5,
+  "gap_s": 0.5,
+  "seed": 42,
+  "illuminance_lux": 11.0,
+  "camera_to_screen_distance_cm": 22.0,
+  "ambient_temp_c": 24.0,
+  "frame_dump": true,
+  "sil_model": "models/tflite/MobileNetV2_COCO+32+50+0.0003+160+120_int8.tflite",
+  "sil_kernels": "reference",
+  "mil_model": "models/checkpoints/MobileNetV2_COCO+32+50+0.0003+160+120.keras",
+  "frames_dir": "data/hil_frames_coco/MobileNetV2_rep3",
+  "notes": "COCO HIL session of 2026-11-15 on the Portenta H7 with the rig adjusted (camera moved closer until the image fills the frame; geometry and focus at PASS, gray scale and flat field at WARN: report results/hil/calibration/calibration_20261115T173500Z.json). Stimulus on the secondary monitor (--monitor 1). Illuminance (phone app Physics Toolbox, not a calibrated lux meter) and temperature as measured in the morning; distance measured after the adjustment. Repeatability session rep3 of MobileNetV2 (seed 42).",
+  "utc_end": "2026-11-15T19:43:32.756573+00:00"
+}

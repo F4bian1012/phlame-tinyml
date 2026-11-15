@@ -1,0 +1,211 @@
+{
+  "generated_utc": "2026-11-15T20:01:18+00:00",
+  "git_commit": "25762d3e726ccee5c842f7ed97559d837aa8a960",
+  "parameters": {
+    "bootstrap": 10000,
+    "seed": 20261016,
+    "subsample_draws": 4000,
+    "subsample_seed": 7,
+    "archs": [
+      "MobileNetV2",
+      "MobileNetV3Large",
+      "ResNet18",
+      "MobileNet",
+      "MobileNetV3Small",
+      "SqueezeNet",
+      "ResNet8"
+    ],
+    "deployable": [
+      "MobileNetV2",
+      "MobileNet",
+      "MobileNetV3Small",
+      "SqueezeNet",
+      "ResNet8"
+    ],
+    "reference": "MobileNetV2",
+    "benchmark": {
+      "tag": "COCO",
+      "run_suffix": "+32+50+0.0003+160+120",
+      "board": "PORTENTA_H7",
+      "manifest": "data/splits_coco/test_manifest.csv",
+      "class_names": [
+        "non_person",
+        "person"
+      ],
+      "class_names_from": "the test manifest",
+      "results_dirs": {
+        "MIL": "results/mil",
+        "SIL": "results/sil",
+        "PIL": "results/pil",
+        "HIL": "results/hil"
+      },
+      "repeatability_runs": [
+        "rep1",
+        "rep2",
+        "rep3",
+        "rep4"
+      ]
+    }
+  },
+  "n_test": 5000,
+  "n_rig": 200,
+  "rig_matches_manifest": true,
+  "frontend_gap_reference": {
+    "n_runs": 4,
+    "mean_gap": -0.11470234358602219,
+    "ci95_combined": [
+      -0.17629737777472304,
+      -0.053107309397321334
+    ],
+    "ci95_image_sampling_only": [
+      -0.17640528047967965,
+      -0.053397175824022994
+    ],
+    "image_sampling_share_of_variance": 0.9865797291775179,
+    "repeatability_sd_all_runs": 0.007281154808887691,
+    "repeatability_t_halfwidth_all_runs": 0.011585942109871667,
+    "repeatability_sd_strict": 0.008706713307788681,
+    "n_strict": 3,
+    "identical_prediction_in_all_runs": 182
+  },
+  "frontend_gap_per_arch": {
+    "MobileNetV2": {
+      "d_f1": -0.10670702132200294,
+      "ci_lo": -0.171778905847572,
+      "ci_hi": -0.042293660768811615,
+      "p_holm": 0.01828883413963922
+    },
+    "MobileNet": {
+      "d_f1": -0.08488669296580043,
+      "ci_lo": -0.14912856958597903,
+      "ci_hi": -0.02458748540494636,
+      "p_holm": 0.04603115894133225
+    },
+    "MobileNetV3Small": {
+      "d_f1": -0.08745219075336619,
+      "ci_lo": -0.17476884133607432,
+      "ci_hi": 0.001689848245255751,
+      "p_holm": 0.27873564666163864
+    },
+    "SqueezeNet": {
+      "d_f1": -0.03027321577234532,
+      "ci_lo": -0.08471638755796253,
+      "ci_hi": 0.02481574300650158,
+      "p_holm": 0.6977777588981553
+    },
+    "ResNet8": {
+      "d_f1": -0.0359041041219782,
+      "ci_lo": -0.09987851654815684,
+      "ci_hi": 0.0256126987957844,
+      "p_holm": 0.6977777588981553
+    }
+  },
+  "quantization_per_arch": {
+    "MobileNetV2": {
+      "d_f1": -0.00018354289527677814,
+      "ci_lo": -0.005249517401845671,
+      "ci_hi": 0.004689646288164089,
+      "p_holm": 1.0
+    },
+    "MobileNetV3Large": {
+      "d_f1": -0.016260848802207795,
+      "ci_lo": -0.02302632162880633,
+      "ci_hi": -0.009582830711555175,
+      "p_holm": 2.544577166854738e-05
+    },
+    "ResNet18": {
+      "d_f1": 0.0023879445027119584,
+      "ci_lo": -0.00043683621302310346,
+      "ci_hi": 0.005200693838124015,
+      "p_holm": 0.5946022627971814
+    },
+    "MobileNet": {
+      "d_f1": -0.00317863232026383,
+      "ci_lo": -0.008686256846222323,
+      "ci_hi": 0.0024027624404306222,
+      "p_holm": 0.7158561581330035
+    },
+    "MobileNetV3Small": {
+      "d_f1": -0.05234987784793088,
+      "ci_lo": -0.06301574797348229,
+      "ci_hi": -0.04163388432057306,
+      "p_holm": 2.108780133431818e-21
+    },
+    "SqueezeNet": {
+      "d_f1": -0.001965606409272791,
+      "ci_lo": -0.004560688757621487,
+      "ci_hi": 0.0005146496309683692,
+      "p_holm": 0.7158561581330035
+    },
+    "ResNet8": {
+      "d_f1": 0.0004209601103267735,
+      "ci_lo": -0.001903099272147607,
+      "ci_hi": 0.002845424152767911,
+      "p_holm": 1.0
+    }
+  },
+  "pil_attribution_diagonal_is_max": true,
+  "environment": {
+    "python": "3.13.14",
+    "numpy": "2.5.3",
+    "scipy": "1.18.1",
+    "platform": "Windows-11-10.0.26300-SP0"
+  },
+  "inputs_sha256": {
+    "data/splits_coco/test_manifest.csv": "bbc527fda65a5015521cf06a830a6663b8ea0d521a509cfe260bf326d7e5aa0e",
+    "results/hil/conditions_MobileNetV2_COCO+32+50+0.0003+160+120_int8.json": "7b87a3c6bf39c3f1b769e8f6e458ab5d36cd44bd926cac4b3a45530123ffcaf5",
+    "results/hil/conditions_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.json": "893fe2ea8cf16a23e74350a68c95774bade6a3ba00852d12b6d3ad7d915c04a6",
+    "results/hil/conditions_MobileNet_COCO+32+50+0.0003+160+120_int8.json": "dfef6ae4ca74bbb778b9135fdd3943f0c0154987bb7bec4cba49c1e46d262277",
+    "results/hil/conditions_ResNet8_COCO+32+50+0.0003+160+120_int8.json": "fdee6e567bb36362a97ff1edde2cac8bb2b1d8774ab5e99a2eb5234b9c464805",
+    "results/hil/conditions_SqueezeNet_COCO+32+50+0.0003+160+120_int8.json": "5eb68ac3747db720b26e9d7ac9d09a5854bf39e9a36c550071368e6c71edb552",
+    "results/hil/latency_metrics_MobileNetV2_COCO+32+50+0.0003+160+120_int8.csv": "126185777c5c657e25d27db2def692005f78a9ddf825542575e014bf6a8b4107",
+    "results/hil/latency_metrics_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.csv": "4b8e47d49df97933b761873086977d05dcd7d79f43a4a0f19a5acd0d04fbb027",
+    "results/hil/latency_metrics_MobileNet_COCO+32+50+0.0003+160+120_int8.csv": "fbea7813563f1f31075991e26330e078f8334a314876d37c649788bb919ce5aa",
+    "results/hil/latency_metrics_ResNet8_COCO+32+50+0.0003+160+120_int8.csv": "36466e5acb809b606216702c90ec66d766f9ed4262fb691c3e4d6b706ffe86a4",
+    "results/hil/latency_metrics_SqueezeNet_COCO+32+50+0.0003+160+120_int8.csv": "e8766c7ef0b90d372d16e7258b41a0adf32956f7c9d1f2c3397f80810ab554a4",
+    "results/hil/metrics_MobileNetV2_COCO+32+50+0.0003+160+120_int8.json": "3d99221467a18e20293afcbce2029a7fbb2a322b31b8bf3be38eb93cf3cdb1a7",
+    "results/hil/metrics_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.json": "f5b166b163a7a345d9042b5a4f76049815a6fd12bc884c906cb278a5e743ab94",
+    "results/hil/metrics_MobileNet_COCO+32+50+0.0003+160+120_int8.json": "199423f4c6d0a25049fd705f5348177a1e6822a9d1faadd5e3ed3662235ea156",
+    "results/hil/metrics_ResNet8_COCO+32+50+0.0003+160+120_int8.json": "0f6d13c3d31755320ed2985cf94aab12e07933ceb940039585b311beca7f2de6",
+    "results/hil/metrics_SqueezeNet_COCO+32+50+0.0003+160+120_int8.json": "90b5f9dcf85a733719ea9093d3ff0b8713d5f7800b836e1f70157f44c64d1852",
+    "results/hil/rep1/conditions_MobileNetV2_COCO_rep1.json": "7c4fcc749497941151bc5285f17e9043c1be4d0856aacc52959a240cf6dc181c",
+    "results/hil/rep1/latency_metrics_MobileNetV2_COCO_rep1.csv": "f736b5966328f2394415e215a9789aad60a4c1237ff07e68a2450c710c7cea1b",
+    "results/hil/rep2/conditions_MobileNetV2_COCO_rep2.json": "f5e8bbbdcf06aefaa5337b537412a592f514f659e51d61d88ee35db78d3c8686",
+    "results/hil/rep2/latency_metrics_MobileNetV2_COCO_rep2.csv": "adc7a4f725ea117823c4cca9de04d0e73ce23182078d61da622978378f40065c",
+    "results/hil/rep3/conditions_MobileNetV2_COCO_rep3.json": "d8578ca7044670e19f7bce9f0d74e5ca5268e241b80b03966a11ea46197ac86f",
+    "results/hil/rep3/latency_metrics_MobileNetV2_COCO_rep3.csv": "a867828a103569dc6287583f27ca1e369e35f9eb9f409ee74eead259e2a4456d",
+    "results/hil/rep4/conditions_MobileNetV2_COCO_rep4.json": "c76d937528dbf385f90d454e58924dfeaad893f54e80d654ec0057dce7e7328a",
+    "results/hil/rep4/latency_metrics_MobileNetV2_COCO_rep4.csv": "334e48f18a125956c6b83f50086c9498929594fb6e11a17cea92e37d4bb8bacd",
+    "results/mil/predictions_MobileNetV2_COCO+32+50+0.0003+160+120.csv": "97514343a7eebf7ba63c75277bc137b88cff41fb83f1ec7e6502cc133682d3cc",
+    "results/mil/predictions_MobileNetV3Large_COCO+32+50+0.0003+160+120.csv": "df72fc943a4faba2717cb1b3985402404658a637b5702e4d5b256ae93ff0fbfe",
+    "results/mil/predictions_MobileNetV3Small_COCO+32+50+0.0003+160+120.csv": "735c3d2d1d9c9783628cf68b567f6de375c24e4e863acef413b8a5268f4f4e9a",
+    "results/mil/predictions_MobileNet_COCO+32+50+0.0003+160+120.csv": "e44fdd0775995e310589407bcd9a54d547b998459e2e6e9e47bc029e5d477e6e",
+    "results/mil/predictions_ResNet18_COCO+32+50+0.0003+160+120.csv": "bb566df37a45338763946191d1dd059b857989635da4660a7714b2c9e3242ab7",
+    "results/mil/predictions_ResNet8_COCO+32+50+0.0003+160+120.csv": "e3398dc6d38cd05208683d081b58d24fa8d77f5d9001ed92edf9b85565cd548c",
+    "results/mil/predictions_SqueezeNet_COCO+32+50+0.0003+160+120.csv": "34b265cd18558d8566e0058c974b64dbbb2fe71900fc3f25e0f6cd2d2e2a506e",
+    "results/pil/metrics_MobileNetV2_COCO+32+50+0.0003+160+120_int8.json": "4c47adbca73220a75056a88eb560d27b32f871d6bb46ceecdbbd134e54a281c9",
+    "results/pil/metrics_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.json": "8d12c4980f93ea7fa868fb12a14d7f82cedabe321c99c271a4dec7207c59156f",
+    "results/pil/metrics_MobileNet_COCO+32+50+0.0003+160+120_int8.json": "cd20aa982c7a48222ca7ecf556e35aa86aae46598fa5d922155249e4f6166d51",
+    "results/pil/metrics_ResNet8_COCO+32+50+0.0003+160+120_int8.json": "16e39ff5174ffaff1bd5faead25878b4e9f6a9ea7365e1f4460c48cb46245c09",
+    "results/pil/metrics_SqueezeNet_COCO+32+50+0.0003+160+120_int8.json": "ef5885bd49634e2203a07aeb17e82c857922fe0d87377cc945d8095aab0353e3",
+    "results/pil/predictions_MobileNetV2_COCO+32+50+0.0003+160+120_int8.csv": "91297632fb0bd8b0a48ff8bf29f4ed38eb7625ec1a2d60f2dc3b67b4ca69c477",
+    "results/pil/predictions_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.csv": "1a5f6f58d5ea5dfcbbefe5c7e52553970785cf7557aeb4487624adcdd2f9b021",
+    "results/pil/predictions_MobileNet_COCO+32+50+0.0003+160+120_int8.csv": "70285b160feb140579982c51a9ff99dd1ad4696233d4eba3137447956473da0b",
+    "results/pil/predictions_ResNet8_COCO+32+50+0.0003+160+120_int8.csv": "6be0ff83efcaea88a55b0e62970a70befe28309f7988ed52b4b6f1ab0febc213",
+    "results/pil/predictions_SqueezeNet_COCO+32+50+0.0003+160+120_int8.csv": "9eb196d571eb18166e14484b6bb4b1d50c7c28f899cd7b495e94a21a70998e4b",
+    "results/sil/metrics_MobileNetV2_COCO+32+50+0.0003+160+120_int8.json": "90045cd6b4ed5b63f3363aa2c234c37a80cf54270adca0e2c056b967359ed0a0",
+    "results/sil/metrics_MobileNetV3Large_COCO+32+50+0.0003+160+120_int8.json": "c3e8269d73529bbb8481bab52d22c5b253f23346172c372f471585a568bbd194",
+    "results/sil/metrics_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.json": "23b639b06e5feb461caa1b30ac5e986e35494bc063d7b6a6969267dddfa4d438",
+    "results/sil/metrics_MobileNet_COCO+32+50+0.0003+160+120_int8.json": "36cf693d64b23ecc9a29597604c2beb447be3630a27a98e12612c51edee4a784",
+    "results/sil/metrics_ResNet18_COCO+32+50+0.0003+160+120_int8.json": "916610f698b0098cc9b5e2e51d077f94021e97a93a46e3e424a28c3a4479c346",
+    "results/sil/metrics_ResNet8_COCO+32+50+0.0003+160+120_int8.json": "c8af5241f6c613e6496cab3fdb62d67b409e74f9c45f7b15adf13671889e88c5",
+    "results/sil/metrics_SqueezeNet_COCO+32+50+0.0003+160+120_int8.json": "33ebaf0325256fb7fbfef6188b14a9f87dd3b580be41b6460d3670f1dc7ee599",
+    "results/sil/predictions_MobileNetV2_COCO+32+50+0.0003+160+120_int8.csv": "3bf3a1ab17dbf76df5cbcb08b2e2e30ada234a536dbffc3d1228cc8a2208a2f9",
+    "results/sil/predictions_MobileNetV3Large_COCO+32+50+0.0003+160+120_int8.csv": "2d7705e827ac082ce72ea6e4fadc34a11657b66bd32c192df0151320910ce1d0",
+    "results/sil/predictions_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.csv": "ede9ce90ac10a1dc1060465acb25d8989170be0a60465d1c522f3d5ad762693e",
+    "results/sil/predictions_MobileNet_COCO+32+50+0.0003+160+120_int8.csv": "68d0c9f9af72ee874b6cee6b93ba584b40ffc9315a2fb82a3395cec9cbf3456a",
+    "results/sil/predictions_ResNet18_COCO+32+50+0.0003+160+120_int8.csv": "d0c32cb7a74207d59280454078ac372ad2bfb4571792889b09ba8ecefdc9a77e",
+    "results/sil/predictions_ResNet8_COCO+32+50+0.0003+160+120_int8.csv": "8cd96a4cc535a6e54bbe1c755b1489d9d0dbb25056488a8a3e70788e87190585",
+    "results/sil/predictions_SqueezeNet_COCO+32+50+0.0003+160+120_int8.csv": "d0725d2cba566e377b4a86a2941e670da1eb9708b4e757844ce7252523ad61e9"
+  }
+}

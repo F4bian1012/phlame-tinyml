@@ -1,0 +1,153 @@
+{
+  "utc": "2026-11-15T17:35:00.867382+00:00",
+  "port": "COM3",
+  "board": "PORTENTA_H7",
+  "settle_s": 1.5,
+  "windowed": false,
+  "stimulus_monitor": {
+    "index": 1,
+    "geometry": [
+      -1920,
+      -193,
+      1920,
+      1080
+    ],
+    "monitors": [
+      [
+        0,
+        0,
+        2560,
+        1440
+      ],
+      [
+        -1920,
+        -193,
+        1920,
+        1080
+      ]
+    ]
+  },
+  "frame_size": {
+    "width": 160,
+    "height": 120
+  },
+  "criteria": {
+    "shift_px": 2.0,
+    "scale_err": 0.03,
+    "rot_deg": 1.0,
+    "resid_px": 1.5,
+    "range_min": 150,
+    "vignette_min": 0.6,
+    "exposure_sd_max": 2.0,
+    "focus_ratio_min": 0.5,
+    "clip_pct_max": 2.0
+  },
+  "notes": "COCO HIL, Portenta H7, rig adjusted on 2026-11-15 after the first five sessions: camera moved closer until the image fills the frame. 24 C; 11 lux measured in the morning with a phone app (Physics Toolbox). Report taken right before the sessions with the adjusted rig.",
+  "geometry": {
+    "ok": true,
+    "shift_x_px": -0.38,
+    "shift_y_px": 0.25,
+    "scale": 0.9943,
+    "rotation_deg": -0.9,
+    "residual_px": 1.37,
+    "corners_px": [
+      [
+        12.6,
+        15.3
+      ],
+      [
+        144.7,
+        13.5
+      ],
+      [
+        15.2,
+        107.5
+      ],
+      [
+        144.9,
+        105.1
+      ],
+      [
+        78.3,
+        57.4
+      ]
+    ],
+    "extra_bright_blobs": 0,
+    "missing": [],
+    "pass": true,
+    "advice": "geometry within tolerance"
+  },
+  "gray": {
+    "levels_in": [
+      0,
+      36,
+      73,
+      109,
+      146,
+      182,
+      219,
+      255
+    ],
+    "levels_captured": [
+      6.0,
+      12.0,
+      49.0,
+      135.0,
+      225.0,
+      255.0,
+      240.0,
+      181.0
+    ],
+    "monotonic": false,
+    "dynamic_range": 175.0,
+    "clipped_pct": 4.44,
+    "pass": false
+  },
+  "flat": {
+    "centre_mean": 208.0,
+    "corner_means": [
+      30.2,
+      26.9,
+      59.4,
+      54.1
+    ],
+    "vignetting_ratio": 0.13,
+    "exposure_means": [
+      99.4,
+      99.6,
+      99.6,
+      99.5,
+      99.5
+    ],
+    "exposure_sd": 0.1,
+    "saturated_pct": 0.0,
+    "n_captures": 5,
+    "pass": false
+  },
+  "focus": {
+    "contrast_coarse": 0.828,
+    "contrast_fine": 0.723,
+    "fine_to_coarse": 0.873,
+    "pass": true
+  },
+  "images": [
+    {
+      "image": "000000229221.png",
+      "ncc": 0.6197
+    },
+    {
+      "image": "000000140076.png",
+      "ncc": 0.4673
+    },
+    {
+      "image": "000000185950.png",
+      "ncc": 0.6274
+    },
+    {
+      "image": "000000265816.png",
+      "ncc": 0.5559
+    }
+  ],
+  "images_ncc_mean": 0.5676,
+  "all_pass": false
+}
