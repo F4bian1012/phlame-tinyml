@@ -284,6 +284,9 @@ def main():
             "matrix": cm.tolist(),
             "order": "rows = true label, columns = predicted label",
         },
+        # What ran the float model and computed the figures (see artifacts.software_versions).
+        "software": artifacts.software_versions(
+            ["tensorflow", "keras", "numpy", "scikit_learn", "pillow"], gpus=True),
         "artifacts": {
             "confusion_matrix_png": cm_plot_path,
             "predictions_csv": pred_csv_path,

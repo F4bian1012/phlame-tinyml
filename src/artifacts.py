@@ -22,14 +22,18 @@ Three rules live here:
    .tflite, so the evaluators do not depend on a single global file.
 
 Training also leaves a record of what produced the checkpoint
-(<model>.training.json: seed, settings, per-epoch history, software versions).
+(<model>.training.json: seed, settings, per-epoch history, software versions),
+and every evaluation level writes the versions of the software it ran on to
+its metrics file (software_versions()).
 
 Standard library only: importing it must stay cheap for --help.
 """
 
 import argparse
+import importlib.metadata
 import json
 import os
+import platform
 import re
 import shutil
 import sys
@@ -167,3 +171,71 @@ def write_training_record(model_path, script, architecture, tag, seed, settings,
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(record, fh, indent=2, ensure_ascii=False)
     return path
+
+
+# --------------------------------------------------------------------------- #
+# Software behind a result
+# --------------------------------------------------------------------------- #
+# Packages whose version can change a figure of a result file. Key written to
+# the file -> (module the scripts import, names its distribution is published under).
+SOFTWARE_PACKAGES = {
+    "tensorflow": ("tensorflow", ("tensorflow", "tensorflow-cpu", "tensorflow-intel", "tensorflow-gpu",
+                                  "tensorflow-macos", "tensorflow-aarch64")),
+    "keras": ("keras", ("keras",)),
+    "numpy": ("numpy", ("numpy",)),
+    "scikit_learn": ("sklearn", ("scikit-learn",)),
+    "pillow": ("PIL", ("pillow",)),
+    "pyserial": ("serial", ("pyserial",)),
+    "opencv": ("cv2", ("opencv-python", "opencv-python-headless", "opencv-contrib-python",
+                       "opencv-contrib-python-headless")),
+}
+
+
+def _package_version(key, only_if_loaded=False):
+    """Version of one package of SOFTWARE_PACKAGES, or None.
+
+    The module that is running says it best (its __version__); a package that
+    is installed but was not imported by this process is looked up in the
+    metadata of its distribution, which does not import it.
+    """
+    module_name, distributions = SOFTWARE_PACKAGES[key]
+    module = sys.modules.get(module_name)
+    if module is not None and getattr(module, "__version__", None):
+        return str(module.__version__)
+    if only_if_loaded and module is None:
+        return None
+    for name in distributions:
+        try:
+            return importlib.metadata.version(name)
+        except importlib.metadata.PackageNotFoundError:
+            continue
+    return None
+
+
+def software_versions(packages, if_loaded=(), gpus=False):
+    """The software a result was computed with, for the 'software' block of a metrics file.
+
+    packages   keys of SOFTWARE_PACKAGES the level always uses. A package that
+               is not installed is recorded as None.
+    if_loaded  keys the level uses only in some runs (the HIL bench loads
+               TensorFlow only to classify the captured frames on the PC):
+               None unless this process imported the module.
+    gpus       also record the GPUs TensorFlow sees, as the training record
+               does: a float model can give other figures on a GPU. None when
+               TensorFlow was not imported by this process.
+
+    The same key names as the training record (<model>.training.json). No path,
+    user name or host name goes in: platform.platform() names the operating
+    system only. Nothing is imported here, so the board benches still run
+    without TensorFlow.
+    """
+    block = {"python": platform.python_version()}
+    for key in packages:
+        block[key] = _package_version(key)
+    for key in if_loaded:
+        block[key] = _package_version(key, only_if_loaded=True)
+    if gpus:
+        tf = sys.modules.get("tensorflow")
+        block["gpus"] = [device.name for device in tf.config.list_physical_devices("GPU")] if tf else None
+    block["platform"] = platform.platform()
+    return block

@@ -33,6 +33,14 @@ DYNAMIC_CHILDREN = {
 NOT_YET_PUBLISHED_METRICS = {"run.completed", "dataset.n_stimuli_planned"}              # HIL
 NOT_YET_PUBLISHED_PIL_METRICS = {"run.completed", "run.stopped_because", "run.input_shape_verified",
                                  "run.max_unanswered", "dataset.n_images_planned", "model.arena_used_bytes"}
+# The 'software' block (versions behind a result), which the four levels write and
+# tests/test_software_versions.py checks. Each list holds the keys of its own bench; the
+# keys MIL and SIL write are all among them.
+NOT_YET_PUBLISHED_METRICS |= {"software", "software.python", "software.platform", "software.numpy",
+                              "software.scikit_learn", "software.pyserial", "software.opencv",
+                              "software.tensorflow", "software.keras", "software.gpus"}            # HIL
+NOT_YET_PUBLISHED_PIL_METRICS |= {"software", "software.python", "software.platform", "software.numpy",
+                                  "software.scikit_learn", "software.pyserial", "software.pillow"}
 NOT_YET_PUBLISHED_CONDITIONS = {"n_stimuli_planned", "completed", "stopped_because", "stimulus_monitor",
                                 "stimulus_monitor.index", "stimulus_monitor.geometry",
                                 "stimulus_monitor.monitors"}

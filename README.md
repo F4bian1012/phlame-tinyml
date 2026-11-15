@@ -506,6 +506,7 @@ In HIL the per-image predictions are columns of `latency_metrics_{model}.csv`, n
 | `latency` | PIL and HIL only: per-phase cycle and microsecond statistics. |
 | `cross_validation` | HIL only: paired PC MIL/SIL evaluation on the captured frames. |
 | `artifacts` | Relative paths to the companion output files. |
+| `software` | Versions of Python, the operating system and the packages that produced the file (runs from November 2026 on). |
 
 The `conditions_*.json` schema and all nested keys are documented in [`docs/results_schema.md`](docs/results_schema.md). Check that document against every published JSON with:
 

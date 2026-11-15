@@ -397,6 +397,9 @@ def main():
             "matrix": cm.tolist(),
             "order": "rows = true label, columns = predicted label",
         },
+        # What ran the INT8 model and computed the figures (see artifacts.software_versions).
+        # The TFLite kernels are chosen with --kernels and recorded in model.kernels.
+        "software": artifacts.software_versions(["tensorflow", "numpy", "scikit_learn", "pillow"]),
         "artifacts": {
             "confusion_matrix_png": cm_plot_path,
             "predictions_csv": pred_csv_path,

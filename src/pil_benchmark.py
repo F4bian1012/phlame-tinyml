@@ -1003,6 +1003,9 @@ def send_folder(port: str, baud: int, folder: str,
             "per_field": _latency_summary(latencies, metrics_headers),
         },
         "prediction_counts": {str(k): v for k, v in sorted(class_counts.items())},
+        # Host side only: what decoded the images, sent them and computed the figures
+        # (see artifacts.software_versions). The model runs on the board.
+        "software": artifacts.software_versions(["numpy", "pillow", "pyserial", "scikit_learn"]),
         "artifacts": {
             "confusion_matrix_png": cm_plot_path,
             "latency_csv": csv_path,

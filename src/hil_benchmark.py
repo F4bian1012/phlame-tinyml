@@ -1157,6 +1157,11 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag,
                 "n_with_sil": sum(1 for r in rows if r.get('sil_label') is not None),
                 "n_with_mil": sum(1 for r in rows if r.get('mil_label') is not None),
             },
+            # Host side only: what showed the stimuli, read the frames and computed the
+            # figures (see artifacts.software_versions). TensorFlow and Keras are loaded
+            # only to classify the frames on the PC (--sil_model, --mil_model): null otherwise.
+            "software": artifacts.software_versions(
+                ["numpy", "opencv", "pyserial", "scikit_learn"], if_loaded=["tensorflow", "keras"], gpus=True),
             "artifacts": {
                 "confusion_matrix_png": _relpath_repo(cm_path),
                 "latency_csv": _relpath_repo(csv_path),

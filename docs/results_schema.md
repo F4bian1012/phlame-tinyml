@@ -88,6 +88,7 @@ Every evaluation script writes a `metrics_{model}[_int8].json` file capturing cl
 | `prediction_counts` | PIL | `object` | Frequency dictionary mapping predicted class index strings (`"0"`, `"1"`, etc.) to total counts (see Section 6). |
 | `cross_validation` | HIL | `object` | Summary of paired PC MIL/SIL evaluation on the exact camera-captured frames (see Section 8). |
 | `artifacts` | All | `object` | Relative filesystem paths to companion outputs (PNG heatmap, CSV tables, conditions JSON; see Section 9). |
+| `software` | All | `object` | Versions of the software on the PC that produced the file (see Section 10). Written from November 2026 on; absent in earlier files. |
 
 ### 2. Model Traceability (`model`)
 | Key | Level | Type | Description |
@@ -215,6 +216,22 @@ Values of `<FIELD>` (`CYC_*` in core cycles, `US_*` in microseconds):
 | `artifacts.predictions_csv` | MIL, SIL, PIL | `string` | Relative path to the per-image classification table (`predictions_*.csv`). |
 | `artifacts.latency_csv` | PIL, HIL | `string` | Relative path to the per-stimulus telemetry and timing record (`latency_metrics_*.csv` or `latency_metrics_*.csv`). |
 | `artifacts.conditions_json` | HIL | `string` | Relative path to the companion test rig environment record (`conditions_*.json`). |
+
+### 10. Software Behind the Result (`software`)
+The versions that can change a figure, read when the file is written by `artifacts.software_versions()`. Each level lists the packages it uses, with the key names of the training record (`{model}.training.json`, block `software`). A version is the one of the module that was running; for a package the run did not import, the one of the installed distribution. The block holds no path, user name or host name. On PIL and HIL it describes the PC only: the model runs on the board, whose firmware is identified by `run.board` and the fingerprint in `model`. Written from November 2026 on; absent in earlier files.
+
+| Key | Level | Type | Description |
+|---|---|---|---|
+| `software.python` | All | `string` | Python version (`platform.python_version()`). |
+| `software.platform` | All | `string` | Operating system and architecture, as `platform.platform()` gives them (e.g. `"Windows-11-10.0.26300-SP0"`). |
+| `software.numpy` | All | `string\|null` | numpy version. `null` in any package key means the package is not installed. |
+| `software.scikit_learn` | All | `string\|null` | scikit-learn version: it computes the metrics and the confusion matrix. |
+| `software.tensorflow` | MIL, SIL, HIL | `string\|null` | TensorFlow version: it runs the float model (MIL) and the TFLite interpreter (SIL; the kernels are in `model.kernels`). In HIL it is loaded only to classify the captured frames on the PC (`--sil_model`, `--mil_model`): `null` in a run without them. Absent in PIL, which does not use TensorFlow. |
+| `software.keras` | MIL, HIL | `string\|null` | Keras version: it loads and runs the `.keras` model. In HIL, `null` unless Keras was loaded for the PC classification of the frames. |
+| `software.pillow` | MIL, SIL, PIL | `string\|null` | Pillow version: it decodes the image files (`src/images.py`). |
+| `software.pyserial` | PIL, HIL | `string\|null` | pyserial version: the serial link to the board. |
+| `software.opencv` | HIL | `string\|null` | OpenCV version: it decodes and shows the stimuli and resizes the captured frames. |
+| `software.gpus` | MIL, HIL | `array[string]\|null` | GPUs TensorFlow sees (empty list: the model ran on the CPU), as in the training record: a float model can give other figures on a GPU. `null` in HIL when TensorFlow was not loaded. |
 
 ## Physical Rig Telemetry Schema (`conditions_*.json`)
 
