@@ -17,7 +17,8 @@ the top of each sketch, selected by the build target (`--board` in `compile_uplo
 | Status | Board behind every published result | PIL measured on the board; HIL builds, not run yet |
 
 The Portenta H7 FQBN needs `:split=100_0` (2 MiB of flash for the M7 core): with the default split the firmware
-does not fit.
+does not fit. Of those 2 MiB the first 256 KiB are the bootloader region; the sizes of the two sketches, read
+from a build, are in [`flash_budget_build.txt`](flash_budget_build.txt).
 
 **What has run on a board.** The published results were measured with the single-board sketches that preceded
 these. The two-board PIL sketch was then checked on a Portenta H7 against its predecessor, following steps 5 and 6
