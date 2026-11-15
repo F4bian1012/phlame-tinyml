@@ -11,6 +11,7 @@ Standard library only.
 """
 import csv
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -71,8 +72,11 @@ class BenchmarkTableTest(unittest.TestCase):
         self.tmp.cleanup()
 
     def run_script(self, *args):
+        # The output is read as UTF-8, so the script is asked to write it: on Windows it would
+        # use the code page of the console, and the table has characters outside ASCII.
         return subprocess.run([sys.executable, SCRIPT, "--results_dir", str(self.results),
                                "--output_dir", str(self.out), *args],
+                              env=dict(os.environ, PYTHONIOENCODING="utf-8"),
                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8")
 
     def row(self):
