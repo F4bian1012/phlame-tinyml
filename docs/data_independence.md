@@ -52,7 +52,8 @@ After `split_dataset.py`, with the images on disk:
 python src/find_near_duplicates.py --splits_dir data/splits
 ```
 
-It takes 20 to 25 minutes for 13,000 images (1,000 of them in the test) on a desktop CPU, and the
+It takes 20 to 25 minutes for 13,000 images (1,000 of them in the test) on a desktop CPU, about 2 hours
+20 minutes for 123,000 images (5,000 of them in the test) on the same machine while it ran other jobs, and the
 first run downloads the ImageNet weights of MobileNetV2. It writes three files into the splits folder
 (or `--output_dir`) and refuses to replace them unless `--overwrite` is given:
 
@@ -67,7 +68,8 @@ pairs, add `--review_sheet some/path.png`: it draws the pairs with the strongest
 side. The sheet shows the images unmasked, so it is written only on request; keep it out of the
 repository if the dataset is private.
 
-Look at every `near_duplicate` and `review` pair. If you want the decision recorded, write it to
+Look at every `near_duplicate` and `review` pair: on the COCO partition below, three out of four shared
+scenes were in the review band and not among the `near_duplicate` verdicts. If you want the decision recorded, write it to
 `near_duplicates_review.csv` next to the other files, one row per pair looked at, with the columns
 `test_file`, `match_file`, `checked` (`same_photo`, `same_scene` or `different`) and `note`.
 
@@ -107,92 +109,140 @@ itself), then split and train again.
 
 ## COCO (Main Benchmark)
 
-**Partition.** Train and validation come from COCO train2017 (6,000 images per class, split 85/15
-into 10,200 and 1,800) and the test from COCO val2017 (500 per class). The two COCO splits are
-different files, so no file can be on both sides: 0 shared file names, 0 exact pixel duplicates.
-Different files can still show the same scene, because COCO holds photos taken moments apart.
+**Partition.** Train and validation are all 118,287 images of COCO train2017, split 85/15 into
+100,544 and 17,743; the test is all 5,000 images of COCO val2017. The labels follow the rule of the
+original Visual Wake Words script (`person` when a person annotation, crowd included, covers more
+than 0.5 % of the image), which gives 56,670 `person` and 61,617 `non_person` images in train2017
+and 2,363 and 2,637 in val2017. The images are stored as 160×120 grayscale PNG. The two COCO splits
+are different files, so no file can be on both sides: 0 shared file names, 0 exact pixel
+duplicates. Different files can still show the same scene, because COCO holds photos taken moments
+apart, and a few photographs that are in both of its splits.
 
-**Detector.** `find_near_duplicates.py` on the whole frame (thresholds: `ncc` 0.8105 and 40.84
-inliers; review from `ncc` 0.6941 or 23 inliers) gives 1 `near_duplicate`, 190 `review` and 809
-`distinct` test images; inside the test, 0 `near_duplicate` and 46 `review`. The tables are in
-`data/splits_coco/`.
+**Detector.** `find_near_duplicates.py` on the whole frame (thresholds: `ncc` 0.7954 and 37
+inliers; review from `ncc` 0.6606 or 24 inliers) gives 32 `near_duplicate`, 1,279 `review` and
+3,689 `distinct` test images; inside the test, 8 `near_duplicate` and 334 `review` images, which
+are 294 different pairs. None of the 32 is in the `hil_subset` and none has another label than its
+match; 53 of the 1,279 are in the `hil_subset`. The run took about 2 hours 20 minutes on a desktop
+CPU that was also running other jobs. The tables are in `data/splits_coco/`.
 
-**Check by eye.** Three sets of pairs were looked at side by side in the original colour images:
-the 191 pairs above; the 134 pairs of a first check that used the cross-correlation alone on the
-middle of the frame (42 above its threshold, 92 in its review band; `--region center` reproduces
-both counts in `ncc_alone` of the summary); and the 40 pairs with most geometric agreement of an
-independent second search (colour MobileNetV2 embeddings of the full-size originals, SIFT on
-400-pixel-wide images). That is 350 different pairs over 245 test images, listed with the decision
-in `data/splits_coco/near_duplicates_review.csv`. A pair was counted as the same scene when the two
-photos show the same objects in the same arrangement, taken moments apart or framed slightly
-differently; the same kind of scene (another beach, another giraffe) was not.
+**Check by eye.** Every flagged pair was looked at side by side in the original colour photographs:
+the 1,311 pairs against train/val (32 + 1,279) and the 294 pairs inside the test. The pairs were
+drawn on contact sheets, the 247 with most evidence (verdict `near_duplicate`, or 24 inliers or
+more) at 240×180 pixels per photo and the others at 160×120; 138 pairs were then looked at again
+at up to 480×360, among them every pair whose two photos looked alike on a sheet and every pair
+counted as the same from a 160×120 sheet. Two more sets were looked at to measure what the
+detector leaves out (see below): the 294 `distinct` test images whose best match has 15 to 23
+inliers, and a random sample of 240 of the other 3,395. That is 2,139 pairs on 102 sheets, each
+listed with the decision in `data/splits_coco/near_duplicates_review.csv` (1,845 pairs against
+train/val) and `near_duplicates_within_test_review.csv` (294 pairs).
 
-**Result: 4 of the 1,000 test images show the same scene as a train/val image.**
+The criterion is the one of the first partition: a pair counts as the same scene when the two
+photos show the same objects in the same arrangement, taken moments apart or framed differently;
+the same kind of scene (another beach, another giraffe), the same landmark on another day and the
+same subject photographed on another occasion do not. A pair is `same_photo` when the two files
+are the same photograph.
 
-| Test image | Train/val image | Split | Class of both | `ncc` | Inliers | Detector | What the two photos show |
-|---|---|---|---|---|---|---|---|
-| `000000368684.jpg` | `000000247130.jpg` | train | `non_person` | 0.9345 | 95 | `near_duplicate` | The same room and furniture, moments apart |
-| `000000023781.jpg` | `000000038083.jpg` | train | `non_person` | 0.7987 | 54 | `review` | The same market stall, framed slightly differently |
-| `000000409211.jpg` | `000000441363.jpg` | train | `person` | 0.7213 | 50 | `review` | The same tennis match: player, court and scoreboard at another instant |
-| `000000338901.jpg` | `000000227428.jpg` | val | `non_person` | 0.8188 | 9 | `review` | The same dog on the same sofa, in another pose |
+**Result: 129 of the 5,000 test images (2.6 %) show the same photo or scene as a train/val image.**
 
-The labels agree in the four pairs and none of the four test images is in the `hil_subset`. The
-other 346 pairs are different photos; in two of them the subject may be the same seen from another
-viewpoint (a bear, a plate of food), and they are counted as different. None of the 46 pairs inside
-the test shows the same scene.
+| Where the pair comes from | Pairs looked at | Same photo or scene |
+|---|---|---|
+| `near_duplicate`: both thresholds passed | 32 | 32 |
+| `review`: 37 inliers or more, `ncc` below its threshold | 44 | 14 |
+| `review`: 24 to 36 inliers | 124 | 19 |
+| `review`: `ncc` ≥ 0.7954, fewer than 24 inliers | 151 | 25 |
+| `review`: `ncc` 0.6606 to 0.7954, fewer than 24 inliers | 960 | 31 |
+| **All flagged pairs** | **1,311** | **121** |
+| Not flagged (`distinct`), 15 to 23 inliers | 294 | 8 |
+| Not flagged (`distinct`), fewer than 15 inliers: random sample of 3,395 | 240 | 0 |
 
-All four are among the pairs the detector flags or puts in its review band, and the independent
-search ranks them among its strongest pairs. The first check, on the cross-correlation alone, had
-reported 42 near-duplicates (9 of them with a different label, 9 in the
-`hil_subset`) and 5 copies inside the test: 40 of the 42 and the 5 are different photos that share a
-layout, the label mismatches and the rig images are all among those 40, and two of the four real
-pairs were missed.
+- **What the 129 are.** Five are the same photograph in both COCO splits, two of them with another
+  colour processing. The other 124 are the same scene: the same room, table, animal, vehicle or
+  match photographed again moments later or from a slightly different position (the same tennis
+  match with its scoreboard, the same cat in front of the same television, the same train at the
+  same signal). In a few of them the place and the framing are the same and the subject is not
+  (another bus at the same street corner, another train on the same curve, the other player on the
+  same court). Five are marked "probably" in the notes, where the scene has little that identifies
+  it (a snow ridge, a surf break, bears on a slope, a hotel room, cows in a field).
+- **By class and split.** 71 of the 2,637 `non_person` test images (2.7 %) and 58 of the 2,363
+  `person` images (2.5 %); 110 match a training image and 19 a validation image. The 129 test
+  images match 126 different train/val images.
+- **Labels.** The two photos have the same label in 128 pairs. In one, the same cake is
+  `non_person` in train and `person` in the test, where the frame includes an arm.
+- **`hil_subset`.** One of its 200 images is among the 129 (`000000273712.png`, a refrigerator in a
+  room; `review` for the detector, 15 inliers).
+- **Agreement with the first partition.** Its test was a part of this one, and the four pairs
+  confirmed there are all among the 129, with the same train/val image.
 
-**Effect on the results.** `independence_report.py` on the 18 COCO runs that exist (MIL and SIL for
-seven architectures, PIL for four); macro-F1, Δ = cleaned − full, 95 % paired bootstrap interval;
-full table with accuracy in `results/tables/independence_coco.csv`:
+The other 1,190 flagged pairs are different photos. In 22 of them the two photos come from the same
+place or event without showing the same scene (the same landmark on another day, another player of
+the same tournament, another bathroom with the same fittings); they are counted as different, with
+a note.
 
-| Level | Architecture | F1 full (n=1000) | F1 `confirmed` (n=996) | Δ [95 % interval] | F1 `strict` (n=809) | Δ [95 % interval] |
+**Inside the test.** 14 of the 294 pairs show the same scene (the four the detector calls
+`near_duplicate` and ten of its `review` pairs), so 28 test images count one scene twice. None of
+the 28 is in the `hil_subset`; 6 of them are also among the 129. In one pair the labels differ: the
+same surfer on the same wave is `person` in one frame and `non_person` in the other.
+
+**What the detector leaves out.** The 129 are a lower bound.
+- All 32 `near_duplicate` verdicts are right, but they are a quarter of what was found: 89 of the
+  121 confirmed among the flagged pairs were in the `review` band, and 8 more were not flagged at
+  all. On this partition the verdict `near_duplicate` alone understates the shared scenes by a
+  factor of four, and the review band cannot be skipped.
+- Below the review band, 8 of the 294 pairs with 15 to 23 inliers are the same scene (2.7 %); they
+  are among the 129. In a random sample of 240 of the remaining 3,395 `distinct` test images
+  (seed 20261114) none is: with 95 % confidence fewer than 1.3 % of those images, at most about 42,
+  share their scene with the train/val image the detector kept as their best match. Two pairs of
+  the sample show the same subject on another occasion (a person at the same mirror on another
+  day, possibly the same bird feeder).
+- Both figures concern the one train/val image recorded for each test image. A test image whose
+  scene is shared with another training image, one the embedding did not rank among its candidates,
+  is not seen by the detector nor by this check.
+
+**Effect on the results.** `independence_report.py` on the 19 COCO runs (MIL and SIL for seven
+architectures, PIL on the Portenta H7 for the five that fit; the PIL runs on the Nicla Vision give the
+same prediction for every image); macro-F1, Δ = cleaned − full, 95 % paired bootstrap interval; full
+table with accuracy in `results/tables/independence_coco.csv`:
+
+| Level | Architecture | F1 full (n=5000) | F1 `confirmed` (n=4871) | Δ [95 % interval] | F1 `strict` (n=3681) | Δ [95 % interval] |
 |---|---|---|---|---|---|---|
-| MIL | MobileNet | 0.7460 | 0.7460 | +0.0000 [−0.0015, +0.0019] | 0.7451 | −0.0009 [−0.0138, +0.0126] |
-| MIL | MobileNetV2 | 0.7777 | 0.7778 | +0.0001 [−0.0012, +0.0021] | 0.7696 | −0.0081 [−0.0202, +0.0042] |
-| MIL | MobileNetV3Large | 0.8188 | 0.8190 | +0.0003 [−0.0011, +0.0023] | 0.8146 | −0.0042 [−0.0153, +0.0072] |
-| MIL | MobileNetV3Small | 0.7723 | 0.7724 | +0.0001 [−0.0013, +0.0021] | 0.7706 | −0.0017 [−0.0141, +0.0109] |
-| MIL | ResNet18 | 0.6230 | 0.6225 | −0.0005 [−0.0023, +0.0013] | 0.6052 | −0.0178 [−0.0323, −0.0035] |
-| MIL | ResNet8 | 0.6083 | 0.6087 | +0.0004 [−0.0016, +0.0026] | 0.5865 | −0.0218 [−0.0373, −0.0063] |
-| MIL | SqueezeNet | 0.3333 | 0.3329 | −0.0004 [−0.0014, +0.0004] | 0.3270 | −0.0064 [−0.0133, +0.0005] |
-| SIL | MobileNet | 0.7309 | 0.7308 | −0.0001 [−0.0016, +0.0017] | 0.7256 | −0.0053 [−0.0185, +0.0082] |
-| SIL | MobileNetV2 | 0.7825 | 0.7827 | +0.0002 [−0.0012, +0.0022] | 0.7770 | −0.0056 [−0.0173, +0.0065] |
-| SIL | MobileNetV3Large | 0.7800 | 0.7801 | +0.0001 [−0.0013, +0.0021] | 0.7773 | −0.0027 [−0.0148, +0.0097] |
-| SIL | MobileNetV3Small | 0.6604 | 0.6601 | −0.0003 [−0.0020, +0.0016] | 0.6582 | −0.0022 [−0.0157, +0.0113] |
-| SIL | ResNet18 | 0.6229 | 0.6224 | −0.0005 [−0.0023, +0.0013] | 0.5981 | −0.0249 [−0.0389, −0.0107] |
-| SIL | ResNet8 | 0.6105 | 0.6109 | +0.0004 [−0.0015, +0.0026] | 0.5873 | −0.0232 [−0.0386, −0.0082] |
-| SIL | SqueezeNet | 0.3333 | 0.3329 | −0.0004 [−0.0014, +0.0004] | 0.3270 | −0.0064 [−0.0133, +0.0005] |
-| PIL | MobileNet | 0.7438 | 0.7438 | +0.0000 [−0.0015, +0.0019] | 0.7417 | −0.0021 [−0.0151, +0.0111] |
-| PIL | MobileNetV2 | 0.7778 | 0.7779 | +0.0001 [−0.0012, +0.0021] | 0.7750 | −0.0027 [−0.0148, +0.0095] |
-| PIL | MobileNetV3Small | 0.6550 | 0.6566 | +0.0016 [−0.0004, +0.0041] | 0.6497 | −0.0053 [−0.0196, +0.0086] |
-| PIL | ResNet8 | 0.6112 | 0.6116 | +0.0004 [−0.0015, +0.0026] | 0.5898 | −0.0214 [−0.0360, −0.0066] |
+| MIL | MobileNet | 0.8462 | 0.8461 | −0.0002 [−0.0017, +0.0015] | 0.8397 | −0.0066 [−0.0124, −0.0009] |
+| MIL | MobileNetV2 | 0.8575 | 0.8554 | −0.0021 [−0.0032, −0.0009] | 0.8490 | −0.0085 [−0.0139, −0.0030] |
+| MIL | MobileNetV3Large | 0.8806 | 0.8791 | −0.0015 [−0.0026, −0.0003] | 0.8731 | −0.0075 [−0.0125, −0.0024] |
+| MIL | MobileNetV3Small | 0.8366 | 0.8362 | −0.0004 [−0.0020, +0.0013] | 0.8313 | −0.0052 [−0.0112, +0.0007] |
+| MIL | ResNet18 | 0.8511 | 0.8494 | −0.0017 [−0.0029, −0.0003] | 0.8401 | −0.0110 [−0.0164, −0.0054] |
+| MIL | ResNet8 | 0.8340 | 0.8327 | −0.0013 [−0.0027, +0.0003] | 0.8250 | −0.0090 [−0.0148, −0.0033] |
+| MIL | SqueezeNet | 0.8359 | 0.8339 | −0.0021 [−0.0034, −0.0007] | 0.8281 | −0.0079 [−0.0136, −0.0021] |
+| SIL | MobileNet | 0.8431 | 0.8426 | −0.0005 [−0.0020, +0.0012] | 0.8326 | −0.0105 [−0.0161, −0.0047] |
+| SIL | MobileNetV2 | 0.8573 | 0.8556 | −0.0017 [−0.0029, −0.0004] | 0.8500 | −0.0074 [−0.0127, −0.0020] |
+| SIL | MobileNetV3Large | 0.8644 | 0.8633 | −0.0011 [−0.0024, +0.0003] | 0.8612 | −0.0032 [−0.0088, +0.0023] |
+| SIL | MobileNetV3Small | 0.7842 | 0.7834 | −0.0008 [−0.0025, +0.0010] | 0.7781 | −0.0061 [−0.0128, +0.0005] |
+| SIL | ResNet18 | 0.8534 | 0.8520 | −0.0014 [−0.0027, +0.0000] | 0.8425 | −0.0109 [−0.0165, −0.0054] |
+| SIL | ResNet8 | 0.8344 | 0.8329 | −0.0015 [−0.0029, +0.0001] | 0.8261 | −0.0083 [−0.0141, −0.0025] |
+| SIL | SqueezeNet | 0.8340 | 0.8318 | −0.0021 [−0.0034, −0.0007] | 0.8258 | −0.0082 [−0.0141, −0.0024] |
+| PIL | MobileNet | 0.8421 | 0.8417 | −0.0005 [−0.0020, +0.0012] | 0.8310 | −0.0112 [−0.0169, −0.0054] |
+| PIL | MobileNetV2 | 0.8575 | 0.8558 | −0.0017 [−0.0029, −0.0003] | 0.8502 | −0.0073 [−0.0127, −0.0017] |
+| PIL | MobileNetV3Small | 0.7788 | 0.7779 | −0.0009 [−0.0027, +0.0009] | 0.7742 | −0.0046 [−0.0113, +0.0021] |
+| PIL | ResNet8 | 0.8337 | 0.8325 | −0.0013 [−0.0027, +0.0003] | 0.8258 | −0.0080 [−0.0138, −0.0021] |
+| PIL | SqueezeNet | 0.8344 | 0.8322 | −0.0021 [−0.0034, −0.0007] | 0.8263 | −0.0081 [−0.0138, −0.0022] |
 
-- **Without the four confirmed images** macro-F1 and accuracy change by at most 0.0016 in every
-  run, no interval excludes zero, the order of the architectures is the same at each level, and the
-  gap between two levels of one architecture moves by at most 0.0019.
-- **Without all 191 suspect images** macro-F1 changes by −0.0009 to −0.0081 for the MobileNet
-  family and SqueezeNet (every interval includes zero) and by −0.018 to −0.025 for ResNet8 and
-  ResNet18 (the intervals exclude zero). 187 of those 191 images are different photos from their
-  closest train/val image, so this is not shared data: the two residual networks, the weakest
-  classifiers that learned something on this benchmark, do somewhat better on test images whose
-  layout resembles a training image. The gap between two levels of one architecture moves by at
-  most 0.0070; two pairs of architectures that were within 0.006 of each other swap places
-  (MobileNetV2 and MobileNetV3Small at MIL, MobileNetV2 and MobileNetV3Large at SIL).
+- **Without the 129 confirmed images** macro-F1 changes by −0.0021 to −0.0002 and accuracy by
+  −0.0021 to −0.0001; 8 of the 19 intervals exclude zero, the order of the architectures is the same at MIL and SIL (at PIL `SqueezeNet` and `ResNet8`, 0.0007 apart, swap places), and the gap between two levels of one
+  architecture moves by at most 0.0004.
+- **Without all 1,319 suspect images** macro-F1 changes by −0.0112 to −0.0032; 15 of the 19 intervals exclude zero,
+  the order of the architectures is the same at each level, and the gap between two levels of one architecture moves by at most 0.0043.
+  1,190 of those images are different photos from their closest train/val image, so this drop is not
+  an effect of shared data alone: test images that resemble some training image are slightly easier
+  for the models.
 
-The results on this benchmark do not depend on the four shared scenes.
+Removing the 129 shared scenes changes no macro-F1 of this benchmark by more than 0.0021.
 
-**Visual Wake Words partition.** The published VWW partition (`data/splits_vww`) was drawn from COCO
-val2017 with the same script and seed as this test split, and 719 of the 1,000 test images above are
-also in it (499 in its train split, 119 in its validation split, 101 in its test split). The two
-benchmarks have their own models and are evaluated separately, so neither result is affected. But a
-model trained on the VWW partition must not be evaluated on this test split, and the two partitions
-must not be merged.
+**Visual Wake Words partition.** The published VWW partition (`data/splits_vww`, 2,000 images) was
+drawn from COCO val2017, and this test is all of val2017: every image of that partition is in this
+test (1,400 from its train split, 300 from its validation split, 300 from its test split), and none
+is in this train/val. The two partitions were labelled with different rules, and 53 of the 2,000
+images have another label here. The two benchmarks have their own models and are evaluated
+separately, so neither result is affected. But a model trained on the VWW partition has seen 1,400
+images of this test and must not be evaluated on it, and the two partitions must not be merged.
 
 ## Plates (Secondary Benchmark)
 
@@ -247,6 +297,10 @@ photos with the training data and say little about vehicles the models have not 
   never looked at. Strong crops, rotations beyond about 16°, overlays and occlusions also defeat the
   alignment; the feature count tolerates more, but one measure alone gives `review`, not
   `near_duplicate`.
+- **Shared scenes below the review band.** A scene photographed twice from different positions has
+  few matching keypoints and a low cross-correlation, and can fall below both review limits. On the
+  COCO partition, 8 of the 294 `distinct` test images with 15 to 23 inliers were the same scene as
+  their match, and none of a random sample of 240 with fewer.
 - **Images without texture.** A flat or blurred image has few keypoints: the feature count cannot
   confirm a copy of it, which leaves it in `review` at most (identical pixels are still found).
 - **Differences below the working size.** Everything is compared in grayscale at 160×120. Two files

@@ -35,6 +35,22 @@ One difference stands out: the inference takes 128.8 million cycles on the Nicla
 Portenta H7, 19.7% fewer, with the same MCU, clock and model. The arena is in internal RAM on one board and in
 external SDRAM on the other, which is the likely cause; it has not been isolated.
 
+**The COCO benchmark on both boards** (2026-11-14 and 15, `results/pil/` and `results/nicla/pil/`). The five
+models that fit were measured on each board over the 5,000 test images: ten runs, every image answered, no
+dropped link, and the two boards give the same prediction for every image of every model. Arena, flash and RAM
+are those of each flashed build (`ARENA_USED` in the boot lines, sizes reported by the compiler):
+
+| Model | Arena used (bytes) | `--arena_kb` on the Nicla Vision | Nicla Vision: flash / RAM left (bytes) | `INF` Portenta H7 (ms) | `INF` Nicla Vision (ms) |
+|---|---:|---:|---:|---:|---:|
+| `MobileNet` | 181,492 | default (368) | 700,144 / 67,992 | 241.40 | 193.45 |
+| `MobileNetV2` | 356,404 | default (368) | 1,026,512 / 67,992 | 401.15 | 322.06 |
+| `MobileNetV3Small` | 225,812 | default (368) | 1,217,632 / 67,992 | 489.59 | 414.81 |
+| `SqueezeNet` | 414,404 | 408 | 1,210,632 / 27,032 | 1153.63 | 987.00 |
+| `ResNet8` | 398,164 | 392 | 1,661,040 / 43,416 | 2892.09 | 2561.31 |
+
+`SqueezeNet` and `ResNet8` ran the 5,000 images on the Nicla Vision with 27 KB and 43 KB of RAM left. The Nicla
+Vision needs 11% to 20% fewer cycles per inference than the Portenta H7 for the same file.
+
 **Sizes set at build time.** `--arena_kb` and `--image_buffer_bytes` of `compile_upload_arduino.py` (the macros
 `TENSOR_ARENA_KB` and `IMAGE_BUFFER_BYTES` of the sketch) change the two sizes without editing the sketch. On the
 Nicla Vision both are static arrays, so the linker accounts for them: sizes that do not fit fail at build time
@@ -55,7 +71,7 @@ The arena each deployable model needs was measured on the Portenta H7 (`ARENA_US
 `MobileNetV3Small` 220.5 KiB, `MobileNetV2` 348.1 KiB, `ResNet8` 388.8 KiB, `SqueezeNet` 404.7 KiB. The default
 368 KiB therefore covers the first three, with 20 KiB to spare for `MobileNetV2`. `ResNet8` and `SqueezeNet` need
 `--arena_kb 392` and `--arena_kb 408`, which takes another 24 KiB and 40 KiB from the last column. These are
-build-time figures: whether what is left is enough at run time is only known by running it.
+build-time figures; with them both models ran the 5,000 images of the COCO benchmark on the board (see above).
 
 **Operators.** Op resolution uses `AllOpsResolver` (all TFLite-Micro ops registered) to avoid
 `AllocateTensors()` failures from missing operators, and to keep the firmware
@@ -94,7 +110,7 @@ Both host benches (`pil_benchmark.py` and `hil_benchmark.py`) and the wire proto
 
 Adding a third board takes one more block in each sketch and one entry in `src/boards.py`; [`extending.md`](extending.md#adding-a-board) lists what each of them holds and which tests notice.
 
-**Not yet verified on a Nicla Vision.** The PIL sketch has run on the board (see [Boards and Memory](#boards-and-memory)); the HIL sketch has not. Until it does, these remain open: the byte order of the RGB565 frame (taken from the core's own viewers; a wrong order would show as a visibly corrupted frame-dump), the image the GC2145 gives at 160×120 (according to the driver, a central 640×480 window subsampled by four, so a narrower field of view than the full sensor), and whether the RAM left is enough for the camera frame at run time. Of the models, only `MobileNetV2` has been run on the board so far.
+**Not yet verified on a Nicla Vision.** The PIL sketch has run on the board (see [Boards and Memory](#boards-and-memory)); the HIL sketch has not. Until it does, these remain open: the byte order of the RGB565 frame (taken from the core's own viewers; a wrong order would show as a visibly corrupted frame-dump), the image the GC2145 gives at 160×120 (according to the driver, a central 640×480 window subsampled by four, so a narrower field of view than the full sensor), and whether the RAM left is enough for the camera frame at run time. The five models that fit have run on the board at PIL.
 
 ## HIL Rig and Session
 
@@ -144,13 +160,16 @@ answers the first request the same way). Such a build is refused unless the run 
 `--allow_model_mismatch`; a board that answers nothing ends the run with exit code 1, and the HIL
 sketch is recognised by its `READY_HIL`.
 
-> **Not yet verified on a board.** The identity lines, the empty packet and the checks of the bench
-> were added in November 2026. The sketch builds for both boards and the bench is tested against a
-> simulated board (`tests/test_pil_session.py`); neither has run on a Portenta H7 or a Nicla Vision
-> yet. To be checked on each board: the boot lines end with the six identity lines; `#@` prints them
-> again, also in the middle of a run of images; the fingerprint equals the one the host computes for
-> the flashed `.tflite`; a board carrying another model stops the bench; a short run completes with
-> `model.identity_verified = true`.
+> **Checked on both boards** (2026-11-15, COCO `MobileNetV2`). The identity lines, the empty packet and
+> the checks of the bench were added after the COCO runs were measured, so those runs do not carry
+> them. On a Portenta H7 and on a Nicla Vision: the boot lines end with the six identity lines; the
+> fingerprint on the chip equals the one the host computes for the flashed `.tflite`; the bench took
+> the identity from the boot lines when it was the first to open the port (Portenta H7) and through
+> `#@` otherwise (Nicla Vision); a run of 300 images completed with `model.identity_verified = true`
+> and gave, on each board, the same prediction as the earlier firmware for all 300. On the Nicla
+> Vision a board carrying another model and a run with another image size were refused before
+> anything was sent. Not exercised on a board: `#@` sent by hand in the middle of a run, a link lost
+> for longer than the reconnect window, and a board held in reset.
 
 **Dropped link.** A USB serial link can disappear for a moment (cable, hub, the host's
 power management) while the board keeps running. When that happens the bench reopens the
