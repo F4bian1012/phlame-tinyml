@@ -32,11 +32,9 @@ internal flash. Measured on a build of the PIL firmware with `AllOpsResolver`
 The HIL firmware carries 14 KiB more code, which leaves ~1360 KiB.
 
 Which of the INT8 models of the COCO benchmark fit, at 160×120. "Flash used" counts the bootloader region,
-the PIL firmware code and the model. The build of the record carried the `MobileNetV2` of the vehicle application
-case (1,335,488 bytes in all, 645,640 of them the model), which was the `model.h` of the repository when it was
-made. Since 15 November 2026 the `model.h` of the repository carries the `MobileNetV2` of the COCO benchmark
-(644,648 bytes), and the record has not been built again with it. Each row is the budget of that build, which
-does not count its model, plus the `.tflite` of the COCO model:
+the PIL firmware code and the model. The build of the record carries the `MobileNetV2` of the COCO benchmark
+(1,334,512 bytes in all, 644,648 of them the model), which is the `model.h` of the repository. Each row is the
+budget of that build, which does not count its model, plus the `.tflite` of the model of the row:
 
 | Model | `.tflite` | Flash used | Fits |
 |---|---|---|---|
@@ -140,16 +138,15 @@ summary for this board).
 
 **RAM budget on the Nicla Vision.** The board has no external SDRAM: 523,624 bytes of internal RAM hold the arena,
 the buffers, the camera frame and everything else. Reported by the compiler for the default sizes, in builds
-made with the `MobileNetV2` of the vehicle application case (630.5 KiB), which the `model.h` of the repository
-carried until 15 November 2026. It now carries the COCO `MobileNetV2` (629.5 KiB), with which these three builds
-have not been repeated; the PIL build of that model measured for the table above took 1,026,512 bytes of flash
-and left the same 67,992 bytes of RAM:
+made on 15 November 2026 with the `model.h` of the repository, the COCO `MobileNetV2` (629.5 KiB). The PIL build
+of that model flashed for the table above, which is earlier than the identity lines of the sketch, took 1,026,512
+bytes of flash and left 67,992 bytes of RAM:
 
 | Sketch | Flash (of 1,966,080 bytes) | Global RAM (of 523,624 bytes) | Left for the heap and the rest |
 |---|---|---|---|
-| `pil_firmware` | 1,027,440 (52%) | 455,632 (87%) | 67,992 |
-| `hil_firmware` | 1,040,880 (52%) | 475,752 (90%) | 47,872 |
-| `pil_firmware`, `--arena_kb 288` | 1,027,440 (52%) | 373,712 (71%) | 149,912 |
+| `pil_firmware` | 1,027,120 (52%) | 455,648 (87%) | 67,976 |
+| `hil_firmware` | 1,039,888 (52%) | 475,752 (90%) | 47,872 |
+| `pil_firmware`, `--arena_kb 288` | 1,027,120 (52%) | 373,728 (71%) | 149,896 |
 
 The arena each deployable model needs was measured on the Portenta H7 (`ARENA_USED`): `MobileNet` 177.2 KiB,
 `MobileNetV3Small` 220.5 KiB, `MobileNetV2` 348.1 KiB, `ResNet8` 388.8 KiB, `SqueezeNet` 404.7 KiB. The default

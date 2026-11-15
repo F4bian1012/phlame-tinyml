@@ -74,7 +74,7 @@ Convert the `.tflite` into a C header. It is written into both firmware sketches
 ```bash
 python src/tflite_to_c.py models/tflite/{model_name}_int8.tflite
 ```
-The two `model.h` files in the repository carry the `MobileNetV2` of the COCO benchmark (`MobileNetV2_COCO+32+50+0.0003+160+120_int8.tflite`: 644,648 bytes, FNV-1a fingerprint `ad34723a`); this command replaces them, so `git status` reports them as modified. Until 15 November 2026 they carried the `MobileNetV2` of the vehicle application case, which is the model of the build record [`flash_budget_build.txt`](flash_budget_build.txt).
+The two `model.h` files in the repository carry the `MobileNetV2` of the COCO benchmark (`MobileNetV2_COCO+32+50+0.0003+160+120_int8.tflite`: 644,648 bytes, FNV-1a fingerprint `ad34723a`); this command replaces them, so `git status` reports them as modified. Until 15 November 2026 they carried the `MobileNetV2` of the vehicle application case. The build record [`flash_budget_build.txt`](flash_budget_build.txt) was made with the COCO model.
 
 The board runs one firmware at a time: steps 6 and 7 each flash their own and then run their bench. `compile_upload_arduino.py` finds the board by itself; the benches take its port with `--port`, which `arduino-cli board list` shows once the firmware is running (it is not the port of the bootloader). If an upload fails, see [Upload Troubleshooting](hardware.md#upload-troubleshooting).
 

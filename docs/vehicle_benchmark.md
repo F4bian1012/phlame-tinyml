@@ -175,9 +175,9 @@ portability to another microcontroller family. The COCO benchmark was then measu
 - **Model files:** distributed like the other published models (see
   [Data Availability](../README.md#data-availability) in the README); `python src/verify_models.py --set plates`
   checks them against `models/checksums.sha256`. The `model.h` of the two firmware sketches carried the
-  `MobileNetV2` of this benchmark until 15 November 2026, and the build record of the flash budget
-  ([`flash_budget_build.txt`](flash_budget_build.txt)) was made with it; the sketches now carry the `MobileNetV2`
-  of the COCO benchmark.
+  `MobileNetV2` of this benchmark until 15 November 2026; the sketches now carry the `MobileNetV2` of the COCO
+  benchmark, and the build record of the flash budget ([`flash_budget_build.txt`](flash_budget_build.txt)) was
+  made with that one.
 - **Licence-plate photographs:** withheld. The photographs of this benchmark show identifiable licence plates,
   which are personal data under Colombian data-protection law (**Law 1581 of 2012**), so they are neither in this
   repository nor in its releases. They are available from the author upon reasonable academic request, subject to

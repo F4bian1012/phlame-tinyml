@@ -108,8 +108,7 @@ DOI yet (see [Citation](README.md#citation)).
   `data/hil_frames/` and replaced the frames of the one before. A folder given with `--frames_dir` is used as it
   was.
 - The `model.h` in git of the two sketches carries the `MobileNetV2` of the COCO benchmark; it carried the one of
-  the vehicle benchmark. The build record of the flash budget was made with the earlier header and has not been
-  built again.
+  the vehicle benchmark. The build record of the flash budget was made again with the new header.
 
 Which of these have run on a board and which only against the simulated board of the tests is kept up to date in
 [`docs/hardware.md`](docs/hardware.md).

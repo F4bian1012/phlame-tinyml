@@ -1,15 +1,17 @@
 Flash budget of the two firmwares on the Arduino Portenta H7: build record
 ==========================================================================
 
-This file backs the "Flash budget" figures of README.md ("Hardware Details"). It records two real
-builds, one of each sketch, made on 2026-11-15 from the sources of the commit that adds this file,
-with the model header of the repository: deployment/pil_firmware/model.h and
-deployment/hil_firmware/model.h, which both carry the published MobileNetV2 of the vehicle benchmark
-(645,640 bytes; SHA-256 eaf083dd1baad4958d842c41407ca09189bd9789420801f92c490a76d8d49180, the entry
-models/tflite/MobileNetV2+32+20+0.0001+160+120_int8.tflite of models/checksums.sha256).
+This file backs the "Flash Budget" figures of docs/hardware.md, which README.md quotes under "Known
+Limitations". It records two real builds, one of each sketch, made on 2026-11-15 from the sources of
+the commit that updates this file, with the model header of the repository:
+deployment/pil_firmware/model.h and deployment/hil_firmware/model.h, which both carry the published
+MobileNetV2 of the COCO benchmark (644,648 bytes; FNV-1a fingerprint ad34723a; SHA-256
+dc09c7c071de5180525e0e6cd7929410b1a34cd200362759849df81a4063d9a9, the entry
+models/tflite/MobileNetV2_COCO+32+50+0.0003+160+120_int8.tflite of models/checksums.sha256). That
+commit changes documents only: the sketches and the headers built are those of commit eb83a0e.
 
-Nothing was uploaded and no board was connected to the build. Paths are given relative to the
-repository; "<build>" is the folder arduino-cli builds in.
+Nothing was uploaded: the builds were made with --compile_only, which does not look for a board.
+Paths are given relative to the repository; "<build>" is the folder given with --build_path.
 
 
 Toolchain
@@ -24,8 +26,11 @@ Toolchain
 
 Commands (from the repository root)
 -----------------------------------
-  python src/compile_upload_arduino.py --target pil --compile_only
-  python src/compile_upload_arduino.py --target hil --compile_only
+  python src/compile_upload_arduino.py --target pil --compile_only --build_path <build>
+  python src/compile_upload_arduino.py --target hil --compile_only --build_path <build>
+
+Each build had a folder of its own, with a short path outside the repository: on Windows the build
+fails when a path inside that folder passes 260 characters.
 
 
 Output of the script (PIL build; the HIL build prints the same with hil_firmware)
@@ -34,7 +39,7 @@ Output of the script (PIL build; the HIL build prints the same with hil_firmware
   Core arduino:mbed_portenta is already installed.
 
   === 1. Compiling project at: deployment\pil_firmware (Portenta H7) ===
-  > arduino-cli compile --fqbn arduino:mbed_portenta:envie_m7:split=100_0 --warnings none "deployment\pil_firmware"
+  > arduino-cli compile --fqbn arduino:mbed_portenta:envie_m7:split=100_0 --warnings none --build-path "<build>" "deployment\pil_firmware"
    Compilation successful.
 
 For this board arduino-cli printed no size summary (on this PC it prints it in Spanish, "El Sketch
@@ -46,21 +51,21 @@ folder: the size of each image, the sections of the .elf as listed by
 Images (bytes)
 --------------
                                               pil_firmware    hil_firmware
-  <build>/<sketch>.ino.bin (application)         1,073,344       1,087,728
-  <build>/<sketch>.ino.with_bootloader.bin       1,335,488       1,349,872
+  <build>/<sketch>.ino.bin (application)         1,072,368       1,086,736
+  <build>/<sketch>.ino.with_bootloader.bin       1,334,512       1,348,880
   difference: the bootloader region                262,144         262,144
 
 
 Sections stored in flash (arm-none-eabi-size -A, bytes)
 -------------------------------------------------------
                                               pil_firmware    hil_firmware
-  .text          (address 0x08040000)            1,056,816       1,070,824
+  .text          (address 0x08040000)            1,055,840       1,069,832
   .ARM.extab                                         3,016           3,088
   .ARM.exidx                                         7,296           7,592
   .data          (initial values)                    6,216           6,224
-  sum, equal to <sketch>.ino.bin                 1,073,344       1,087,728
+  sum, equal to <sketch>.ino.bin                 1,072,368       1,086,736
 
-  of which the model, .rodata.g_model              645,640         645,640     (0x9da08 in the .map)
+  of which the model, .rodata.g_model              644,648         644,648     (0x9d628 in the .map)
 
 Sections that take RAM only (bytes): .bss 65,040 / 66,552; .heap 451,984 / 450,472;
 .lwip_sec 278,528 / 278,528.
@@ -81,11 +86,20 @@ Budget derived from those figures (1 KiB = 1,024 bytes)
   internal flash                                2,048.0 KiB     2,048.0 KiB
   bootloader region                               256.0 KiB       256.0 KiB
   firmware without the model                      417.7 KiB       431.7 KiB
-      (application minus the 645,640 bytes of the model: 427,704 and 442,088 bytes)
+      (application minus the 644,648 bytes of the model: 427,720 and 442,088 bytes)
   left for the model                            1,374.3 KiB     1,360.3 KiB
-  image with this MobileNetV2 (630.5 KiB),
-      bootloader region included                1,304.2 KiB     1,318.2 KiB
+  image with this MobileNetV2 (629.5 KiB),
+      bootloader region included                1,303.2 KiB     1,317.3 KiB
                                                   (1.27 MiB)      (1.29 MiB)
 
 Only this MobileNetV2 was built for this record. The "flash used" figures of the other models in
-README.md are this budget plus the size of their .tflite, not separate builds.
+docs/hardware.md are this budget plus the size of their .tflite, not separate builds.
+
+
+Against the record before this one
+----------------------------------
+Until 15 November 2026 the two headers carried the MobileNetV2 of the vehicle application case
+(645,640 bytes), and the record before this one, in the history of this file, was built with it.
+That model is 992 bytes larger. Without the model the HIL firmware is the same 442,088 bytes, its
+sketch not having changed in between; the PIL firmware is 16 bytes larger (427,720 against 427,704),
+its sketch having gained the ARENA_MEMORY identity line in between.
