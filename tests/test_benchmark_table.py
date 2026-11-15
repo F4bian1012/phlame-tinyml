@@ -135,5 +135,60 @@ class BenchmarkTableTest(unittest.TestCase):
         self.assertEqual(self.run_script("--tag", "T", "--boards", "portenta,uno").returncode, 2)
 
 
+class AttributionTest(unittest.TestCase):
+    """Two models whose SIL predictions differ; each PIL run must agree with its own."""
+
+    A, B = "Alpha_T+1+1+0.1+8+8", "Beta_T+1+1+0.1+8+8"
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.results = Path(self.tmp.name) / "results"
+        self.out = Path(self.tmp.name) / "tables"
+        for run, sil, size in ((self.A, [0, 0, 1, 1], 1024), (self.B, [1, 1, 1, 0], 4096)):
+            write_level(self.results / "mil", run, sil)
+            write_level(self.results / "sil", run + "_int8", sil, {"model": {"kernels": "reference", "bytes": size}})
+        write_level(self.results / "pil", self.A + "_int8", [0, 0, 1, 1], pil_extra("PORTENTA_H7", 100000.0))
+        write_level(self.results / "nicla" / "pil", self.A + "_int8", [0, 0, 1, 0], pil_extra("NICLA_VISION", 90000.0))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    run_script = BenchmarkTableTest.run_script
+
+    def attribution(self):
+        with open(self.out / "benchmark_T_attribution.csv", encoding="utf-8", newline="") as fh:
+            return list(csv.DictReader(fh))
+
+    def test_each_run_is_compared_with_the_sil_of_every_model(self):
+        result = self.run_script("--tag", "T")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        rows = self.attribution()
+        self.assertEqual([(r["architecture"], r["board"]) for r in rows], [("Alpha", "portenta"), ("Alpha", "nicla")])
+        self.assertEqual((rows[0]["same_as_sil_Alpha"], rows[0]["same_as_sil_Beta"], rows[0]["attributed"]),
+                         ("4", "1", "True"))
+        self.assertEqual((rows[1]["own"], rows[1]["best_other"], rows[1]["best_other_architecture"]),
+                         ("3", "2", "Beta"))
+        text = (self.out / "benchmark_T.md").read_text(encoding="utf-8")
+        self.assertIn("## Which model each PIL run agrees with", text)
+        self.assertIn("| `Alpha` | Portenta H7 | 4 | **4** | 1 | yes |", text)
+
+    def test_a_board_that_carried_the_other_model_is_reported(self):
+        # the run is filed under Alpha, but its predictions are those of Beta
+        write_level(self.results / "pil", self.A + "_int8", [1, 1, 1, 0], pil_extra("PORTENTA_H7", 100000.0))
+        result = self.run_script("--tag", "T")
+        self.assertEqual(result.returncode, 3, result.stdout)
+        self.assertIn("agrees more with the SIL of Beta", result.stdout)
+        self.assertEqual(self.attribution()[0]["attributed"], "False")
+        self.assertIn("**NO**", (self.out / "benchmark_T.md").read_text(encoding="utf-8"))
+
+    def test_without_pil_runs_there_is_no_attribution_table(self):
+        for folder in ("pil", "nicla"):
+            for path in sorted((self.results / folder).rglob("*"), reverse=True):
+                path.unlink() if path.is_file() else path.rmdir()
+        self.assertEqual(self.run_script("--tag", "T").returncode, 0)
+        self.assertFalse((self.out / "benchmark_T_attribution.csv").exists())
+        self.assertNotIn("Which model each PIL run", (self.out / "benchmark_T.md").read_text(encoding="utf-8"))
+
+
 if __name__ == "__main__":
     unittest.main()

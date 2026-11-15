@@ -25,3 +25,20 @@ The SIL column above uses the kernels named under "SIL of record". Each other ki
 | `ResNet8` | `reference` | 0.8354 / 0.8332 | 4976 / 5000 | 4973 / 5000 · 4973 / 5000 | 0.8374 / 0.8352 | 4994 / 5000 | 4991 / 5000 · 4991 / 5000 |
 | `MobileNetV3Large` | `reference` | 0.8662 / 0.8647 | 4828 / 5000 | — · — | 0.8618 / 0.8602 | 4822 / 5000 | — · — |
 | `ResNet18` | `reference` | 0.8532 / 0.8518 | 4956 / 5000 | — · — | 0.8550 / 0.8537 | 4987 / 5000 | — · — |
+
+## Which model each PIL run agrees with
+
+Test images on which a PIL run gives the prediction of the SIL of record of each model. The bench records the model a run names, not the one the board carries, so this is the check that each run was filed under the model it measured: its own model (in bold) must be the best match.
+
+| PIL run | Board | Images | SIL `MobileNet` | SIL `MobileNetV2` | SIL `SqueezeNet` | SIL `MobileNetV3Small` | SIL `ResNet8` | SIL `MobileNetV3Large` | SIL `ResNet18` | Own model is the best match |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `MobileNet` | Portenta H7 | 5000 | **4975** | 4301 | 4274 | 4024 | 4233 | 4289 | 4308 | yes |
+| `MobileNet` | Nicla Vision | 5000 | **4975** | 4301 | 4274 | 4024 | 4233 | 4289 | 4308 | yes |
+| `MobileNetV2` | Portenta H7 | 5000 | 4313 | **4999** | 4346 | 4050 | 4301 | 4431 | 4394 | yes |
+| `MobileNetV2` | Nicla Vision | 5000 | 4313 | **4999** | 4346 | 4050 | 4301 | 4431 | 4394 | yes |
+| `SqueezeNet` | Portenta H7 | 5000 | 4285 | 4345 | **4996** | 4032 | 4399 | 4297 | 4406 | yes |
+| `SqueezeNet` | Nicla Vision | 5000 | 4285 | 4345 | **4996** | 4032 | 4399 | 4297 | 4406 | yes |
+| `MobileNetV3Small` | Portenta H7 | 5000 | 4047 | 4047 | 4006 | **4754** | 4037 | 4045 | 4022 | yes |
+| `MobileNetV3Small` | Nicla Vision | 5000 | 4047 | 4047 | 4006 | **4754** | 4037 | 4045 | 4022 | yes |
+| `ResNet8` | Portenta H7 | 5000 | 4241 | 4305 | 4396 | 4044 | **4993** | 4307 | 4436 | yes |
+| `ResNet8` | Nicla Vision | 5000 | 4241 | 4305 | 4396 | 4044 | **4993** | 4307 | 4436 | yes |

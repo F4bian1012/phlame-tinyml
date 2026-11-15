@@ -19,9 +19,19 @@ and counts, image by image (joined on RelPath), how many predictions two levels
 have in common: MIL = SIL, SIL = PIL on each board, one board = the other, and
 each alternative SIL = the SIL of record and = PIL.
 
+It also says which model each PIL run agrees with. A PIL run names the .tflite
+it measured, but the bench only records that name: a board still carrying the
+model of an earlier run would be filed under the wrong one. Each PIL run is
+therefore compared with the SIL of record of every model of the benchmark: the
+model it names must be the one it agrees with, far ahead of the others. (Runs
+measured with a firmware that announces the model fingerprint are checked
+directly, before measuring; this table covers the runs measured before that.)
+
 Outputs, in --output_dir (default results/tables):
-  benchmark_<tag>.csv   one row per run, unrounded
-  benchmark_<tag>.md    the same as two tables: the levels, and the effect of the SIL kernels
+  benchmark_<tag>.csv              one row per run, unrounded
+  benchmark_<tag>_attribution.csv  one row per PIL run and board: images in common with the SIL of each model
+  benchmark_<tag>.md               the same as three tables: the levels, the effect of the SIL kernels,
+                                   and the model each PIL run agrees with
 
 build_ladder_tables.py builds the statistical tables of a benchmark that also
 has HIL runs; this script covers the levels below it and needs no statistics.
@@ -137,6 +147,48 @@ def gather(results_dir, run, tag, board_keys):
     return row
 
 
+def attribution(results_dir, rows, board_keys):
+    """For every PIL run on each board, the test images on which it gives the prediction of the SIL
+    of record of each model of the benchmark.
+
+    Returns a list of {"run", "architecture", "board", "n", "same": {architecture: count}, "own",
+    "best_other", "best_other_architecture", "attributed"}; attributed is True when the model the run
+    names is the one it agrees with most."""
+    sil = {}
+    for row in rows:
+        table = predictions(os.path.join(results_dir, "sil", "predictions_%s_int8.csv" % row["run"]))
+        if table is not None:
+            sil[row["architecture"]] = table
+    out = []
+    for row in rows:
+        for key in board_keys:
+            folder = os.path.join(results_dir, *boards.results_dir(key, "pil").replace("\\", "/").split("/")[1:])
+            pil = predictions(os.path.join(folder, "predictions_%s_int8.csv" % row["run"]))
+            if pil is None or row["architecture"] not in sil:
+                continue
+            counts = {arch: same(table, pil)[0] for arch, table in sil.items()}
+            own = counts[row["architecture"]]
+            others = {arch: c for arch, c in counts.items() if arch != row["architecture"]}
+            best = max(others, key=others.get) if others else None
+            out.append({"run": row["run"], "architecture": row["architecture"], "board": key, "n": len(pil),
+                        "same": counts, "own": own, "best_other": others[best] if best else None,
+                        "best_other_architecture": best,
+                        "attributed": bool(best is None or own > others[best])})
+    return out
+
+
+def write_attribution_csv(path, table, architectures):
+    with open(path, "w", encoding="utf-8", newline="") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["run", "architecture", "board", "n_answered"] + ["same_as_sil_%s" % a for a in architectures]
+                        + ["own", "best_other", "best_other_architecture", "attributed"])
+        for item in table:
+            writer.writerow([item["run"], item["architecture"], item["board"], item["n"]]
+                            + [item["same"].get(a, "") for a in architectures]
+                            + [item["own"], _cell(item["best_other"]), _cell(item["best_other_architecture"]),
+                               item["attributed"]])
+
+
 # --------------------------------------------------------------------------- #
 # Output
 # --------------------------------------------------------------------------- #
@@ -169,7 +221,7 @@ def _same(value):
     return "—" if value is None else "%d / %d" % value
 
 
-def markdown(rows, tag, board_keys):
+def markdown(rows, tag, board_keys, attributed=()):
     labels = {key: boards.BOARDS[key]["label"] for key in board_keys}
     lines = ["# Benchmark `%s`: MIL, SIL and PIL" % tag, "",
              "Built by `src/build_benchmark_table.py --tag %s` from the result files. Accuracy / macro-F1; "
@@ -215,6 +267,23 @@ def markdown(rows, tag, board_keys):
                 on_boards = [_same(row.get("sil_%s_eq_pil_%s" % (kind, key))) for key in board_keys]
                 cells += [_acc(row, "sil_%s" % kind), _same(row.get("sil_%s_eq_sil" % kind)), " · ".join(on_boards)]
             lines.append("| " + " | ".join(cells) + " |")
+
+    if attributed:
+        architectures = [row["architecture"] for row in rows if any(row["architecture"] in a["same"] for a in attributed)]
+        lines += ["", "## Which model each PIL run agrees with", "",
+                  "Test images on which a PIL run gives the prediction of the SIL of record of each model. The bench "
+                  "records the model a run names, not the one the board carries, so this is the check that each run "
+                  "was filed under the model it measured: its own model (in bold) must be the best match.", ""]
+        head = ["PIL run", "Board", "Images"] + ["SIL `%s`" % a for a in architectures] + ["Own model is the best match"]
+        lines += ["| " + " | ".join(head) + " |", "|---|---|" + "---:|" * (len(head) - 2)]
+        for item in attributed:
+            cells = ["`%s`" % item["architecture"], labels[item["board"]], str(item["n"])]
+            for a in architectures:
+                count = item["same"].get(a)
+                text = "—" if count is None else str(count)
+                cells.append("**%s**" % text if a == item["architecture"] else text)
+            cells.append("yes" if item["attributed"] else "**NO**")
+            lines.append("| " + " | ".join(cells) + " |")
     return "\n".join(lines) + "\n"
 
 
@@ -248,7 +317,12 @@ def main():
     csv_path = os.path.join(args.output_dir, "benchmark_%s.csv" % args.tag)
     md_path = os.path.join(args.output_dir, "benchmark_%s.md" % args.tag)
     write_csv(csv_path, rows)
-    text = markdown(rows, args.tag, board_keys)
+    attributed = attribution(args.results_dir, rows, board_keys)
+    attribution_path = os.path.join(args.output_dir, "benchmark_%s_attribution.csv" % args.tag)
+    if attributed:
+        write_attribution_csv(attribution_path, attributed, [row["architecture"] for row in rows
+                                                             if any(row["architecture"] in a["same"] for a in attributed)])
+    text = markdown(rows, args.tag, board_keys, attributed)
     with open(md_path, "w", encoding="utf-8", newline="\n") as fh:
         fh.write(text)
     print(text)
@@ -256,7 +330,14 @@ def main():
         for key in board_keys:
             if row.get("pil_%s_same_file_as_sil" % key) is False:
                 print("[WARN] %s: the PIL run on %s names another .tflite than the SIL run" % (row["run"], key))
-    print("Wrote %s and %s (%d runs)" % (csv_path, md_path, len(rows)))
+    wrong = [item for item in attributed if not item["attributed"]]
+    for item in wrong:
+        print("[WARN] %s on %s agrees more with the SIL of %s (%d images) than with its own (%d): was the board "
+              "carrying another model?" % (item["run"], item["board"], item["best_other_architecture"],
+                                           item["best_other"], item["own"]))
+    print("Wrote %s%s and %s (%d runs)" % (csv_path, ", %s" % attribution_path if attributed else "", md_path, len(rows)))
+    if wrong:
+        sys.exit(3)
 
 
 if __name__ == "__main__":
