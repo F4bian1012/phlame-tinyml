@@ -135,16 +135,22 @@ def manifest_path_of(model_path):
     return "models/%s/%s" % ("checkpoints" if name.endswith(".keras") else "tflite", name)
 
 
+def _published(paths, results):
+    """Result files that are not in results/smoke_test, the git-ignored scratch folder the README writes to."""
+    scratch = os.path.join(results, "smoke_test") + os.sep
+    return [p for p in paths if not os.path.normpath(p).startswith(scratch)]
+
+
 def result_references(root):
     """(result file, field, model path, sha256) for every published result."""
     refs = []
-    results = os.path.join(root, "results")
-    for path in sorted(glob.glob(os.path.join(results, "**", "metrics_*.json"), recursive=True)):
+    results = os.path.normpath(os.path.join(root, "results"))
+    for path in _published(sorted(glob.glob(os.path.join(results, "**", "metrics_*.json"), recursive=True)), results):
         with open(path, encoding="utf-8") as fh:
             model = json.load(fh).get("model") or {}
         refs.append((os.path.relpath(path, root).replace("\\", "/"), "model.sha256",
                      model.get("path"), model.get("sha256")))
-    for path in sorted(glob.glob(os.path.join(results, "**", "conditions_*.json"), recursive=True)):
+    for path in _published(sorted(glob.glob(os.path.join(results, "**", "conditions_*.json"), recursive=True)), results):
         with open(path, encoding="utf-8") as fh:
             expected = json.load(fh).get("expected_model") or {}
         if expected:

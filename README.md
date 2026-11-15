@@ -119,7 +119,10 @@ The per-image results are in git, so the eight statistical tables of the vehicle
 
 ```bash
 python src/build_ladder_tables.py --output_dir results/smoke_test/tables
+python tests/tables_check.py results/tables results/smoke_test/tables
 ```
+
+The second command says whether the rebuilt tables are the published ones; it leaves out the date and the commit of the run, which change every time.
 
 The same script rebuilds the ladder of the Visual Wake Words run ([Results](#results), section 4): add `--tag VWW --archs MobileNetV2 --deployable MobileNetV2 --splits_dir data/splits_vww` and another `--output_dir`.
 
@@ -133,7 +136,7 @@ python src/process_images.py --raw_path data/sample --path_processed data/proces
 
 The reference benchmark needs no private data, and its PC levels need no board: the images come from MS-COCO 2017, the partition is published in `data/splits_coco/`, and the per-image results of every run are in `results/`. From a fresh clone:
 
-**1. Rebuild the dataset.** All 118,287 images of COCO `train2017` feed `train` and `val` (100,544 and 17,743), and all 5,000 images of `val2017` are the test partition, so no file is on both sides of the evaluation. That is the amount of data the published results on this task are trained with. The labels follow the rule of the original Visual Wake Words script: `person` when a person annotation covers more than 0.5% of the image, and no image is left out. The two downloads take about 20 GB of disk and, as measured here, 33 minutes for `train2017` and a minute and a half for `val2017`; the partition itself, 160×120 grayscale images stored as lossless PNG, takes 1.9 GB.
+**1. Rebuild the dataset.** All 118,287 images of COCO `train2017` feed `train` and `val` (100,544 and 17,743), and all 5,000 images of `val2017` are the test partition, so no file is on both sides of the evaluation. That is the amount of data the published results on this task are trained with. The labels follow the rule of the original Visual Wake Words script: `person` when a person annotation covers more than 0.5% of the image, and no image is left out. The two downloads take about 20 GB of disk and the later steps about 9 GB more; the partition itself, 160×120 grayscale images stored as lossless PNG, is 1.9 GB of them. As measured here: 33 minutes to download `train2017`, one and a half to three minutes for `val2017`, and about 23 minutes to prepare the images.
 ```bash
 python src/download_vww_subset.py --coco_split train2017 --full_split --output_dir data/raw_coco_train
 python src/download_vww_subset.py --coco_split val2017 --full_split --output_dir data/raw_coco_test
@@ -143,9 +146,9 @@ python src/reshape_images.py --width 160 --height 120 --format png --input_dir d
 python src/reshape_images.py --width 160 --height 120 --format png --input_dir data/processed/coco_test_gray --output_dir data/processed/coco_test_160x120
 python src/split_dataset.py --input_dir data/processed/coco_train_160x120 --test_input_dir data/processed/coco_test_160x120 --train 0.85 --val 0.15 --test 0 --output_dir data/splits_coco --force
 ```
-The two downloads print the selection hashes stored in `data/splits_coco/subset_report_train2017.json` and `subset_report_val2017.json` (`d12ce39deb42` and `a0ed2d0b8236`). The last command compares the partition it writes with the manifests that were in `data/splits_coco/` and says whether it is the same one.
+Each download prints, when it ends, the selection hash stored in `data/splits_coco/subset_report_train2017.json` and `subset_report_val2017.json` (`d12ce39deb42` and `a0ed2d0b8236`); with `--dry_run` it gives the image counts without downloading anything. The last command ends with `same partition as the manifests already in data/splits_coco`, and `git status` shows no change: the rebuilt partition is the published one. Checked from a fresh clone, the rebuilt image files were also identical, byte for byte, to those the published runs were measured on.
 
-**2. Get the published models.** The seven `.keras` checkpoints and their `_int8.tflite` files, named `{arch}_COCO+32+50+0.0003+160+120`, are distributed with the release (see [Data Availability](#data-availability)). Place them in `models/checkpoints/` and `models/tflite/`; `python src/verify_models.py --set coco` checks them against `models/checksums.sha256`, which holds the digest recorded in every result file.
+**2. Get the published models.** The seven `.keras` checkpoints and their `_int8.tflite` files, named `{arch}_COCO+32+50+0.0003+160+120`, are distributed with the release, which has not been published yet; until it is, they can be requested from the author (see [Data Availability](#data-availability)). Place them in `models/checkpoints/` and `models/tflite/`, each with its `.classes.txt` file when it comes with one (it holds the label order; without it the benches take the class names from the folders of the test partition and say so); `python src/verify_models.py --set coco` checks them against `models/checksums.sha256`, which holds the digest recorded in every result file.
 
 **3. Run the PC levels and compare.** The runs write to a git-ignored folder, and `compare_results.py` checks them against the published files: same model file, same metrics, same confusion matrix and the same prediction for every image. The published SIL runs use the reference kernels of TFLite (see the notes under the [results table](#1-public-benchmark-coco-person--non_person-mil-sil-and-pil-on-two-boards)):
 ```bash
@@ -154,11 +157,15 @@ python src/sil_benchmark.py --model_path models/tflite/MobileNetV2_COCO+32+50+0.
 python src/compare_results.py results/smoke_test results
 python src/build_benchmark_table.py --tag COCO --output_dir results/smoke_test/tables
 ```
-The last command rebuilds the table of this benchmark (`results/tables/benchmark_COCO.md`) from the published result files alone.
+The last command rebuilds the table of this benchmark (`results/tables/benchmark_COCO.md` and `.csv`) from the published result files alone; `git diff --no-index --ignore-cr-at-eol results/tables/benchmark_COCO.csv results/smoke_test/tables/benchmark_COCO.csv` prints nothing when the rebuilt table is the published one. Checked from a fresh clone: the fourteen MIL and SIL runs came out identical to the published ones, image by image, in about half an hour.
 
 **Board levels.** PIL and HIL use the commands of steps 5 to 7 of [Usage](#usage-full-pipeline) with `--splits_dir data/splits_coco`, on either board. The published PIL files of these models are protected against replacement, so add `--output_dir` (or `--overwrite`). A PIL run of the 5,000 images takes from 65 minutes (`MobileNet` on the Nicla Vision) to almost 5 hours (`ResNet8` on the Portenta H7). HIL has not been measured on this benchmark yet (see [Results](#results)).
 
-**Training.** To train the models instead of downloading them, run the second command of step 2 of [Usage](#usage-full-pipeline) with `--splits_dir data/splits_coco`, `--seed 42` and a tag of your own; the full recipe of each published model (options, learning rates, augmentation, per-epoch history, software versions) is in its training record. The seven trainings took 5.4 hours on one GPU (RTX 2080 SUPER). The seed repeats a run exactly on a CPU but not on a GPU, so training again gives other weights and slightly other numbers: the published numbers are reproduced with the published model files.
+**Training.** To train the models instead of downloading them, this is the command of the published `MobileNetV2` (the options are explained in step 2 of [Usage](#usage-full-pipeline)); use a tag of your own instead of `COCO`, so that your runs do not take the names of the published ones (the scripts refuse to replace their files):
+```bash
+python src/train_mobilenet.py --base_model MobileNetV2 --trainable_backbone --width 160 --height 120 --batch_size 32 --epochs 50 --learning_rate 0.0003 --lr_schedule stepped --augmentation light --seed 42 --splits_dir data/splits_coco --tag COCO
+```
+The other six differ only in the script and its first options: `train_mobilenet.py --base_model MobileNet`, `MobileNetV3Small` or `MobileNetV3Large` with `--trainable_backbone`; `train_resnet.py --base_model ResNet8` or `ResNet18`; and `train_squeezenet.py --batch_norm`. Each run writes its recipe, per-epoch history and software versions to `{model}.training.json` next to the checkpoint. The seven trainings took 5.4 hours on one GPU (RTX 2080 SUPER). The seed repeats a run exactly on a CPU but not on a GPU, so training again gives other weights and slightly other numbers: the published numbers are reproduced with the published model files.
 
 ---
 
@@ -687,7 +694,7 @@ phlame-tinyml/
 ├── results/               # mil/, sil/, pil/, hil/, tables/, training_curves/
 ├── src/                   # Python source code (see Scripts)
 ├── tensorboard_logs/      # TensorBoard event logs from training
-├── tests/                 # test_results_schema.py, test_own_dataset.py, test_cli.py, test_boards.py, test_release.py, test_compare_results.py, test_near_duplicates.py, test_images.py, test_training_recipe.py, test_sil_kernels.py, test_benchmark_table.py, test_hil_session.py, test_calibration.py, test_statistics.py, test_published_tables.py, test_serial_framing.py, test_split_properties.py, test_ladder_benchmarks.py, test_pil_session.py, test_software_versions.py, test_count_macs.py, test_evaluation.py, test_help_without_tensorflow.py, test_project_metadata.py
+├── tests/                 # test_results_schema.py, test_own_dataset.py, test_cli.py, test_boards.py, test_release.py, test_compare_results.py, test_near_duplicates.py, test_images.py, test_training_recipe.py, test_sil_kernels.py, test_benchmark_table.py, test_hil_session.py, test_calibration.py, test_statistics.py, test_published_tables.py, test_serial_framing.py, test_split_properties.py, test_ladder_benchmarks.py, test_pil_session.py, test_software_versions.py, test_count_macs.py, test_evaluation.py, test_help_without_tensorflow.py, test_project_metadata.py, test_scratch_folder.py
 ├── CITATION.cff
 ├── LICENSE.txt
 ├── README.md

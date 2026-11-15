@@ -79,9 +79,14 @@ def collect_paths(node, prefix, paths):
             collect_paths(value, path, paths)
 
 
+# Git-ignored scratch folder where the README's own commands write: its files are not published results.
+SCRATCH_DIR = RESULTS_DIR / "smoke_test"
+
+
 def real_paths(pattern):
-    """Return (paths, n_files) for the JSON files matching pattern under results/."""
-    files = glob.glob(str(RESULTS_DIR / "**" / pattern), recursive=True)
+    """Return (paths, n_files) for the published JSON files matching pattern under results/."""
+    files = [name for name in glob.glob(str(RESULTS_DIR / "**" / pattern), recursive=True)
+             if SCRATCH_DIR not in Path(name).parents]
     paths = set()
     for name in files:
         with open(name, encoding="utf-8") as fh:
