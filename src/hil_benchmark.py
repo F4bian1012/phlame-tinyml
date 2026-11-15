@@ -35,6 +35,14 @@ Outputs (in --output_dir, default results/hil/; results/nicla/hil/ with --board 
                                      — the environmental protocol required for
                                      reproducible reporting
 
+A session that is cut short keeps what it measured. Every row goes to the CSV
+as soon as its stimulus is measured, and the other files are written however
+the sweep ends: a lost serial link, a board that stops answering, Ctrl+C or an
+error in the middle. Such a run is marked (completed = false, with the number
+of stimuli planned and the reason, in conditions_<tag>.json and
+metrics_<tag>.json) and the script ends with exit code 3, so it cannot be
+taken for a full session. Its metrics describe only the stimuli measured.
+
 Companion firmware: deployment/hil_firmware/hil_firmware.ino
 (dedicated HIL sketch; the PIL sketch pil_firmware.ino and its host benchmark
 pil_benchmark.py remain separate and untouched).
@@ -62,11 +70,16 @@ Typical usage (full fidelity ladder on live camera frames, manifest hil_subset):
       --sil_model models/tflite/{model_name}_int8.tflite \
       --mil_model models/checkpoints/{model_name}.keras
 
+The model on the board is always verified before the first stimulus: its
+fingerprint must match the .tflite given with --model_path (or --sil_model).
+--model_tag only names the output files. The rig itself (aim, distance, focus,
+exposure) is checked beforehand with src/calibrate_hil_rig.py, which shows its
+patterns through the same stimulus window.
+
 Requirements: pyserial, opencv-python, numpy (+ scikit-learn, seaborn,
 matplotlib for the confusion matrix and JSON metrics).
 """
 
-import argparse
 import csv
 import json
 import os
@@ -74,6 +87,7 @@ import random
 import re
 import sys
 import time
+import traceback
 from collections import Counter
 from datetime import datetime, timezone
 import hashlib
@@ -195,22 +209,34 @@ def previous_runs_fingerprints(output_dir: str):
 def verify_model_identity(fw, expected, model_tag, output_dir, allow_mismatch=False):
     """
     Runs three checks in order:
-      1. whether the firmware reported a model fingerprint (warns if legacy);
-      2. whether the on-chip fingerprint matches the given .tflite (ABORTS on mismatch);
+      1. whether the firmware reported a model fingerprint (ABORTS if it did not:
+         a build without fingerprinting cannot be verified);
+      2. whether the on-chip fingerprint matches the given .tflite (ABORTS on
+         mismatch, and when no .tflite was given to compare with);
       3. whether any PREVIOUS run in output_dir recorded the exact same on-chip
          fingerprint under a DIFFERENT model tag (ABORTS on collision — prevents
          mislabeling an already-flashed binary under a new architecture name).
+    A session is therefore never measured with an unverified model, whatever
+    names its output files (--model_path or --model_tag). allow_mismatch
+    (--allow_model_mismatch, debugging only) turns the three stops into
+    warnings; the run is then recorded with model_identity_verified = false.
     Returns True if model identity was positively verified.
     """
     ok = False
     if fw['model_fnv1a'] is None:
-        print("[WARN] Firmware did NOT report MODEL_FNV1A: legacy firmware without "
-              "fingerprinting. This run's label is NOT verified against the "
-              "board. Reflash the updated hil_firmware.ino sketch.")
+        print("[ERROR] The firmware did NOT report MODEL_FNV1A: it is a build "
+              "without fingerprinting, so the model on the board cannot be "
+              "verified. Flash the current hil_firmware.ino sketch.")
+        if not allow_mismatch:
+            sys.exit(2)
+        print("[WARN] --allow_model_mismatch set: this run is NOT verified against the board.")
     elif expected is None:
-        print("[WARN] No --model_path provided: cannot compare on-chip fingerprint "
-              f"({fw['model_fnv1a']}, {fw['model_bytes']} B) against a reference file. "
-              "Pass --model_path <path> to verify model identity.")
+        print("[ERROR] No .tflite to compare the on-chip fingerprint with "
+              f"({fw['model_fnv1a']}, {fw['model_bytes']} B). Pass --model_path "
+              "<the .tflite that was flashed>; --model_tag only names the output files.")
+        if not allow_mismatch:
+            sys.exit(2)
+        print("[WARN] --allow_model_mismatch set: this run is NOT verified against the board.")
     else:
         same = (fw['model_fnv1a'] == expected['fnv1a']
                 and fw['model_bytes'] == expected['bytes'])
@@ -770,11 +796,94 @@ class MilModel:
 # Stimulus rig: host-controlled monitor display
 # --------------------------------------------------------------------------
 
-def open_stimulus_window(fullscreen=True):
+def _make_process_dpi_aware():
+    """Windows: monitor rectangles and window positions in physical pixels.
+    Only called for --monitor; without that option the process is left as it
+    was, so the stimulus is drawn exactly as in the earlier sessions."""
+    try:
+        import ctypes
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except Exception:   # not Windows, or already set for this process
+        pass
+
+
+def list_monitors():
+    """[x, y, width, height] of every connected monitor, the primary one first.
+
+    Windows only (EnumDisplayMonitors); an empty list anywhere else or when the
+    call fails. The rectangles are in the coordinates the process uses for its
+    windows.
+    """
+    try:
+        import ctypes
+        from ctypes import wintypes
+        found = []
+        callback_type = ctypes.WINFUNCTYPE(ctypes.c_int, wintypes.HMONITOR, wintypes.HDC,
+                                           ctypes.POINTER(wintypes.RECT), wintypes.LPARAM)
+
+        def callback(_monitor, _dc, rect, _data):
+            r = rect.contents
+            found.append([r.left, r.top, r.right - r.left, r.bottom - r.top])
+            return 1
+
+        ctypes.windll.user32.EnumDisplayMonitors(None, None, callback_type(callback), 0)
+        return sorted(found, key=lambda m: (m[0], m[1]) != (0, 0))
+    except Exception:
+        return []
+
+
+def resolve_monitor(monitor):
+    """What --monitor N means on this computer: None for -1 (the window opens
+    where the system puts it, as before the option existed), otherwise the
+    index, the rectangle of that monitor and the list of all of them. This is
+    what the conditions file records as stimulus_monitor. Stops the script
+    (exit code 2) when there is no such monitor."""
+    if monitor is None or monitor < 0:
+        return None
+    _make_process_dpi_aware()
+    monitors = list_monitors()
+    if monitor >= len(monitors):
+        print(f"[ERROR] --monitor {monitor}: "
+              + (f"only {len(monitors)} monitor(s) found: {monitors}." if monitors
+                 else "the monitors could not be listed (the option works on Windows only)."))
+        sys.exit(2)
+    return {'index': monitor, 'geometry': monitors[monitor], 'monitors': monitors}
+
+
+def open_stimulus_window(fullscreen=True, monitor=-1):
+    """Opens the stimulus window on the monitor with that index in
+    list_monitors() (0 = primary, 1 = the next one...; -1 = wherever the system
+    opens it). Returns resolve_monitor(monitor)."""
+    record = resolve_monitor(monitor)
     cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
+    if record:
+        x, y, w, h = record['geometry']
+        cv2.moveWindow(WINDOW_NAME, x + 10, y + 10)
+        print(f"[INFO] Stimulus on monitor {monitor}: {w}x{h} at ({x}, {y})")
     if fullscreen:
         cv2.setWindowProperty(WINDOW_NAME, cv2.WND_PROP_FULLSCREEN,
                               cv2.WINDOW_FULLSCREEN)
+    return record
+
+
+def wait_settle(settle_s):
+    """Keeps the stimulus on screen for settle_s seconds and returns how many
+    key presses arrived in the stimulus window meanwhile.
+
+    cv2.waitKey() is what draws the window, but it also returns as soon as a
+    key is pressed in it. A single call would therefore let any key press cut
+    the wait short and send the capture trigger before the display and the
+    camera exposure have settled. The wait is repeated until the time is up,
+    so a key press changes nothing.
+    """
+    deadline = time.monotonic() + max(0.0, settle_s)
+    keys = 0
+    while True:
+        remaining_ms = int(round((deadline - time.monotonic()) * 1000))
+        if cv2.waitKey(max(1, remaining_ms)) != -1:
+            keys += 1
+        if time.monotonic() >= deadline:
+            return keys
 
 
 def show_stimulus(image_path, settle_s):
@@ -808,9 +917,12 @@ def show_stimulus(image_path, settle_s):
     canvas[y0:y0 + new_h, x0:x0 + new_w] = resized
 
     cv2.imshow(WINDOW_NAME, canvas)
-    # waitKey pumps the GUI event loop, which is required for the frame to
+    # The wait pumps the GUI event loop, which is required for the frame to
     # actually render on screen before sending the capture trigger.
-    cv2.waitKey(max(1, int(settle_s * 1000)))
+    keys = wait_settle(settle_s)
+    if keys:
+        print(f"  [INFO] {keys} key press(es) in the stimulus window ignored; "
+              f"the settle time of {settle_s:g} s was kept.")
     return True
 
 
@@ -849,28 +961,69 @@ def _latency_summary(rows):
     return out
 
 
+# Columns of latency_metrics_<tag>.csv, one row per stimulus.
+CSV_FIELDS = (['idx', 'utc_iso', 'image', 'true_label', 'true_class',
+               'pred_label', 'pred_class', 'sil_label', 'sil_class',
+               'mil_label', 'mil_class', 'frame_file']
+              + [f.lower() for f in TELEMETRY_FIELDS])
+
+# A board that stops answering makes every stimulus wait for its full timeout
+# (30 s). After this many stimuli in a row without an answer the sweep ends
+# instead of waiting through the rest of the session.
+MAX_CONSECUTIVE_UNANSWERED = 5
+
+# Exit code of a run that did not measure every planned stimulus.
+EXIT_INCOMPLETE = 3
+
+
+def latency_csv_path(output_dir, model_tag):
+    return os.path.join(output_dir, f"latency_metrics_{model_tag}.csv")
+
+
+class RowLog:
+    """latency_metrics_<tag>.csv, written one row at a time.
+
+    Each row reaches the disk as soon as its stimulus is measured, so whatever
+    ends the session (a lost serial link, an error, a closed terminal) the
+    stimuli measured until then are in the file.
+    """
+
+    def __init__(self, path):
+        self.path = path
+        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+        self._file = open(path, 'w', newline='', encoding='utf-8')
+        self._writer = csv.DictWriter(self._file, fieldnames=CSV_FIELDS)
+        self._writer.writeheader()
+        self._file.flush()
+
+    def add(self, row):
+        self._writer.writerow(row)
+        self._file.flush()
+
+    def close(self):
+        if not self._file.closed:
+            self._file.close()
+
+
 def write_outputs(rows, class_names, conditions, output_dir, model_tag,
                   board_key=boards.DEFAULT_BOARD):
     """
-    Writes all HIL benchmark artifacts tagged with model_tag so consecutive
-    runs across different architectures never overwrite each other:
-      - latency_metrics_<tag>.csv
+    Writes the HIL benchmark artifacts that summarise a session, tagged with
+    model_tag so consecutive runs across different architectures never
+    overwrite each other:
       - conditions_<tag>.json
       - confusion_matrix_<tag>.png
       - metrics_<tag>.json (unified MIL/SIL/PIL/HIL schema)
+    The per-stimulus CSV (latency_metrics_<tag>.csv) is already on disk: RowLog
+    wrote it row by row during the sweep. rows holds the same rows in memory.
+
+    It is called however the sweep ended. conditions carries the planned number
+    of stimuli, the completed flag and, for a run cut short, the reason; the
+    metrics file repeats the first two, and its figures cover only the stimuli
+    measured.
     """
     os.makedirs(output_dir, exist_ok=True)
-
-    # --- Per-inference sensor->prediction latency CSV ---
-    csv_path = os.path.join(output_dir, f"latency_metrics_{model_tag}.csv")
-    fieldnames = (['idx', 'utc_iso', 'image', 'true_label', 'true_class',
-                   'pred_label', 'pred_class', 'sil_label', 'sil_class',
-                   'mil_label', 'mil_class', 'frame_file']
-                  + [f.lower() for f in TELEMETRY_FIELDS])
-    with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
+    csv_path = latency_csv_path(output_dir, model_tag)
     print(f"[OK]   Per-phase latencies saved to: {csv_path}")
 
     # --- Physical rig conditions (environmental protocol) ---
@@ -957,6 +1110,7 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag,
                 "port": conditions.get('port'),
                 "board": conditions.get('board'),
                 "baud": conditions.get('baud'),
+                "completed": conditions.get('completed'),
                 "settle_s": conditions.get('settle_s'),
                 "gap_s": conditions.get('gap_s'),
                 "seed": conditions.get('seed'),
@@ -970,6 +1124,7 @@ def write_outputs(rows, class_names, conditions, output_dir, model_tag,
                 "stimulus_source": conditions.get('stimulus_source'),
                 "manifest_subset": conditions.get('manifest_subset'),
                 "class_names": list(class_names),
+                "n_stimuli_planned": conditions.get('n_stimuli_planned'),
                 "n_stimuli": n_total,
                 "n_answered": n_resp,
                 "n_unanswered": n_total - n_resp,
@@ -1110,14 +1265,24 @@ def run_benchmark(args):
     elif tflite_path:
         model_tag = os.path.splitext(os.path.basename(tflite_path))[0]
     else:
-        print("[ERROR] Cannot determine which model is on the board to name output "
-              "artifacts: pass --model_path <path to flashed .tflite> (recommended; "
-              "also verifies the on-chip FNV-1a hash) or at least --model_tag <name>.")
+        print("[ERROR] Cannot determine which model is on the board: pass --model_path "
+              "<path to the flashed .tflite>. Its name tags the output files and its "
+              "fingerprint is checked against the one the firmware reports.")
         sys.exit(2)
     expected = expected_model_fingerprint(tflite_path)
     if tflite_path and expected is None:
         print(f"[ERROR] Specified .tflite file does not exist: {tflite_path}")
         sys.exit(2)
+    # --model_tag only names the output files. Without the .tflite there is
+    # nothing to compare the fingerprint of the board with, and the session
+    # would be measured on an unverified model: stop before opening the port.
+    if expected is None and not args.allow_model_mismatch:
+        print("[ERROR] --model_tag names the output files but does not say which model "
+              "is on the board. Pass --model_path <the .tflite that was flashed> as "
+              "well: its fingerprint is checked against the one the firmware reports.")
+        sys.exit(2)
+    # A --monitor that does not exist is also found out before the port is opened.
+    resolve_monitor(args.monitor)
     # Checked before opening the port or the stimulus window: a session must not
     # replace the results of another one (the published ones are tracked in results/).
     artifacts.refuse_to_overwrite(
@@ -1178,12 +1343,24 @@ def run_benchmark(args):
         print(f"[INFO] Frame-dump enabled; saving captured frames to: {frames_dir}")
 
     # Stimulus rig: host-controlled monitor window
-    open_stimulus_window(fullscreen=not args.windowed)
+    stimulus_monitor = open_stimulus_window(fullscreen=not args.windowed, monitor=args.monitor)
     print("[INFO] Stimulus window open. Align the camera with the screen "
           "(fixed distance and framing) and verify optical focus.")
     if not args.no_confirm:
-        input("       Press ENTER to start the stimulus sweep... ")
+        try:
+            input("       Press ENTER to start the stimulus sweep... ")
+        except (EOFError, KeyboardInterrupt) as stop:
+            # Nothing has been measured or written yet: leave cleanly.
+            ser.close()
+            cv2.destroyAllWindows()
+            if isinstance(stop, EOFError):
+                print("\n[ERROR] There is no terminal to read ENTER from. Run the bench in "
+                      "an interactive terminal, or pass --no_confirm to start at once.")
+            else:
+                print("\n[INFO] Cancelled before the first stimulus; nothing was written.")
+            sys.exit(1)
 
+    total = len(image_data)
     conditions = {
         'rig': 'monitor-controlled-stimulus (checklist Phase 1C, option a)',
         'utc_start': datetime.now(timezone.utc).isoformat(),
@@ -1204,7 +1381,13 @@ def run_benchmark(args):
         'dataset_folder': (_relpath_repo(args.folder)
                            if args.folder else None),
         'class_names': class_names,
-        'n_stimuli': len(image_data),
+        # Filled in when the sweep ends: n_stimuli counts the stimuli shown and
+        # recorded; completed says whether that is every planned one.
+        'n_stimuli_planned': total,
+        'n_stimuli': 0,
+        'completed': False,
+        'stopped_because': None,
+        'stimulus_monitor': stimulus_monitor,
         'settle_s': args.settle,
         'gap_s': args.gap,
         'seed': args.seed,
@@ -1223,7 +1406,11 @@ def run_benchmark(args):
     rows = []
     counts = Counter()
     errors = 0
-    total = len(image_data)
+    unanswered_in_a_row = 0
+    stopped_because = None      # why the sweep ended before its last stimulus
+    swept = False               # the loop reached its end (or its own stop) without an exception
+    idx = 0
+    log = RowLog(latency_csv_path(args.output_dir, model_tag))
 
     try:
         for idx, (image_path, true_label) in enumerate(image_data, start=1):
@@ -1278,8 +1465,10 @@ def run_benchmark(args):
             for field in TELEMETRY_FIELDS:
                 row[field.lower()] = telemetry.get(field)
             rows.append(row)
+            log.add(row)        # on disk now: a later failure cannot lose it
 
             if predicted is not None:
+                unanswered_in_a_row = 0
                 counts[predicted] += 1
                 marker = "✓" if predicted == true_label else "✗"
                 us_total = telemetry.get('US_TOTAL')
@@ -1295,35 +1484,73 @@ def run_benchmark(args):
                 print(f"  {marker} Predicted: {row['pred_class']}{lat}{xval}")
             else:
                 errors += 1
+                unanswered_in_a_row += 1
                 print("  [WARN] No response from firmware for this stimulus.")
+                if unanswered_in_a_row >= MAX_CONSECUTIVE_UNANSWERED:
+                    stopped_because = (f"the board stopped answering: {unanswered_in_a_row} stimuli "
+                                       f"in a row without a response (last one: {idx} of {total})")
+                    break
 
             if idx < total and args.gap > 0:
                 time.sleep(args.gap)
+        swept = True
     except KeyboardInterrupt:
-        print("\n[WARN] Interrupted by user; saving all data collected so far.")
+        stopped_because = f"interrupted by the operator (Ctrl+C) at stimulus {idx} of {total}"
+    except serial.SerialException as exc:
+        stopped_because = f"serial link lost at stimulus {idx} of {total}: {exc}"
+    except Exception as exc:    # whatever it is, the stimuli measured so far are kept
+        stopped_because = f"{type(exc).__name__} at stimulus {idx} of {total}: {exc}"
+        traceback.print_exc()
     finally:
+        # However the sweep ended, the session is closed and its files are
+        # written here: the CSV already holds every row measured.
+        log.close()
         conditions['utc_end'] = datetime.now(timezone.utc).isoformat()
-        # Disable frame-dump and close cleanly
+        # Disable frame-dump and close cleanly; the port may be gone already.
         try:
             if dump_frames:
                 ser.write(CMD_DUMP_OFF)
                 ser.flush()
                 read_lines_until(ser, lambda l: l == "FRAME_DUMP:OFF",
                                  timeout_s=3, echo=False)
-        except serial.SerialException:
+        except (serial.SerialException, OSError):
             pass
-        ser.close()
-        cv2.destroyAllWindows()
+        try:
+            ser.close()
+        except (serial.SerialException, OSError):
+            pass
+        try:
+            cv2.destroyAllWindows()
+        except cv2.error:
+            pass
 
-    answered = len(rows) - sum(1 for r in rows if r['pred_label'] is None)
-    print("\n" + "=" * 45)
-    print("  SUMMARY — HIL BENCHMARK (Camera-in-the-Loop)")
-    print(f"  Stimuli: {total}  |  Answered: {answered}  "
-          f"|  Failures: {errors}")
-    print("=" * 45)
+        if stopped_because is None and not swept:
+            stopped_because = f"the sweep ended unexpectedly at stimulus {idx} of {total}"
+        if stopped_because is None and len(rows) < total:
+            stopped_because = (f"{total - len(rows)} of {total} stimulus images could not "
+                               f"be displayed and were skipped")
+        completed = stopped_because is None
+        conditions['n_stimuli'] = len(rows)
+        conditions['completed'] = completed
+        conditions['stopped_because'] = stopped_because
 
-    write_outputs(rows, class_names, conditions, args.output_dir, model_tag,
-                  board_key=args.board)
+        answered = len(rows) - sum(1 for r in rows if r['pred_label'] is None)
+        print("\n" + "=" * 45)
+        print("  SUMMARY — HIL BENCHMARK (Camera-in-the-Loop)")
+        print(f"  Stimuli: {total} planned, {len(rows)} measured  |  "
+              f"Answered: {answered}  |  Failures: {errors}")
+        print("=" * 45)
+
+        write_outputs(rows, class_names, conditions, args.output_dir, model_tag,
+                      board_key=args.board)
+
+    if not completed:
+        print(f"\n[WARN] RUN NOT COMPLETED: {len(rows)} of {total} stimuli measured "
+              f"({stopped_because}).")
+        print(f"       The rows measured are in {log.path}; the conditions file and, when "
+              f"there was at least one answer, the metrics file are marked completed = false. "
+              f"Run the session again (with --overwrite) for a full result.")
+        sys.exit(EXIT_INCOMPLETE)
 
 
 def parse_args():
@@ -1374,8 +1601,15 @@ def parse_args():
                         help="Replace the matrix, JSON and CSV files if they already exist")
     parser.add_argument('--windowed', action='store_true',
                         help="Open a normal resizable window instead of fullscreen")
+    parser.add_argument('--monitor', type=int, default=-1, metavar='N',
+                        help="Monitor that shows the stimuli: 0 is the primary one, 1 the "
+                             "next... (Windows only). Default -1: the window opens where "
+                             "the system puts it, as before this option existed. Recorded "
+                             "in the conditions file; use the same value to calibrate "
+                             "(calibrate_hil_rig.py) and to measure")
     parser.add_argument('--no_confirm', action='store_true',
-                        help="Start the stimulus sweep immediately without waiting for ENTER")
+                        help="Start the stimulus sweep immediately without waiting for ENTER "
+                             "(needed when there is no interactive terminal)")
     # Environmental rig conditions
     parser.add_argument('--lux', type=float, default=None,
                         help="Illuminance measured at the screen plane [lux]")
@@ -1393,11 +1627,14 @@ def parse_args():
                              "when omitted.")
     parser.add_argument('--model_tag', default=None, metavar='NAME',
                         help="Tag used to name output files (default: .tflite "
-                             "basename without extension).")
+                             "basename without extension). It does not replace "
+                             "--model_path: the fingerprint check needs the .tflite.")
     parser.add_argument('--allow_model_mismatch', action='store_true',
-                        help="Do NOT abort on on-chip FNV-1a mismatch or "
-                             "previous-run tag collision (debugging only; "
-                             "recorded in output JSON).")
+                        help="Do NOT abort when the model on the board cannot be "
+                             "verified: no .tflite given, a firmware that reports no "
+                             "fingerprint, an on-chip FNV-1a mismatch or a previous-run "
+                             "tag collision (debugging only; the run is recorded with "
+                             "model_identity_verified = false).")
     parser.add_argument('--allow_missing_conditions', action='store_true',
                         help="Do NOT abort when --lux/--distance_cm/"
                              "--ambient_temp are omitted (smoke tests only).")

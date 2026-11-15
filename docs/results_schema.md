@@ -116,7 +116,8 @@ Every evaluation script writes a `metrics_{model}[_int8].json` file capturing cl
 | `dataset.image_size.height` | MIL, SIL | `integer` | Input height in pixels. |
 | `dataset.n_samples` | MIL, SIL | `integer` | Total number of test images evaluated in the session. |
 | `dataset.n_images` | PIL | `integer` | Total number of test images sent to the board in the session. |
-| `dataset.n_stimuli` | HIL | `integer` | Total number of optical stimuli presented in the session. |
+| `dataset.n_stimuli` | HIL | `integer` | Number of optical stimuli presented and recorded in the session (one row of the latency CSV each). |
+| `dataset.n_stimuli_planned` | HIL | `integer` | Number of stimuli the session set out to present; equal to `dataset.n_stimuli` in a completed run. Written from November 2026 on; absent in earlier files. |
 | `dataset.n_answered` | PIL, HIL | `integer` | Number of test items for which the microcontroller successfully returned a class prediction. |
 | `dataset.n_unanswered` | PIL, HIL | `integer` | Number of test items where the board timed out or failed to return a prediction. Disentangles hardware/communication dropouts from classification errors. |
 
@@ -138,6 +139,7 @@ Every evaluation script writes a `metrics_{model}[_int8].json` file capturing cl
 | `run.seed` | HIL | `integer` | Random seed used for reproducible stimulus ordering (default: `42`). |
 | `run.frame_dump` | HIL | `boolean` | `true` if raw 160×120 sensor frames were read back over serial for cross-level validation and image logging. |
 | `run.conditions_complete` | HIL | `boolean` | `true` if all mandatory environmental conditions (`illuminance_lux`, `camera_to_screen_distance_cm`, `ambient_temp_c`) were recorded. |
+| `run.completed` | HIL | `boolean` | `true` when every planned stimulus was presented and recorded. `false` when the session was cut short (a lost serial link, a board that stopped answering, Ctrl+C, an error, or a stimulus image that could not be displayed): the figures of the file then cover only the `dataset.n_stimuli` stimuli measured, and the reason is in `stopped_because` of the conditions file. Written from November 2026 on; absent in earlier files, which are all complete runs. |
 | `run.illuminance_lux` | HIL | `float` | Illuminance measured at the screen plane in lux (`10.0` lux in the primary protocol). |
 | `run.camera_to_screen_distance_cm` | HIL | `float` | Distance from the camera lens to the monitor screen in cm (`24.0` cm in the primary protocol). |
 | `run.ambient_temp_c` | HIL | `float` | Ambient room temperature measured at session start in °C. |
@@ -227,7 +229,14 @@ Alongside `metrics_*.json`, the HIL benchmark generates a standalone `conditions
 | `manifest_subset` | `string\|null` | Filter applied to the manifest (`"hil_subset==1"`, or `"all-test"`); `null` when `--folder` is used. |
 | `dataset_folder` | `string\|null` | Folder passed with `--folder`; `null` when the stimuli come from the manifest. |
 | `class_names` | `array[string]` | Class names in label order (the list index is the integer label returned by the firmware). |
-| `n_stimuli` | `integer` | Number of stimuli presented in the run. |
+| `n_stimuli` | `integer` | Number of stimuli presented and recorded in the run. |
+| `n_stimuli_planned` | `integer` | Number of stimuli the run set out to present; equal to `n_stimuli` in a completed run. Written from November 2026 on; absent in earlier files. |
+| `completed` | `boolean` | `true` when every planned stimulus was presented and recorded; `false` when the run was cut short. This file is written either way. Written from November 2026 on; absent in earlier files, which are all complete runs. |
+| `stopped_because` | `string\|null` | Why a run that is not `completed` ended (for example `"serial link lost at stimulus 199 of 200: ..."`); `null` in a completed run. Written from November 2026 on; absent in earlier files. |
+| `stimulus_monitor` | `object\|null` | Monitor the stimulus window was sent to with `--monitor`; `null` without that option (the window opens where the system puts it). Written from November 2026 on; absent in earlier files. |
+| `stimulus_monitor.index` | `integer` | Value of `--monitor`: `0` is the primary monitor, `1` the next one. |
+| `stimulus_monitor.geometry` | `array[integer]` | `[x, y, width, height]` of that monitor in desktop coordinates. |
+| `stimulus_monitor.monitors` | `array[array[integer]]` | The same four numbers for every monitor found, the primary one first. |
 | `notes` | `string` | User-provided laboratory notes (monitor model, lighting fixtures, etc.). |
 | `frame_dump` | `boolean` | `true` when the captured frames were sent back and saved (`--dump_frames`, also implied by `--sil_model` / `--mil_model`). |
 | `frames_dir` | `string\|null` | Folder where the dumped frames were written; `null` when `frame_dump` is `false`. |
@@ -251,4 +260,4 @@ Alongside `metrics_*.json`, the HIL benchmark generates a standalone `conditions
 | `expected_model.fnv1a` | `string` | 8-character hex 32-bit FNV-1a hash calculated from the host `.tflite` file. |
 | `model_identity_verified` | `boolean` | `true` if `firmware_model.model_fnv1a == expected_model.fnv1a` and `firmware_model.model_bytes == expected_model.bytes`. Validates that the flashed firmware contains the exact intended model. |
 
-Some CLI options are recorded indirectly or not at all: `--all_test` is recorded as `manifest_subset = "all-test"` (otherwise `"hil_subset==1"`); `--folder` as `stimulus_source = "folder:<path>"` plus `dataset_folder` (and `manifest` / `manifest_subset` become `null`); `--dump_frames` as `frame_dump`. `--windowed`, `--delay`, `--allow_model_mismatch` and `--allow_missing_conditions` are not recorded; the outcome of the two safety checks is recorded in `model_identity_verified` and `conditions_complete`.
+Some CLI options are recorded indirectly or not at all: `--all_test` is recorded as `manifest_subset = "all-test"` (otherwise `"hil_subset==1"`); `--folder` as `stimulus_source = "folder:<path>"` plus `dataset_folder` (and `manifest` / `manifest_subset` become `null`); `--dump_frames` as `frame_dump`; `--monitor` as `stimulus_monitor`. `--windowed`, `--delay`, `--allow_model_mismatch` and `--allow_missing_conditions` are not recorded; the outcome of the two safety checks is recorded in `model_identity_verified` and `conditions_complete`.

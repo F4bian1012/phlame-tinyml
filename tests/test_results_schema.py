@@ -24,6 +24,15 @@ DYNAMIC_CHILDREN = {
     "per_class_metrics": "<CLASS>",
     "prediction_counts": "<CLASS>",
 }
+# Keys the HIL bench writes that no published file carries yet: it gained them in
+# November 2026 and no session has been measured since. They are documented from
+# what the bench writes, which tests/test_hil_session.py checks against a
+# simulated board. When a published file has one of them it must leave this list:
+# the last test of this file fails until it does.
+NOT_YET_PUBLISHED_METRICS = {"run.completed", "dataset.n_stimuli_planned"}
+NOT_YET_PUBLISHED_CONDITIONS = {"n_stimuli_planned", "completed", "stopped_because", "stimulus_monitor",
+                                "stimulus_monitor.index", "stimulus_monitor.geometry",
+                                "stimulus_monitor.monitors"}
 METRICS_HEADING = re.compile(r"^## .*`metrics_\*\.json`")
 CONDITIONS_HEADING = re.compile(r"^## .*`conditions_\*\.json`")
 KEY_ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|")
@@ -89,7 +98,8 @@ class ResultsSchemaTest(unittest.TestCase):
 
     def test_every_documented_metrics_key_exists(self):
         self.check_inputs_found()
-        self.assert_none(self.doc_metrics - self.real_metrics, "documented metrics keys found in no JSON")
+        self.assert_none(self.doc_metrics - self.real_metrics - NOT_YET_PUBLISHED_METRICS,
+                         "documented metrics keys found in no JSON")
 
     def test_every_conditions_key_is_documented(self):
         self.check_inputs_found()
@@ -97,7 +107,17 @@ class ResultsSchemaTest(unittest.TestCase):
 
     def test_every_documented_conditions_key_exists(self):
         self.check_inputs_found()
-        self.assert_none(self.doc_conditions - self.real_conditions, "documented conditions keys found in no JSON")
+        self.assert_none(self.doc_conditions - self.real_conditions - NOT_YET_PUBLISHED_CONDITIONS,
+                         "documented conditions keys found in no JSON")
+
+    def test_keys_listed_as_not_yet_published_are_documented_and_still_unpublished(self):
+        self.check_inputs_found()
+        for listed, documented, published in (
+                (NOT_YET_PUBLISHED_METRICS, self.doc_metrics, self.real_metrics),
+                (NOT_YET_PUBLISHED_CONDITIONS, self.doc_conditions, self.real_conditions)):
+            self.assert_none(listed - documented, "listed as not yet published but not documented")
+            self.assert_none(listed & published,
+                             "now in a published file: remove from the NOT_YET_PUBLISHED list of this test")
 
 
 if __name__ == "__main__":
