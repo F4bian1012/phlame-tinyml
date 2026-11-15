@@ -85,7 +85,7 @@ The commands are those of [Usage](../README.md#usage-full-pipeline), unchanged. 
 | Checksums | `models/checksums.sha256`, `verify_models.py` | Only when its results go into the repository, see below. |
 
 **Flash and tensor arena.** The limits and the figures of the published models are in
-[Hardware Details](../README.md#hardware-details) and in [Boards and Memory](hardware.md#boards-and-memory). In short:
+[Flash Budget](hardware.md#flash-budget) and in [Boards and Memory](hardware.md#boards-and-memory). In short:
 
 - The model shares the internal flash with the firmware. `compile_upload_arduino.py --target pil --board nicla
   --compile_only` prints the flash and RAM the build uses without a board. For the Portenta H7 arduino-cli prints no

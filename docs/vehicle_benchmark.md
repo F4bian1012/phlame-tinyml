@@ -69,7 +69,7 @@ Evaluated on the balanced binary partition (`data/splits_plates/test`, n = 940 t
 > †**Subset representativeness note (`ResNet8` PIL on n=940 vs. n=200):** Both PIL figures are reported explicitly because the fixed 200-image `hil_subset` happens to be slightly easier for `ResNet8` than the full 940-image test split (`0.9600` on n=200 vs. `0.9308` on n=940, a +0.0292 sampling offset). Computing the physical-frontend gap (PIL → HIL) always requires comparing paired predictions on the **exact same n=200 images** (`0.9600 → 0.8632`, Δ = −0.0968, exact McNemar p < 0.001, Holm-adjusted p < 0.001), rather than mixing n=940 with n=200.
 
 `MobileNetV3Large` and `ResNet18` do not fit the internal flash of the board (see
-[Hardware Details](../README.md#hardware-details) in the README), so they stop at SIL.
+[Flash Budget](hardware.md#flash-budget)), so they stop at SIL.
 
 ## Paired 2×3 Decomposition on the HIL Subset (n = 200, `hil_subset == 1`)
 
@@ -150,7 +150,7 @@ portability to another microcontroller family. The COCO benchmark was then measu
 - **Default TFLite interpreter at SIL.** The SIL runs used the default interpreter of TFLite (XNNPACK delegate),
   whose kernels do not give the chip's prediction for every image: on the COCO benchmark it differs from the chip
   in 27 to 80 of 5,000 images, for the same files on which the reference kernels of TFLite differ in 1 to 25
-  ([Results](../README.md#results), section 1). Part of what the SIL-to-PIL comparison shows here is therefore the
+  ([notes on the COCO results](coco_benchmark.md#notes-on-the-results)). Part of what the SIL-to-PIL comparison shows here is therefore the
   PC, not the chip.
 - **PIL files without the on-chip model verification.** The PIL runs were measured when `pil_benchmark.py` hashed
   the `.tflite` passed with `--model_path` on the host and never compared it with the board, so their `sha256`

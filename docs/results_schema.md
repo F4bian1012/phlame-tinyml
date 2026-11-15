@@ -4,9 +4,10 @@ Single source of truth for the machine-readable result files in `results/`. Run
 `python -m unittest discover -s tests -v` to check this document against every published JSON:
 `tests/test_results_schema.py` fails if a key exists in a JSON but not here, or here but in no JSON.
 
-**Table convention.** In every table of this document, the first column holds the full path of exactly
-one key between backticks, with dots for nesting. The `metrics_*.json` sections give paths from the root
-of the metrics JSON; the `conditions_*.json` section gives paths from the root of the conditions JSON.
+**Table convention.** In every table of the two schema sections (`metrics_*.json` and `conditions_*.json`),
+the first column holds the full path of exactly one key between backticks, with dots for nesting. The
+`metrics_*.json` sections give paths from the root of the metrics JSON; the `conditions_*.json` section gives
+paths from the root of the conditions JSON.
 
 Dynamic keys use placeholders:
 
@@ -15,6 +16,23 @@ Dynamic keys use placeholders:
   VWW) and also the aggregate entries added by scikit-learn: `macro avg` and `weighted avg` (objects with
   `precision`, `recall`, `f1-score`, `support`) and `accuracy` (a number, not an object).
 - `<CLASS>` under `prediction_counts`: a predicted class index as a string (`"0"`, `"1"`, ...).
+
+## Result Files
+
+Every level writes into its own folder, `results/{mil,sil,pil,hil}/`, with the same file names. `{model}` is the model name, which ends in `_int8` from SIL onwards:
+
+| File | Content | MIL | SIL | PIL | HIL |
+|---|---|:-:|:-:|:-:|:-:|
+| `confusion_matrix_{model}.png` | Confusion matrix, for visual inspection | ✓ | ✓ | ✓ | ✓ |
+| `metrics_{model}.json` | Global and per-class metrics, model hash, run settings | ✓ | ✓ | ✓ | ✓ |
+| `predictions_{model}.csv` | True and predicted class of every test image | ✓ | ✓ | ✓ | — |
+| `latency_metrics_{model}.csv` | Per-image latency by phase, measured on the chip | — | — | ✓ | ✓ |
+| `conditions_{model}.json` | Rig conditions and the model fingerprint reported by the board | — | — | — | ✓ |
+
+In HIL the per-image predictions are columns of `latency_metrics_{model}.csv`, next to the latencies of the same capture.
+
+- **Same `sha256` across SIL, PIL and HIL:** Verifies that the same `.tflite` file was evaluated on the host. MIL records the hash of the `.keras` file, so it never matches the other levels. Whether the board ran that file is a separate check: the firmware announces the FNV-1a fingerprint of the model it carries and the bench stops unless it is that of the `.tflite` (`model.identity_verified`). Every published HIL file has that check. The published PIL files were measured before the PIL firmware announced the fingerprint, and a board running another model is ruled out for them indirectly (see [Known Limitations](../README.md#known-limitations)).
+- **`predictions_*.csv` (`;`-separated):** Columns: `Image;RelPath;TrueLabel;TrueClass;PredLabel;PredClass;Correct`. `RelPath` disambiguates files sharing identical names across class subdirectories. In PIL and HIL, empty cells differentiate between unlabelled stimuli and hardware dropouts. Joining on `RelPath` isolates the exact images that flip prediction across ladder rungs.
 
 ## Former Key Names
 
@@ -285,3 +303,35 @@ Alongside `metrics_*.json`, the HIL benchmark generates a standalone `conditions
 | `model_identity_verified` | `boolean` | `true` if `firmware_model.model_fnv1a == expected_model.fnv1a` and `firmware_model.model_bytes == expected_model.bytes`. Validates that the flashed firmware contains the exact intended model. |
 
 Some CLI options are recorded indirectly or not at all: `--all_test` is recorded as `manifest_subset = "all-test"` (otherwise `"hil_subset==1"`); `--folder` as `stimulus_source = "folder:<path>"` plus `dataset_folder` (and `manifest` / `manifest_subset` become `null`); `--dump_frames` as `frame_dump`; `--monitor` as `stimulus_monitor`. `--windowed`, `--delay`, `--allow_model_mismatch` and `--allow_missing_conditions` are not recorded; the outcome of the two safety checks is recorded in `model_identity_verified` and `conditions_complete`.
+
+## Inspecting Results Programmatically
+
+Because all levels adhere to this unified schema, the full fidelity ladder can be compared across levels, architectures, and latency domains with a few lines of Python:
+
+```python
+import glob, json
+
+for f in sorted(glob.glob("results/*/metrics_*.json")):
+    with open(f, encoding="utf-8") as fh:
+        d = json.load(fh)
+    level = d["level"]
+    m_name = d["model"]["name"]
+    g = d["global_metrics"]
+    sha = (d["model"]["sha256"] or "N/A")[:12]
+    unresp = d.get("dataset", {}).get("n_unanswered", 0)
+
+    # Hardware latency & on-chip verification (PIL / HIL)
+    lat_str = ""
+    if "latency" in d and "per_field" in d["latency"]:
+        us_tot = d["latency"]["per_field"].get("US_TOTAL")
+        if us_tot and us_tot.get("mean") is not None:
+            lat_str = f" | {us_tot['mean']/1000.0:.2f} ms"
+
+    verif_str = ""
+    if level == "HIL":
+        verified = d["model"].get("identity_verified")
+        verif_str = f" [chip_verified={verified}]"
+
+    print(f"{level:4} {m_name:40} acc={g['accuracy']:.4f} f1_macro={g['f1_macro']:.4f} "
+          f"sha256={sha} drops={unresp}{lat_str}{verif_str}")
+```

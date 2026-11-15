@@ -145,6 +145,18 @@ Which of these have run on a board and which only against the simulated board of
   `build_ladder_tables.py` with no option still rebuilds its eight tables in `results/tables/`.
 - The README is shorter. The detail of the seven usage steps and of the Arduino Nicla Vision moved to
   [`docs/usage.md`](docs/usage.md); the README keeps the sequence of commands.
+- The README was cut a second time. It keeps the two tables of the COCO benchmark, a short list of what they
+  show, the commands that reproduce the PC levels and each limitation in one or two sentences. What left it is in
+  the documents: the full recipe and the full notes of the COCO benchmark in the new
+  [`docs/coco_benchmark.md`](docs/coco_benchmark.md); the hardware details and the flash budget in
+  [`docs/hardware.md`](docs/hardware.md); the index of the scripts and the layout of the repository in
+  [`docs/scripts.md`](docs/scripts.md); the table of the result files, how to read them and the Python snippet in
+  [`docs/results_schema.md`](docs/results_schema.md); and the note on the two requirements files in
+  [`docs/usage.md`](docs/usage.md). No number changed.
+- [`docs/related_work.md`](docs/related_work.md) compares PHLAME with MLPerf Tiny and with other benchmarks and
+  tools: what each measures, what PHLAME does that was not found in them, and what it does not do (no energy
+  measurement, one microcontroller, no standardised submission process, no release yet). Its sources were read in
+  their HTML versions and still have to be checked against the PDFs.
 
 ### Renamed
 

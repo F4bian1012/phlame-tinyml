@@ -1,8 +1,8 @@
 # Usage: the Full Pipeline in Detail
 
-The [README](../README.md#usage-full-pipeline) gives the seven steps as one short sequence of commands. This page goes through the same steps with their options, what each script checks before it runs and what it leaves behind, and ends with the two board levels on the Arduino Nicla Vision. The reference of every script is [`scripts.md`](scripts.md).
+The [README](../README.md#usage-full-pipeline) gives the seven steps as one short sequence of commands. This page goes through the same steps with their options, what each script checks before it runs and what it leaves behind, and ends with the two board levels on the Arduino Nicla Vision and a note on the two requirements files. The reference of every script is [`scripts.md`](scripts.md).
 
-Every step needs your own dataset in `data/raw/`; steps 6 and 7 also need the board. The four levels share their options (`--model_path`, `--splits_dir`, `--output_dir`, `--overwrite`), and every multi-word option can be written with `_` or `-`. Extra options and details are in the [usage notes](scripts.md#usage-notes). The published COCO benchmark has its own recipe with the exact commands: see [Reproduce the Public Benchmark (COCO)](../README.md#reproduce-the-public-benchmark-coco).
+Every step needs your own dataset in `data/raw/`; steps 6 and 7 also need the board. The four levels share their options (`--model_path`, `--splits_dir`, `--output_dir`, `--overwrite`), and every multi-word option can be written with `_` or `-`. Extra options and details are in the [usage notes](scripts.md#usage-notes). The published COCO benchmark has its own recipe with the exact commands: see [`coco_benchmark.md`](coco_benchmark.md#reproducing-the-benchmark).
 
 No dataset at hand? The public Visual Wake Words subset can stand in for it. This downloads 2,000 images into `data/raw/person` and `data/raw/non_person` in about a minute, and every command below then works unchanged:
 ```bash
@@ -130,3 +130,18 @@ Two things differ from the Portenta H7 (details in [Hardware and Porting](hardwa
 - **Camera.** Its GC2145 is a colour sensor: the firmware reads RGB565 and converts it to 8-bit luminance (BT.601 weights, as Pillow does) before the same preprocessing as on the Portenta H7.
 
 > **Status.** The PIL level of the COCO benchmark was measured on a Nicla Vision: the five models that fit, 5,000 test images each, with the same prediction as the Portenta H7 for every image and 11.4% to 19.9% fewer inference cycles (`results/nicla/pil/`; see [Results](../README.md#results), section 1, and [Boards and Memory](hardware.md#boards-and-memory)). Both boards carry the same STM32H747, so that agreement is a consistency check between two boards, not evidence of portability to other microcontroller families. The first run on the board, with the `MobileNetV2` of the vehicle application case, is described in [`vehicle_benchmark.md`](vehicle_benchmark.md#the-same-model-on-a-second-board). The HIL sketch builds for the board and has not been run on it yet.
+
+## The Two Requirements Files
+`requirements.txt` declares *minimum* compatible
+versions (`>=`): it installs on other Python versions and operating systems, even with newer
+releases, and is what the installation commands of the [README](../README.md#installation) use. `requirements-lock.txt` pins the
+*exact* versions of the project virtual environment, the likely source of the published results (Python
+3.13.14, TensorFlow 2.21.0, see its header): use `pip install -r requirements-lock.txt`
+when you need to reproduce the reported numbers rather than just run the
+framework. One file cannot do both: exact pins stop installing as soon as a
+release disappears or is missing for another Python version, and minimums alone
+cannot rebuild the exact environment. `scikit-learn` and `seaborn` are not optional:
+the evaluation scripts need them to write `metrics_*.json` and the confusion
+matrices. GPU training is only possible under WSL2 (`tensorflow[and-cuda]`, see the
+note in `requirements.txt`); the serial benches stay on Windows, where the COM port is.
+The firmware toolchain is described under [Requirements](../README.md#requirements).

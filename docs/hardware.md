@@ -1,6 +1,61 @@
 # Hardware and Porting
 
-Reference details that complement [Hardware Details](../README.md#hardware-details) in the README. Sizes use binary units (1 KiB = 1,024 bytes).
+The hardware reference of PHLAME: the rig of the published results, the flash budget, the two boards and their memory, upload troubleshooting, porting, the HIL rig and the serial protocol. Sizes use binary units (1 KiB = 1,024 bytes; 1 MiB = 1,024 KiB), like `results/tables/`.
+
+## Hardware Details
+
+The Arduino Portenta H7 set-up; the Arduino Nicla Vision is described under [Boards and Memory](#boards-and-memory).
+
+| Component        | Specification                                                        |
+|------------------|---------------------------------------------------------------------|
+| Board            | Arduino Portenta H7 (STM32H747XI, dual-core Cortex-M7 nominal up to 480 MHz; runs at `SystemCoreClock = 400.0 MHz`, 2.50 ns/cycle under `arduino:mbed_portenta`, DWT 32-bit overflow ~10.74 s) |
+| External RAM     | 8 MiB SDRAM (required — tensor arena + image buffer live here)        |
+| Camera (capture) | Portenta Vision Shield, HM01B0 monochrome sensor (160×120, 30 fps)   |
+| Thermal control  | Active forced-air cooling (constant-speed fan over Portenta H7 + Vision Shield) |
+| Flash            | 2 MiB internal, shared by firmware and `model.h`                      |
+| Host link        | USB-C, 115200 baud serial                                            |
+
+## Flash Budget
+
+**This is a hard limit.** The model is linked into the firmware as
+a C array, so the quantized model and the firmware code share the same 2 MiB of
+internal flash. Measured on a build of the PIL firmware with `AllOpsResolver`
+([`flash_budget_build.txt`](flash_budget_build.txt) records the build):
+
+| | Size |
+|---|---|
+| Internal flash (STM32H747, `0x08000000`–`0x081FFFFF`) | 2048 KiB |
+| Bootloader region (the application starts at `0x08040000`) | 256 KiB |
+| Firmware code (TFLite-Micro + all kernels, no model) | ~418 KiB |
+| **Headroom left for `model.h`** | **~1374 KiB** |
+
+The HIL firmware carries 14 KiB more code, which leaves ~1360 KiB.
+
+Which of the INT8 models of the COCO benchmark fit, at 160×120. "Flash used" counts the bootloader region,
+the PIL firmware code and the model. The build measured carries the `MobileNetV2` of the repository's `model.h`
+(1,335,488 bytes in all, 645,640 of them the model); each row is that budget plus the `.tflite` of the model:
+
+| Model | `.tflite` | Flash used | Fits |
+|---|---|---|---|
+| `MobileNet` | 311 KiB | 0.96 MiB | yes |
+| `MobileNetV2` | 630 KiB | 1.27 MiB | yes |
+| `SqueezeNet` | 809 KiB | 1.45 MiB | yes |
+| `MobileNetV3Small` | 816 KiB | 1.45 MiB | yes |
+| `ResNet8` | 1249 KiB | 1.88 MiB | yes, 125 KiB to spare |
+| `MobileNetV3Large` | 2180 KiB | 2.79 MiB | **no** — 0.79 MiB over |
+| `ResNet18` | 11057 KiB | 11.46 MiB | **no** — 9.46 MiB over |
+
+`MobileNetV3Large` and `ResNet18` train and quantize fine, and are valid MIL/SIL
+targets on the PC, but they cannot be deployed from internal flash: the `.tflite`
+alone exceeds it (`MobileNetV3Large`) or exceeds it several times over (`ResNet18`).
+Options are running the model from external memory (QSPI flash or SDRAM, not
+implemented in PHLAME) or a narrower variant (lower width multiplier), which is a
+different model. Unstructured pruning (`prune_model.py`) does not help because tensor
+shapes are kept, and a lower input resolution does not either because these networks
+end in global average pooling: it shrinks the arena, not the model. For a borderline
+model whose `.tflite` does fit, swapping `AllOpsResolver` for a
+`MicroMutableOpResolver` listing only the operators that model uses would free flash
+(not implemented in PHLAME).
 
 ## Boards and Memory
 
@@ -84,7 +139,7 @@ uses a different operator set (e.g. hard-swish/squeeze-excite in MobileNetV3,
 residual `Add` in ResNet18, `Concatenation` in SqueezeNet's fire modules), and
 `AllOpsResolver` avoids re-editing a fixed op list when switching models. This
 trades a larger firmware binary (all kernels linked, not just the ones the
-loaded model needs) for that flexibility — see the flash budget in the [README](../README.md#hardware-details).
+loaded model needs) for that flexibility — see the [flash budget](#flash-budget).
 
 **Kernels on the chip.** The TFLite-Micro library the sketches build with (`Chirale_TensorFlowLite` 2.0.0) carries
 the CMSIS-NN versions (CMSIS-NN V.11.0.0) of `ADD`, `CONV_2D`, `DEPTHWISE_CONV_2D`, `FULLY_CONNECTED`, `MUL`, the
@@ -233,6 +288,8 @@ it refuses to send images whose shape is not the one the firmware announces.
 single integer line (argmax of the output tensor). Diagnostic banners and the
 on-chip CPU temperature (`°C`, from STM32H7 factory calibration) are also printed
 around each inference; `pil_benchmark.py` parses the integer class from the stream.
+Reporting the class index rather than the full per-class logit vector keeps the
+post-processing short and compatible with arbitrary class counts: its median is 0.5 to 0.7 µs in each of the 16 PIL and HIL runs measured before the COCO benchmark (the Visual Wake Words run and the vehicle application case), and 117 of their 7,000 measurements take 1 µs or more (7.5 µs at most).
 
 **Board announcement.** Each sketch prints `BOARD:<name>` (`PORTENTA_H7` or
 `NICLA_VISION`): at boot in both, and in PIL also among the identity lines and with every

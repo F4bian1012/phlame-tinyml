@@ -1,6 +1,42 @@
 # Scripts
 
-Detailed reference for the scripts in `src/`. The [README](../README.md) has the short table and the commands of the full pipeline, and [`usage.md`](usage.md) goes through its steps.
+Detailed reference for the scripts in `src/`: an index, each script by stage, the usage notes and the layout of the repository. The [README](../README.md#usage-full-pipeline) has the commands of the full pipeline, and [`usage.md`](usage.md) goes through its steps.
+
+## Index
+
+All scripts live in `src/`.
+
+| Stage | Script | Purpose |
+|---|---|---|
+| Data | `process_images.py` | Convert raw images to single-channel grayscale. |
+| Data | `reshape_images.py` | Resize to the target resolution; optional seeded class balancing. |
+| Data | `split_dataset.py` | Seeded, stratified `train`/`val`/`test` partition with manifests and the `hil_subset` flag; the test images can come from a separate source. |
+| Data | `download_vww_subset.py` | Download a seeded `person` / `non_person` subset of MS-COCO (`train2017` or `val2017`), labelled with the Visual Wake Words rule. |
+| Training | `train_mobilenet.py` | MobileNet family, transfer learning from ImageNet (frozen backbone, or every layer with `--trainable_backbone`). |
+| Training | `train_resnet.py` | `ResNet8` and `ResNet18`, trained from scratch. |
+| Training | `train_squeezenet.py` | `SqueezeNet`, trained from scratch; `--kernel_initializer he_normal` and `--batch_norm` for when it does not start to learn. |
+| Optimization | `prune_model.py` | Optional unstructured magnitude pruning; not used in the published results. |
+| Optimization | `quantize_int8_basic.py` | Full-INT8 `.tflite`, calibrated on the `train` partition only. |
+| Evaluation | `mil_benchmark.py` | MIL level. |
+| Evaluation | `sil_benchmark.py` | SIL level. |
+| Evaluation | `pil_benchmark.py` | PIL level, image over serial. |
+| Evaluation | `hil_benchmark.py` | HIL level, camera in the loop. |
+| Evaluation | `calibrate_hil_rig.py` | Check the HIL rig (camera against monitor) before a session. |
+| Deployment | `tflite_to_c.py` | `.tflite` to the `model.h` C header. |
+| Deployment | `compile_upload_arduino.py` | Compile and upload a firmware with `arduino-cli` (`--board portenta` or `nicla`). |
+| Analysis | `build_ladder_tables.py` | Build the eight statistical tables of a benchmark that has the four levels (`--tag`, `--run_suffix`, `--splits_dir`); with no option, those of the vehicle application case in `results/tables/`. |
+| Analysis | `build_benchmark_table.py` | Rebuild the summary table of a benchmark measured up to PIL (MIL, SIL, PIL on each board) from the result files. |
+| Analysis | `compare_results.py` | Check a reproduced run against the published result, image by image. |
+| Analysis | `count_macs.py` | Count the multiply-accumulate operations (MACs) of `.tflite` models, per operator type and in total. |
+| Analysis | `find_near_duplicates.py` | Look for test images that are copies or near-copies of train/val images. |
+| Analysis | `independence_report.py` | Recompute the published results without the test images shared with train/val. |
+| Models | `verify_models.py` | Check the model files against `models/checksums.sha256`, or fetch them from a release. |
+| Shared | `artifacts.py` | Helper module, not run directly: run names (`--tag`), overwrite protection and the per-model label order. |
+| Shared | `cli.py` | Helper module, not run directly: lets every option be written with `_` or `-`. |
+| Shared | `images.py` | Helper module, not run directly: the one image loader of training, calibration, MIL, SIL and the PIL bench. |
+| Shared | `evaluation.py` | Helper module, not run directly: the metrics, the confusion matrix and the three result files of the two PC levels (MIL and SIL). |
+| Shared | `train_common.py` | Helper module, not run directly: in-memory data and recipe options of the three training scripts. |
+| Shared | `boards.py` | Helper module, not run directly: what changes with the board (`--board`) and the serial text the two board benches wait for. |
 
 ## 1. Data Engineering
 *   **`download_vww_subset.py`**: Downloads a balanced `person` / `non_person` subset of MS-COCO 2017, labelled with the Visual Wake Words rule (a person covering at least 0.5% of the image; images with only smaller or crowd persons are left out). `--coco_split` picks `val2017` (default) or `train2017`, `--per_class` the number of images of each class, `--seed` the selection, and `--output_dir` the folder that receives `person/` and `non_person/`. Only the annotation file of that split and the selected JPEGs are fetched. The selection is deterministic: the script prints, and writes to `vww_subset_report.json`, a `selection_sha256` over the chosen file names, so two downloads can be checked to be the same subset. A re-run downloads only the files that are missing.
@@ -73,7 +109,7 @@ Freezing the batch-normalisation statistics of the backbone while every layer is
 - **Pruned Model**: `models/checkpoints/{model_name}_pruned.keras` - The sparse representation of the model after magnitude pruning.
 - **Quantized TFLite Model**: `models/tflite/{model_name}_int8.tflite` - The fully integer quantized, microcontroller-ready binary file.
 - **Confusion Matrix (SIL)**: `results/sil/confusion_matrix_{model_name}_int8.png` - Visual evaluation of the quantized model simulating MCU arithmetic constraints.
-- **Metrics (MIL / SIL)**: `results/{mil,sil}/metrics_{model_name}[_int8].json` - Machine-readable metrics plus the model's SHA-256 (see [Results Format](../README.md#results-format)).
+- **Metrics (MIL / SIL)**: `results/{mil,sil}/metrics_{model_name}[_int8].json` - Machine-readable metrics plus the model's SHA-256 (see [Results Schema](results_schema.md)).
 - **Per-Image Predictions (MIL / SIL)**: `results/{mil,sil}/predictions_{model_name}[_int8].csv` - True and predicted class for every test image.
 
 ## 4. Embedded Conversion & Deployment
@@ -90,7 +126,7 @@ Freezing the batch-normalisation statistics of the backbone while every layer is
 - **C Model Header**: `deployment/{pil_firmware,hil_firmware}/model.h` - 16-byte aligned C byte array (`g_model[]` and `g_model_len`) linked into the PIL and HIL firmware sketches.
 - **Confusion Matrix (PIL)**: `results/pil/confusion_matrix_{model_name}_int8.png` - Visual evaluation of on-chip inference against the held-out test partition.
 - **Per-Phase Latencies (PIL)**: `results/pil/latency_metrics_{model_name}_int8.csv` - Per-image cycle counts (`CYC_*`), microsecond latencies (`US_*`), and MCU temperature.
-- **Metrics (PIL)**: `results/pil/metrics_{model_name}_int8.json` - Machine-readable classification metrics, run metadata, and per-phase latency statistics (see [Results Format](../README.md#results-format)).
+- **Metrics (PIL)**: `results/pil/metrics_{model_name}_int8.json` - Machine-readable classification metrics, run metadata, and per-phase latency statistics (see [Results Schema](results_schema.md)).
 - **Per-Image Predictions (PIL)**: `results/pil/predictions_{model_name}_int8.csv` - True and on-chip predicted class for every test image.
 
 ## 5. Camera-in-the-Loop HIL Evaluation
@@ -104,7 +140,7 @@ Freezing the batch-normalisation statistics of the backbone while every layer is
 
 **Common Output Artifacts for Camera-in-the-Loop HIL Evaluation:**
 - **Confusion Matrix (HIL)**: `results/hil/confusion_matrix_{model_name}_int8.png` - Visual evaluation of the camera-in-the-loop inference compared with the displayed stimulus ground truth.
-- **Metrics (HIL)**: `results/hil/metrics_{model_name}_int8.json` - Classification metrics (same schema as MIL/SIL/PIL), on-chip vs. file `FNV-1a` fingerprint verification, cross-validation summary, and per-phase latency statistics (see [Results Format](../README.md#results-format)).
+- **Metrics (HIL)**: `results/hil/metrics_{model_name}_int8.json` - Classification metrics (same schema as MIL/SIL/PIL), on-chip vs. file `FNV-1a` fingerprint verification, cross-validation summary, and per-phase latency statistics (see [Results Schema](results_schema.md)).
 - **Per-Phase Latencies & Cross-Run Predictions (HIL)**: `results/hil/latency_metrics_{model_name}_int8.csv` - One row per inference with `CAPTURE`/`PRE`/`INF`/`POST`/`TOTAL` latency (`CYC_*` and `US_*`), MCU temperature, stimulus ground truth, and paired HIL/SIL/MIL predictions on the same captured frame.
 - **Rig Conditions (HIL)**: `results/hil/conditions_{model_name}_int8.json` - Environmental protocol of the stimulus rig (illuminance in lux, camera-to-screen distance in cm, ambient temperature in °C, notes) and model identity.
 - **Captured Camera Frames (optional, `--dump_frames`)**: `data/hil_frames/frame_{idx}_{class}_{image}.png` - Exact 160×120 grayscale frames captured by the HM01B0 sensor and streamed back over serial for cross-level MIL/SIL evaluation.
@@ -128,7 +164,7 @@ Freezing the batch-normalisation statistics of the backbone while every layer is
     - *Usage:* `python src/independence_report.py --splits_dir data/splits_coco` (`--overwrite` to replace the published table).
 
 ## 7. Model Files
-*   **`verify_models.py`**: The model files (`.keras`, `.tflite`) are not in git; `models/checksums.sha256` lists the SHA-256 of every one a published result refers to. Without options the script checks the files present in `models/` against that list (`--require_all` fails if one is missing). `--results` checks instead that the digest recorded in every `metrics_*.json` and `conditions_*.json` is in the list. `--download <tag>` fetches the archives attached to a release, unpacks them and checks them; `--bundle <dir> --tag <tag>` is the maintainer's side and writes those archives, and `--update_list --set <set>` rewrites the entries of one set of the list from the model files that its published results name. "Published" means tracked by git: the results of a user's own runs, which the usage steps write next to the published ones, are not checked against the list.
+*   **`verify_models.py`**: The model files (`.keras`, `.tflite`) are not in git; `models/checksums.sha256` lists the SHA-256 of every one a published result refers to. Without options the script checks the files present in `models/` against that list (`--require_all` fails if one is missing). `--results` checks instead that the digest recorded in every `metrics_*.json` and `conditions_*.json` is in the list. `--download <tag>` fetches the archives attached to a release, unpacks them and checks them; `--bundle <dir> --tag <tag>` is the maintainer's side and writes those archives, and `--update_list --set <set>` rewrites the entries of one set of the list from the model files that its published results name. "Published" means tracked by git: the results of a user's own runs, which the usage steps write next to the published ones, are not checked against the list. Training is not reproducible bit for bit, so a retrained model is a different file: the checksums identify the published files, not a retrained copy.
 *   **`count_macs.py`**: Counts the multiply-accumulate operations (MACs) of `.tflite` models, per operator type and in total, and writes one row per model to a CSV with the SHA-256 of the file (`python src/count_macs.py "models/tflite/*_COCO+*_int8.tflite" --output results/tables/macs_COCO.csv`). Counted: `CONV_2D` (output elements × kernel height × kernel width × input channels of the filter), `DEPTHWISE_CONV_2D` (output elements × kernel height × kernel width) and `FULLY_CONNECTED` (output elements × input features), every kernel position included also under `same` padding. Not counted: bias additions, element-wise arithmetic (`ADD`, `MUL`), pooling and `MEAN`, activations, `SOFTMAX`, (de)quantization and data movement; those operators are listed with the number of elements they produce. An operator the script knows neither as counted nor as free of MACs is named in the table and ends the run with exit code 3 instead of being counted as zero. The graph is read from the flatbuffer with the schema TensorFlow ships, not through the interpreter, so nothing is executed and no delegate is involved.
 
 ## 8. Shared Helpers
@@ -164,3 +200,22 @@ Freezing the batch-normalisation statistics of the backbone while every layer is
   ```bash
   python src/hil_benchmark.py --port COM9 --model_path models/tflite/{model_name}_int8.tflite --lux 10 --distance_cm 24 --ambient_temp 24 --output_dir results/hil/rep1 --model_tag {model_name}_rep1 --notes "replica 1"
   ```
+
+## Repository Structure
+```text
+phlame-tinyml/
+├── data/                  # Datasets (git-ignored); manifests and sample/ are tracked
+├── deployment/            # Firmware source code: pil_firmware/, hil_firmware/
+├── docs/                  # usage.md, scripts.md, hardware.md, results_schema.md, data_independence.md, extending.md, vehicle_benchmark.md, coco_benchmark.md, related_work.md
+├── models/                # checkpoints/ (.keras), tflite/ (.tflite), class names, checksums.sha256
+├── results/               # mil/, sil/, pil/, hil/, tables/, training_curves/
+├── src/                   # Python source code (see the index of this page)
+├── tensorboard_logs/      # TensorBoard event logs from training
+├── tests/                 # test_results_schema.py, test_own_dataset.py, test_cli.py, test_boards.py, test_release.py, test_compare_results.py, test_near_duplicates.py, test_images.py, test_training_recipe.py, test_sil_kernels.py, test_benchmark_table.py, test_hil_session.py, test_calibration.py, test_statistics.py, test_published_tables.py, test_serial_framing.py, test_split_properties.py, test_ladder_benchmarks.py, test_pil_session.py, test_software_versions.py, test_count_macs.py, test_evaluation.py, test_help_without_tensorflow.py, test_project_metadata.py, test_scratch_folder.py, test_calibration_restart.py, test_checksum_list.py
+├── CITATION.cff
+├── LICENSE.txt
+├── README.md
+├── pyproject.toml         # Project metadata; the scripts are run from src/, nothing is installed
+├── requirements.txt       # Minimum compatible versions and hardware setup
+└── requirements-lock.txt  # Exact versions of the project environment
+```
