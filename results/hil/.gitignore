@@ -6,3 +6,6 @@
 !*.csv
 !*.json
 !*/
+!README.md
+# Preview that calibrate_hil_rig.py --live rewrites at every capture
+live_latest.png
