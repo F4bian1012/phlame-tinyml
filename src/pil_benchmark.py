@@ -20,6 +20,29 @@ The PIL level evaluates the test split held out by split_dataset.py, the same
 one consumed by MIL and SIL, so that the gap between levels is attributable to
 the level and not to a different sampling of images.
 
+Before the first image the bench asks the board what it is running (boot lines,
+or an empty packet #@ when the firmware was already running) and stops unless:
+  - the board is the one given with --board;
+  - the FNV-1a fingerprint and the size of the model in flash are those of the
+    .tflite given with --model_path (--allow_model_mismatch measures anyway and
+    records model.identity_verified = false; a firmware built before November
+    2026 prints no fingerprint and needs that option);
+  - the images it would send have the input shape the firmware announces
+    (--width and --height may be left out: they are taken from the firmware).
+
+A run that does not reach its last image (the serial link is lost for good,
+the board stops answering, Ctrl+C, an error) keeps what it measured: the two
+CSV files are written row by row and metrics_*.json is written with
+run.completed = false, the reason in run.stopped_because and the number of
+images planned in dataset.n_images_planned.
+
+Exit codes:
+  0  every planned image was sent and recorded
+  1  the run could not start (port, images, the board does not answer, output
+     files that would be replaced)
+  2  refused before measuring: wrong board, model not verified, input shape
+  3  the run was cut short; its files are marked completed = false
+
 Options:
   --port        Serial port (default: COM9; e.g. COM3, /dev/ttyUSB0)
   --board       Board the firmware runs on: portenta (default) or nicla. Sets the
@@ -31,12 +54,16 @@ Options:
                 (default: data/splits; the benchmark uses ONLY <splits_dir>/test)
   --folder      Explicit folder to send, instead of <splits_dir>/test
   --baud        Baud rate (default: 115200)
-  --width       Target tensor width (default: 320)
-  --height      Target tensor height (default: 320)
+  --width       Width of the images sent (default: the one the firmware announces)
+  --height      Height of the images sent (default: the one the firmware announces)
   --color       Send in RGB color (default: grayscale)
-  --delay       Seconds to wait before the first transmission (default: 1.0)
+  --delay       Seconds to wait after opening the port before talking to the board (default: 1.0)
   --gap         Seconds to wait between consecutive images (default: 0.5)
   --count       Number of random images to send from the folder (default: all)
+  --max_unanswered        Images in a row without an answer after which the run
+                          is given up (default: 5; 0 never gives up)
+  --allow_model_mismatch  Measure although the model on the board could not be
+                          verified against --model_path
 """
 
 import argparse
@@ -205,6 +232,23 @@ def build_packet(payload_raw: bytes) -> bytes:
 RECONNECT_WAIT_S = 30
 MAX_ATTEMPTS_PER_IMAGE = 5
 
+# How long the board has to answer one image (or the request for its identity).
+RESPONSE_TIMEOUT_S = 30
+# A board that stops answering makes every image wait for that whole time. After
+# this many images in a row without an answer the run ends instead of waiting
+# through the rest of the folder (default of --max_unanswered; 0 never gives up).
+MAX_CONSECUTIVE_UNANSWERED = 5
+# The firmware prints its boot lines about 2 s after the port is opened for the
+# first time after a reset. If nothing has arrived this long after opening the
+# port, the firmware was already running and has to be asked.
+BOOT_LINES_S = 4.0
+# The boot lines are over when the port has been quiet for this long.
+QUIET_S = 1.0
+
+# Exit codes (see the module docstring).
+EXIT_REFUSED = 2
+EXIT_INCOMPLETE = 3
+
 
 def reopen_port(port: str, baud: int, wait_s: float = RECONNECT_WAIT_S):
     """Opens the port again after the link dropped, retrying until it is back.
@@ -223,78 +267,348 @@ def reopen_port(port: str, baud: int, wait_s: float = RECONNECT_WAIT_S):
     return None
 
 
-def send_image(port: str, baud: int, image_path: str,
-               width: int, height: int, grayscale: bool,
-               pre_delay: float, model_tag: str,
-               output_dir: str = os.path.join("results", "pil")):
-    """
-    Opens the serial port and sends the image with the #...@ protocol
-    """
-    raw_payload = preprocess_image(image_path, width, height, grayscale)
-    packet = build_packet(raw_payload)
+class LinkLost(Exception):
+    """The serial link dropped in the middle of an image and did not come back."""
 
+    def __init__(self, message, reconnects):
+        super().__init__(message)
+        self.reconnects = reconnects
+
+
+def read_line(ser):
+    """One line of the firmware, echoed; '' when it was empty."""
+    line = ser.readline().decode('utf-8', errors='replace').rstrip()
+    if line:
+        print(f"  Arduino >>> {line}")
+    return line
+
+
+def listen_for_boot_lines(ser, opened_at):
+    """Reads what the firmware prints by itself after the port is opened.
+
+    The PIL sketch prints its boot lines only once, when the port is opened for
+    the first time after a reset, and they end with READY_PIL. Returns the lines
+    read: all of them up to READY_PIL, or the ones that arrived before the port
+    went quiet, or none when the firmware was already running.
+    """
+    lines = []
+    last = opened_at
+    give_up = opened_at + BOOT_LINES_S + RESPONSE_TIMEOUT_S   # a board that never stops printing
+    while time.time() < give_up:
+        if ser.in_waiting:
+            line = read_line(ser)
+            if line:
+                lines.append(line)
+                last = time.time()
+                if line.strip() == boards.READY_PIL:
+                    return lines
+            continue
+        now = time.time()
+        if lines and now - last >= QUIET_S:
+            return lines
+        if not lines and now - opened_at >= BOOT_LINES_S:
+            return lines
+        time.sleep(0.02)
+    return lines
+
+
+def ask_identity(ser):
+    """Sends an empty packet (#@) and reads the answer.
+
+    Returns (lines, kind). kind is 'identity' when the firmware answered with
+    its identity lines (they end with READY_PIL), 'inference' when it ran an
+    inference instead (a build without identity lines takes the empty packet
+    for an image), and 'silent' when nothing closed the answer in time.
+    """
+    ser.reset_input_buffer()
+    ser.write(MARKER_START + MARKER_END)
+    ser.flush()
+    lines = []
+    deadline = time.time() + RESPONSE_TIMEOUT_S
+    while time.time() < deadline:
+        if ser.in_waiting:
+            line = read_line(ser)
+            if not line:
+                continue
+            lines.append(line)
+            if line.strip() == boards.READY_PIL:
+                return lines, "identity"
+            if boards.is_end_of_inference(line):
+                return lines, "inference"
+        else:
+            time.sleep(0.02)
+    return lines, "silent"
+
+
+def handshake(ser, opened_at):
+    """Finds out what the board is running, before anything is measured.
+
+    Returns (identity, has_identity): identity is boards.identity() of the
+    lines the firmware printed, and has_identity says whether they were its
+    identity lines (False for a build that has none: its fields are then None,
+    except the board when the build names it with every answer). Ends the run
+    when the board does not answer at all or runs the HIL sketch.
+    """
+    lines = listen_for_boot_lines(ser, opened_at)
+    if any(l.strip() == boards.READY_HIL for l in lines):
+        print("[ERROR] The board is running the HIL firmware (READY_HIL), which does not take "
+              "images over serial. Flash the PIL one: python src/compile_upload_arduino.py --target pil")
+        ser.close()
+        sys.exit(1)
+    if any(l.strip() == boards.READY_PIL for l in lines):
+        return boards.identity(lines), True
+
+    # No identity lines yet: the firmware was already running (its boot lines
+    # are gone), or it is a build that has none. Asked twice, because a board
+    # left in the middle of a packet by an interrupted run can take the first
+    # request for the end of that packet.
+    seen = list(lines)
+    for _ in range(2):
+        answer, kind = ask_identity(ser)
+        if kind == "identity":
+            return boards.identity(answer), True
+        seen += answer
+        if kind == "silent":
+            print(f"[ERROR] The board did not answer in {RESPONSE_TIMEOUT_S} s. Check that the PIL "
+                  "firmware is flashed (python src/compile_upload_arduino.py --target pil) and that "
+                  "it finished its set-up; press RESET on the board and run again."
+                  + (f" Last line received: {seen[-1]!r}" if seen else " Nothing was received."))
+            ser.close()
+            sys.exit(1)
+    return boards.identity(seen), False
+
+
+def expected_model(model_path):
+    """Size and FNV-1a fingerprint of the .tflite the operator says is on the board, or None."""
+    if not model_path or not os.path.isfile(model_path):
+        return None
+    return {"bytes": os.path.getsize(model_path), "fnv1a": boards.fnv1a32_file(model_path)}
+
+
+def verify_model_identity(found, has_identity, expected, model_path, allow_mismatch=False):
+    """True when the board carries exactly the .tflite given with --model_path.
+
+    Stops the run (exit code 2) when that cannot be established: the firmware
+    printed no fingerprint, there is no file to compare with, or the fingerprint
+    or the size differ. allow_mismatch (--allow_model_mismatch) turns the stop
+    into a warning and the run is recorded with model.identity_verified = false.
+    """
+    problem = None
+    if not has_identity or found["model_fnv1a"] is None:
+        problem = ("The firmware did not report the fingerprint of its model (no MODEL_FNV1A line): it "
+                   "is a build earlier than November 2026, so the model on the board cannot be verified. "
+                   "Flash the current sketch (python src/compile_upload_arduino.py --target pil).")
+    elif expected is None:
+        problem = (f"There is no .tflite to compare the fingerprint of the board with "
+                   f"({found['model_fnv1a']}, {found['model_bytes']} bytes): --model_path "
+                   f"{model_path!r} is not a file.")
+    else:
+        print(f"[INFO] Chip fingerprint   : fnv1a={found['model_fnv1a']} bytes={found['model_bytes']}")
+        print(f"[INFO] .tflite fingerprint: fnv1a={expected['fnv1a']} bytes={expected['bytes']}  "
+              f"({os.path.basename(model_path)})")
+        if found["model_fnv1a"] == expected["fnv1a"] and found["model_bytes"] == expected["bytes"]:
+            print("[OK]   IDENTITY VERIFIED: the board is running exactly the given .tflite file.")
+            return True
+        problem = ("MODEL MISMATCH ON BOARD: the fingerprint of the model in flash is not that of the "
+                   "given .tflite. Write the header again with tflite_to_c.py, compile, upload "
+                   "(python src/compile_upload_arduino.py --target pil) and run again.")
+    print(f"[ERROR] {problem}")
+    if not allow_mismatch:
+        print("        Nothing was measured. --allow_model_mismatch measures anyway and records "
+              "model.identity_verified = false.")
+        sys.exit(EXIT_REFUSED)
+    print("[WARN] --allow_model_mismatch set: this run is NOT verified against the board.")
+    return False
+
+
+def resolve_input_shape(width, height, grayscale, announced_shape):
+    """The size of the images to send, checked against what the firmware announces.
+
+    Returns (width, height, verified). A width or height left out (None) is
+    taken from the firmware. Stops the run (exit code 2) when the images would
+    not have the input shape of the model on the board, or when neither the
+    command line nor the firmware says which size to send: an image of another
+    size is padded or cut by the firmware and gives a complete, wrong run.
+    """
+    channels = 1 if grayscale else 3
+    if announced_shape:
+        w = announced_shape["width"] if width is None else width
+        h = announced_shape["height"] if height is None else height
+        if (w, h, channels) != (announced_shape["width"], announced_shape["height"], announced_shape["channels"]):
+            print(f"[ERROR] The model on the board takes images of {announced_shape['width']}x"
+                  f"{announced_shape['height']} with {announced_shape['channels']} channel(s), and this run "
+                  f"would send {w}x{h} with {channels}. Use --width {announced_shape['width']} --height "
+                  f"{announced_shape['height']} (or leave them out) and "
+                  + ("--color." if announced_shape["channels"] == 3 else "no --color."))
+            sys.exit(EXIT_REFUSED)
+        return w, h, True
+    if width is None or height is None:
+        print("[ERROR] This firmware does not announce the input shape of its model: pass --width and "
+              "--height (the size the model takes; an image of another size gives a wrong run).")
+        sys.exit(EXIT_REFUSED)
+    return width, height, False
+
+
+def open_session(port, baud, pre_delay, board_key, model_path, width, height, grayscale,
+                 allow_model_mismatch=False):
+    """Opens the port and checks the board before anything is measured or written.
+
+    Returns (ser, session): the open port and a dict with what the firmware
+    announced ('identity'), the fingerprint of the given file ('expected'),
+    whether the model was verified ('identity_verified') and the size of the
+    images to send ('width', 'height', 'shape_verified'). Stops the run, with
+    the port closed, when the board is not the one named with --board, the
+    model cannot be verified or the images would have another shape.
+    """
+    expected = expected_model(model_path)
     print(f"[INFO] Connecting to {port} @ {baud} baud ...")
     try:
         ser = serial.Serial(port, baud, timeout=10)
     except serial.SerialException as e:
         print(f"ERROR opening the port: {e}")
         sys.exit(1)
+    opened_at = time.time()
 
-    print(f"[INFO] Port open. Waiting {pre_delay}s before sending...")
-    time.sleep(pre_delay)  # wait for the Arduino to finish its setup
+    print(f"[INFO] Port open. Waiting {pre_delay}s before talking to the board...")
+    time.sleep(pre_delay)
+    try:
+        found, has_identity = handshake(ser, opened_at)
+        problem = boards.mismatch(board_key, found["board"])
+        if problem:
+            print(f"[ERROR] Wrong board: {problem}")
+            sys.exit(EXIT_REFUSED)
+        if found["board"] is None:
+            print("[WARN] The firmware did not announce its board (no BOARD: line): it is "
+                  "a build earlier than the two-board sketch. The board is recorded as null.")
+        verified = verify_model_identity(found, has_identity, expected, model_path, allow_model_mismatch)
+        width, height, shape_verified = resolve_input_shape(width, height, grayscale, found["input_shape"])
+    except serial.SerialException as exc:
+        print(f"[ERROR] The serial link to {port} was lost before the first image ({exc}). "
+              "Nothing was measured or written.")
+        try:
+            ser.close()
+        except serial.SerialException:
+            pass
+        sys.exit(1)
+    except SystemExit:
+        ser.close()
+        raise
+    return ser, {"identity": found, "expected": expected, "identity_verified": verified,
+                 "width": width, "height": height, "shape_verified": shape_verified}
 
-    ser.reset_input_buffer()
+
+def exchange(ser, packet, port, baud, position=""):
+    """One image: packet out, answer in.
+
+    Returns (ser, predicted_class, metrics, reconnects). If the serial link
+    drops in the middle (the port disappears and the driver raises), the board
+    keeps running, so the port is reopened and the SAME image is sent again;
+    the firmware restarts a packet when it sees a new start marker. The latency
+    is measured on the chip, so a repeated exchange gives a valid measurement
+    like any other. ser is the port in use at the end, which is a new one after
+    a reconnection. Raises LinkLost when the port does not come back.
+    """
+    attempt = 0
+    reconnects = 0
+    while True:
+        attempt += 1
+        predicted_class = None
+        current_metrics = {}
+        try:
+            ser.reset_input_buffer()
+            ser.write(packet)
+            ser.flush()
+            print("[OK]   Packet sent. Waiting for the predicted class...")
+
+            # Read the response: the Arduino sends only the class number, then the latencies
+            timeout = time.time() + RESPONSE_TIMEOUT_S
+            while time.time() < timeout:
+                if ser.in_waiting:
+                    line = ser.readline().decode('utf-8', errors='replace').rstrip()
+                    print(f"  Arduino >>> {line}")
+
+                    if line.startswith("CYC_") or line.startswith("US_") or line.startswith("TEMP_C:"):
+                        parts = line.split(":")
+                        if len(parts) >= 2:
+                            metric = parts[0].strip()
+                            value = ":".join(parts[1:]).strip()
+                            current_metrics[metric] = value
+
+                    if boards.is_end_of_inference(line):
+                        break
+
+                    try:
+                        # If the line is just an integer, assume it is the predicted class
+                        parsed_int = int(line.strip())
+                        predicted_class = parsed_int
+                    except ValueError:
+                        pass
+                else:
+                    time.sleep(0.05)
+            return ser, predicted_class, current_metrics, reconnects
+        except serial.SerialException as exc:
+            reconnects += 1
+            print(f"  [WARN] Serial link lost ({exc}).")
+            try:
+                ser.close()
+            except serial.SerialException:
+                pass
+            ser = reopen_port(port, baud) if attempt < MAX_ATTEMPTS_PER_IMAGE else None
+            if ser is None:
+                raise LinkLost(f"serial link lost{position} and did not recover "
+                               f"(attempt {attempt} of {MAX_ATTEMPTS_PER_IMAGE}): {exc}", reconnects)
+            print(f"  [INFO] Port reopened; sending the same image again "
+                  f"(attempt {attempt + 1} of {MAX_ATTEMPTS_PER_IMAGE}).")
+
+
+def send_image(port: str, baud: int, image_path: str,
+               width: int, height: int, grayscale: bool,
+               pre_delay: float, model_tag: str,
+               output_dir: str = os.path.join("results", "pil"),
+               model_path: str = None,
+               board_key: str = boards.DEFAULT_BOARD,
+               allow_model_mismatch: bool = False):
+    """
+    Opens the serial port, checks the board like send_folder does, and sends
+    one image with the #...@ protocol. Its latencies are appended to
+    latency_metrics_single_<model>.csv.
+    """
+    ser, session = open_session(port, baud, pre_delay, board_key, model_path, width, height,
+                                grayscale, allow_model_mismatch)
+    width, height = session["width"], session["height"]
+    raw_payload = preprocess_image(image_path, width, height, grayscale)
+    packet = build_packet(raw_payload)
 
     print(f"[INFO] Sending packet: {len(packet)} bytes total "
           f"(raw payload={len(raw_payload)}, escaped={len(packet)-2})")
-
-    ser.write(packet)
-    ser.flush()
-    print("[OK]   Packet sent. Waiting for the Arduino's response...\n")
-
-    # Read the response until the banner that closes the inference
-    timeout = time.time() + 30  # at most 30 seconds waiting for a response
+    try:
+        ser, predicted_class, current_metrics, _ = exchange(ser, packet, port, baud)
+    except LinkLost as lost:
+        print(f"[ERROR] {lost}. Nothing was written.")
+        sys.exit(EXIT_INCOMPLETE)
+    finally:
+        try:
+            ser.close()
+        except serial.SerialException:
+            pass
+    print("\n[INFO] Port closed. End of transmission.")
+    if predicted_class is None:
+        print(f"[ERROR] The board did not answer in {RESPONSE_TIMEOUT_S} s. Nothing was written.")
+        sys.exit(EXIT_INCOMPLETE)
+    print(f"  -> Predicted class: {predicted_class}")
 
     csv_path = os.path.join(output_dir,
                             f"latency_metrics_single_{model_tag}.csv")
     os.makedirs(os.path.dirname(csv_path), exist_ok=True)
     # Check if file exists to write header or not
     file_exists = os.path.isfile(csv_path)
-    csv_file = open(csv_path, "a", newline="")
-    csv_writer = csv.writer(csv_file, delimiter=";")
     metrics_headers = ["TEMP_C", "CYC_PRE", "CYC_INF", "CYC_POST", "CYC_TOTAL", "US_PRE", "US_INF", "US_POST", "US_TOTAL"]
-    if not file_exists:
-        csv_writer.writerow(["Image"] + metrics_headers)
-
-    current_metrics = {}
-    while time.time() < timeout:
-        if ser.in_waiting:
-            line = ser.readline().decode('utf-8', errors='replace').rstrip()
-            print(f"  Arduino >>> {line}")
-
-            if line.startswith("CYC_") or line.startswith("US_") or line.startswith("TEMP_C:"):
-                parts = line.split(":")
-                if len(parts) >= 2:
-                    metric = parts[0].strip()
-                    value = ":".join(parts[1:]).strip()
-                    current_metrics[metric] = value
-
-            if boards.is_end_of_inference(line):
-                break
-        else:
-            time.sleep(0.05)
-
-    row = [os.path.basename(image_path)]
-    for h in metrics_headers:
-        row.append(current_metrics.get(h, ""))
-    csv_writer.writerow(row)
-    csv_file.flush()
-
-    csv_file.close()
+    with open(csv_path, "a", newline="") as csv_file:
+        csv_writer = csv.writer(csv_file, delimiter=";")
+        if not file_exists:
+            csv_writer.writerow(["Image"] + metrics_headers)
+        csv_writer.writerow([os.path.basename(image_path)] + [current_metrics.get(h, "") for h in metrics_headers])
     print(f"[INFO] Metrics saved to {csv_path}")
-
-    ser.close()
-    print("\n[INFO] Port closed. End of transmission.")
 
 
 def send_folder(port: str, baud: int, folder: str,
@@ -304,9 +618,16 @@ def send_folder(port: str, baud: int, folder: str,
                 model_path: str = None,
                 n_samples: int = None,
                 output_dir: str = os.path.join("results", "pil"),
-                board_key: str = boards.DEFAULT_BOARD):
+                board_key: str = boards.DEFAULT_BOARD,
+                allow_model_mismatch: bool = False,
+                max_unanswered: int = MAX_CONSECUTIVE_UNANSWERED):
     """
     Sends the images in `folder` to the Arduino in sequence.
+
+    Before the first image the board is asked what it is running (see
+    open_session): the run stops, with nothing written, when the board, the
+    model or the input shape is not the expected one. A run that does not reach
+    its last image keeps what it measured and is marked completed = false.
 
     If `n_samples` is None, every image found is sent.
     If `n_samples` is an integer, that number of images is selected
@@ -322,8 +643,8 @@ def send_folder(port: str, baud: int, folder: str,
     port       : Serial port (e.g. 'COM9' or '/dev/ttyUSB0')
     baud       : Baud rate
     folder     : Folder containing the images
-    width      : Input tensor width
-    height     : Input tensor height
+    width      : Width of the images sent; None takes the one the firmware announces
+    height     : Height of the images sent; None takes the one the firmware announces
     grayscale  : True -> grayscale, False -> RGB
     pre_delay  : Seconds to wait before sending the first image
     gap        : Seconds to wait between consecutive images
@@ -334,6 +655,10 @@ def send_folder(port: str, baud: int, folder: str,
                  If None (or >= total available), all of them are sent.
     board_key  : Board named with --board; the run stops if the firmware
                  announces a different one
+    allow_model_mismatch : measure although the model on the board could not be
+                 verified against model_path (recorded as identity_verified = false)
+    max_unanswered : images in a row without an answer after which the run is
+                 given up; 0 never gives up
     """
     extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.tiff', '.tif')
 
@@ -372,15 +697,12 @@ def send_folder(port: str, baud: int, folder: str,
     else:
         print(f"[INFO] {available} images found in '{folder}' (sending all)")
 
-    print(f"[INFO] Connecting to {port} @ {baud} baud ...")
-    try:
-        ser = serial.Serial(port, baud, timeout=10)
-    except serial.SerialException as e:
-        print(f"ERROR opening the port: {e}")
-        sys.exit(1)
-
-    print(f"[INFO] Port open. Waiting {pre_delay}s before sending...")
-    time.sleep(pre_delay)
+    # The board is checked before any output file is opened: a run refused
+    # here leaves the results of an earlier run as they were.
+    ser, session = open_session(port, baud, pre_delay, board_key, model_path, width, height,
+                                grayscale, allow_model_mismatch)
+    width, height = session["width"], session["height"]
+    announced = session["identity"]["board"]   # board named by the firmware in its BOARD: line
 
     total = len(image_data)
 
@@ -405,163 +727,122 @@ def send_folder(port: str, baud: int, folder: str,
 
     class_counts: Counter = Counter()
     errors = 0
-    announced = None   # board named by the firmware in its BOARD: line
     reconnects = 0     # times the serial link dropped and the port was reopened
+    recorded = 0       # images with a row in the two CSV files
+    unanswered_in_a_row = 0
+    stopped_because = None   # why the run ended before its last image
     y_true = []
     y_pred = []
     # Accumulated in addition to the CSV: the JSON summarizes per phase, and
     # re-reading the just-written CSV only for that would be a detour.
     latencies = []
+    idx = 0
+    rel_path = ""      # image being processed, relative to the folder
 
-    for idx, (image_path, true_label) in enumerate(image_data, start=1):
-        print(f"\n[INFO] ({idx}/{total}) Processing: {os.path.basename(image_path)}")
+    try:
+        for idx, (image_path, true_label) in enumerate(image_data, start=1):
+            rel_path = os.path.relpath(image_path, folder).replace(os.sep, "/")
+            print(f"\n[INFO] ({idx}/{total}) Processing: {os.path.basename(image_path)}")
 
-        raw_payload = preprocess_image(image_path, width, height, grayscale)
-        packet = build_packet(raw_payload)
+            raw_payload = preprocess_image(image_path, width, height, grayscale)
+            packet = build_packet(raw_payload)
 
-        print(f"[INFO] Sending packet: {len(packet)} bytes total "
-              f"(raw payload={len(raw_payload)}, escaped={len(packet)-2})")
+            print(f"[INFO] Sending packet: {len(packet)} bytes total "
+                  f"(raw payload={len(raw_payload)}, escaped={len(packet)-2})")
 
-        # One image is one exchange: packet out, answer in. If the serial link
-        # drops in the middle (the port disappears and the driver raises), the
-        # board keeps running, so the port is reopened and the SAME image is sent
-        # again; the firmware restarts a packet when it sees a new start marker.
-        # The latency is measured on the chip, so a repeated exchange gives a
-        # valid measurement like any other.
-        attempt = 0
-        while True:
-            attempt += 1
-            predicted_class = None
-            current_metrics = {}
             try:
-                ser.reset_input_buffer()
-                ser.write(packet)
-                ser.flush()
-                print("[OK]   Packet sent. Waiting for the predicted class...")
-
-                # Read the response: the Arduino sends only the class number, then the latencies
-                timeout = time.time() + 30
-                while time.time() < timeout:
-                    if ser.in_waiting:
-                        line = ser.readline().decode('utf-8', errors='replace').rstrip()
-                        print(f"  Arduino >>> {line}")
-
-                        if line.startswith("CYC_") or line.startswith("US_") or line.startswith("TEMP_C:"):
-                            parts = line.split(":")
-                            if len(parts) >= 2:
-                                metric = parts[0].strip()
-                                value = ":".join(parts[1:]).strip()
-                                current_metrics[metric] = value
-
-                        # The firmware says which board it runs on with every image. The
-                        # results are filed by board, so a wrong --board stops the run here,
-                        # before anything has been measured.
-                        if announced is None and line.startswith(boards.BOARD_PREFIX):
-                            announced = boards.announced_board([line])
-                            problem = boards.mismatch(board_key, announced)
-                            if problem:
-                                print(f"[ERROR] Wrong board: {problem}")
-                                ser.close()
-                                csv_file.close()
-                                pred_file.close()
-                                for created in (csv_path, pred_csv_path):
-                                    os.remove(created)
-                                sys.exit(2)
-
-                        if boards.is_end_of_inference(line):
-                            break
-
-                        try:
-                            # If the line is just an integer, assume it is the predicted class
-                            parsed_int = int(line.strip())
-                            predicted_class = parsed_int
-                        except ValueError:
-                            pass
-                    else:
-                        time.sleep(0.05)
+                ser, predicted_class, current_metrics, dropped = exchange(
+                    ser, packet, port, baud, position=f" at image {idx} of {total}")
+            except LinkLost as lost:
+                reconnects += lost.reconnects
+                stopped_because = str(lost)
                 break
-            except serial.SerialException as exc:
-                reconnects += 1
-                print(f"  [WARN] Serial link lost ({exc}).")
-                try:
-                    ser.close()
-                except serial.SerialException:
-                    pass
-                ser = reopen_port(port, baud) if attempt < MAX_ATTEMPTS_PER_IMAGE else None
-                if ser is None:
-                    csv_file.close()
-                    pred_file.close()
-                    print(f"[ERROR] The serial link to {port} was lost at image {idx} of {total} and did "
-                          f"not recover (attempt {attempt} of {MAX_ATTEMPTS_PER_IMAGE}). The CSV files hold "
-                          f"the {idx - 1} images measured so far; no metrics JSON was written. Check the "
-                          f"cable and the port, then run again with --overwrite.")
-                    sys.exit(3)
-                print(f"  [INFO] Port reopened; sending the same image again "
-                      f"(attempt {attempt + 1} of {MAX_ATTEMPTS_PER_IMAGE}).")
+            reconnects += dropped
 
-        row = [os.path.basename(image_path)]
-        for h in metrics_headers:
-            row.append(current_metrics.get(h, ""))
-        csv_writer.writerow(row)
-        csv_file.flush()
-        latencies.append(dict(current_metrics))
+            if predicted_class is not None:
+                class_counts[predicted_class] += 1
+                print(f"  -> Predicted class: {predicted_class}")
+                if true_label != -1:
+                    y_true.append(true_label)
+                    y_pred.append(predicted_class)
+            else:
+                errors += 1
+                print("  [WARN] No predicted class received for this image.")
 
-        if predicted_class is not None:
-            class_counts[predicted_class] += 1
-            print(f"  -> Predicted class: {predicted_class}")
-            if true_label != -1:
-                y_true.append(true_label)
-                y_pred.append(predicted_class)
-        else:
-            errors += 1
-            print("  [WARN] No predicted class received for this image.")
+            # One row per image, whether or not the label is known and whether or
+            # not the board answered: the empty cells distinguish "there was no
+            # label" from "there was no response", and both matter when
+            # interpreting the benchmark.
+            label_known = (true_label != -1)
+            got_response = (predicted_class is not None)
+            if label_known and got_response:
+                correct = 1 if true_label == predicted_class else 0
+            else:
+                correct = ""
+            # The two rows of an image are written one after the other and flushed:
+            # a serial benchmark can be interrupted, what has already been measured
+            # should not be lost, and the two files should hold the same images.
+            csv_writer.writerow([os.path.basename(image_path)]
+                                + [current_metrics.get(h, "") for h in metrics_headers])
+            pred_writer.writerow([
+                os.path.basename(image_path),
+                rel_path,
+                true_label if label_known else "",
+                _class_name(true_label, class_names) if label_known else "",
+                predicted_class if got_response else "",
+                _class_name(predicted_class, class_names) if got_response else "",
+                correct,
+            ])
+            csv_file.flush()
+            pred_file.flush()
+            latencies.append(dict(current_metrics))
+            recorded += 1
 
-        # One row per image, whether or not the label is known and whether or
-        # not the board answered: the empty cells distinguish "there was no
-        # label" from "there was no response", and both matter when
-        # interpreting the benchmark.
-        label_known = (true_label != -1)
-        got_response = (predicted_class is not None)
-        if label_known and got_response:
-            correct = 1 if true_label == predicted_class else 0
-        else:
-            correct = ""
-        pred_writer.writerow([
-            os.path.basename(image_path),
-            os.path.relpath(image_path, folder).replace(os.sep, "/"),
-            true_label if label_known else "",
-            _class_name(true_label, class_names) if label_known else "",
-            predicted_class if got_response else "",
-            _class_name(predicted_class, class_names) if got_response else "",
-            correct,
-        ])
-        # flush per row, like the latency CSV: a serial benchmark can be
-        # interrupted and what has already been measured should not be lost.
-        pred_file.flush()
+            # A board that stopped answering would make every remaining image
+            # wait for its whole timeout: give the run up instead.
+            unanswered_in_a_row = 0 if got_response else unanswered_in_a_row + 1
+            if max_unanswered and unanswered_in_a_row >= max_unanswered:
+                stopped_because = (f"the board stopped answering: {unanswered_in_a_row} images in a row "
+                                   f"without an answer (last one: image {idx} of {total})")
+                break
 
-        if idx < total:
-            print(f"[INFO] Waiting {gap}s before the next image...")
-            time.sleep(gap)
+            if idx < total:
+                print(f"[INFO] Waiting {gap}s before the next image...")
+                time.sleep(gap)
+    except KeyboardInterrupt:
+        stopped_because = f"interrupted by the operator (Ctrl+C) at image {idx} of {total}"
+    except Exception as exc:   # noqa: BLE001 - whatever ends the run, what was measured is kept
+        print(f"[ERROR] {type(exc).__name__}: {exc}")
+        # The reason goes to the metrics file: the image is named by its path inside
+        # the folder, and the text of the error, which can carry a local path, is not.
+        stopped_because = f"{type(exc).__name__} at image {idx} of {total} ({rel_path})"
+    finally:
+        csv_file.close()
+        pred_file.close()
+        try:
+            ser.close()
+        except serial.SerialException:
+            pass
 
-    csv_file.close()
+    completed = stopped_because is None and recorded == total
+    if not completed and stopped_because is None:
+        stopped_because = f"the run ended unexpectedly after image {recorded} of {total}"
     print(f"\n[INFO] Latency metrics saved to {csv_path}")
-    pred_file.close()
     print(f"[INFO] Per-image predictions saved to {pred_csv_path}")
-
-    ser.close()
-    print("\n[INFO] Port closed. All images sent.")
+    print("\n[INFO] Port closed. " + ("All images sent." if completed
+                                      else f"{recorded} of {total} images recorded."))
     if reconnects:
         print(f"[WARN] The serial link dropped {reconnects} time(s) during the run; each time the port "
               f"was reopened and the image sent again.")
-    if announced is None:
-        print("[WARN] The firmware did not announce its board (no BOARD: line): it is "
-              "a build earlier than the two-board sketch. The board is recorded as null.")
 
+    total_planned = total
+    total = recorded   # from here on the figures cover the images that were recorded
     answered = total - errors
     print("\n" + "=" * 45)
     print("  PREDICTION SUMMARY")
     print(f"  Folder  : {folder}")
-    print(f"  Total   : {total} images  |  Answered: {answered}  |  No response: {errors}")
+    print(f"  Total   : {total} images  |  Answered: {answered}  |  No response: {errors}"
+          + ("" if completed else f"  |  Planned: {total_planned}"))
     print("=" * 45)
     if class_counts:
         print(f"  {'Class':>6}  {'Count':>9}  {'Percentage':>11}")
@@ -663,7 +944,8 @@ def send_folder(port: str, baud: int, folder: str,
     # latency measured on the board, and losing it because a confusion
     # matrix could not be computed would be absurd. The classification
     # fields are left as null when they could not be computed, which is
-    # also information.
+    # also information. It is also written when the run was cut short: its
+    # figures then cover the images recorded, and run.completed says so.
     # ------------------------------------------------------------------
     json_dir = output_dir
     os.makedirs(json_dir, exist_ok=True)
@@ -677,24 +959,35 @@ def send_folder(port: str, baud: int, folder: str,
             "name": model_tag,
             "sha256": _sha256_file(model_path),
             "bytes": os.path.getsize(model_path) if model_path and os.path.isfile(model_path) else None,
-            "note": ("checksum of the .tflite given with --model_path. The bench does "
-                     "NOT load it or compare it against the board: it certifies that "
-                     "this file is the one SIL evaluated, not that it is the one flashed."),
+            "fnv1a_tflite": (session["expected"] or {}).get("fnv1a"),
+            "fnv1a_chip": session["identity"]["model_fnv1a"],
+            "identity_verified": session["identity_verified"],
+            "arena_used_bytes": session["identity"]["arena_used_bytes"],
+            "note": ("sha256 and fnv1a_tflite are those of the .tflite given with --model_path. "
+                     "identity_verified=true means that, before the first image, the FNV-1a "
+                     "fingerprint and the size of g_model[] on the board matched that file: the "
+                     "chip ran exactly it. false means the run was allowed with "
+                     "--allow_model_mismatch and nothing ties the file to the board."),
         },
         "run": {
             "port": port,
             "board": announced,
             "baud": baud,
+            "completed": completed,
+            "stopped_because": stopped_because,
             "input_shape": {"width": width, "height": height,
                             "channels": 1 if grayscale else 3},
+            "input_shape_verified": session["shape_verified"],
             "pre_delay_s": pre_delay,
             "gap_s": gap,
             "n_samples_requested": n_samples,
             "n_reconnects": reconnects,
+            "max_unanswered": max_unanswered,
         },
         "dataset": {
             "folder": folder,
             "class_names": list(class_names),
+            "n_images_planned": total_planned,
             "n_images": total,
             "n_answered": answered,
             "n_unanswered": errors,
@@ -722,6 +1015,13 @@ def send_folder(port: str, baud: int, folder: str,
         json.dump(results, fh, indent=2, ensure_ascii=False, default=_json_safe)
     print(f"[INFO] JSON metrics saved to {metrics_path}")
 
+    if not completed:
+        print(f"\n[ERROR] The run did NOT finish: {total} of {total_planned} images recorded "
+              f"({stopped_because}).")
+        print("        The CSV files hold what was measured and the metrics file is marked "
+              "completed = false. Check the board and the cable, then run again with --overwrite.")
+        sys.exit(EXIT_INCOMPLETE)
+
 
 
 def parse_args():
@@ -748,20 +1048,25 @@ def parse_args():
 
     parser.add_argument('--model_path', required=True,
                         help="Path to the .tflite flashed on the board. It is not "
-                             "executed on the PC: its SHA-256/size are recorded in "
-                             "metrics_*.json and its stem names the results/pil/ "
-                             "artifacts (required)")
+                             "executed on the PC: its fingerprint is compared with the "
+                             "one the firmware reports before anything is measured, its "
+                             "SHA-256/size are recorded in metrics_*.json and its stem "
+                             "names the results/pil/ artifacts (required)")
 
     parser.add_argument('--baud',   type=int, default=115200,
                         help="Baud rate (default: 115200)")
-    parser.add_argument('--width',  type=int, default=320,
-                        help="Input tensor width (default: 320)")
-    parser.add_argument('--height', type=int, default=320,
-                        help="Input tensor height (default: 320)")
+    parser.add_argument('--width',  type=int, default=None,
+                        help="Width of the images sent. Default: the input width the "
+                             "firmware announces; a different value stops the run")
+    parser.add_argument('--height', type=int, default=None,
+                        help="Height of the images sent. Default: the input height the "
+                             "firmware announces; a different value stops the run")
     parser.add_argument('--color',  action='store_true',
-                        help="Send in RGB color (default: grayscale)")
+                        help="Send in RGB color (default: grayscale). It must match the "
+                             "channels of the model input the firmware announces")
     parser.add_argument('--delay',  type=float, default=1.0,
-                        help="Seconds to wait before sending (default: 1.0)")
+                        help="Seconds to wait after opening the port before talking to "
+                             "the board (default: 1.0)")
     parser.add_argument('--gap',    type=float, default=0.5,
                         help="Seconds between consecutive images (default: 0.5)")
     parser.add_argument('--count',  type=int, default=None, metavar='N',
@@ -772,6 +1077,16 @@ def parse_args():
                              "(default: results/pil; results/nicla/pil with --board nicla)")
     parser.add_argument('--overwrite', action='store_true',
                         help="Replace the matrix, JSON and CSV files if they already exist")
+    parser.add_argument('--max_unanswered', type=int, default=MAX_CONSECUTIVE_UNANSWERED, metavar='N',
+                        help="Give the run up after N images in a row without an answer "
+                             f"(default: {MAX_CONSECUTIVE_UNANSWERED}; each one waits "
+                             f"{RESPONSE_TIMEOUT_S} s). 0 never gives up. A run given up keeps "
+                             "what it measured, marked completed = false")
+    parser.add_argument('--allow_model_mismatch', action='store_true',
+                        help="DEBUG ONLY: measure although the model on the board could not "
+                             "be verified against --model_path (another fingerprint, a firmware "
+                             "that reports none, or a file that does not exist). The run is "
+                             "recorded with model.identity_verified = false")
     return parser.parse_args()
 
 
@@ -817,9 +1132,10 @@ def resolve_folder(args):
     folder = os.path.join(args.splits_dir, 'test')
     if not os.path.isdir(folder):
         print(f"ERROR: test split not found at {folder}")
+        size = f"{args.width}x{args.height}" if args.width and args.height else "<width>x<height>"
         print("Run the dataset split first:")
         print(f"  python src/split_dataset.py"
-              f" --input_dir data/processed/{args.width}x{args.height}"
+              f" --input_dir data/processed/{size}"
               f" --output_dir {args.splits_dir}")
         sys.exit(1)
     return folder
@@ -835,6 +1151,17 @@ if __name__ == '__main__':
     # mil_benchmark.py uses to name its confusion matrix.
     model_tag = os.path.splitext(os.path.basename(args.model_path))[0]
 
+    # Found out before the port is opened: without the file there is nothing to
+    # compare the fingerprint of the board with.
+    if not os.path.isfile(args.model_path) and not args.allow_model_mismatch:
+        print(f"[ERROR] --model_path is not a file: {args.model_path}")
+        print("        Its fingerprint is compared with the one the firmware reports. Pass the "
+              ".tflite that was flashed (or --allow_model_mismatch to use only its name).")
+        sys.exit(EXIT_REFUSED)
+    if args.max_unanswered < 0:
+        print("[ERROR] --max_unanswered must be 0 (never give up) or a positive number.")
+        sys.exit(EXIT_REFUSED)
+
     if args.image:
         send_image(
             port=port,
@@ -846,6 +1173,9 @@ if __name__ == '__main__':
             pre_delay=args.delay,
             model_tag=model_tag,
             output_dir=args.output_dir,
+            model_path=args.model_path,
+            board_key=args.board,
+            allow_model_mismatch=args.allow_model_mismatch,
         )
     else:
         folder = resolve_folder(args)
@@ -871,4 +1201,6 @@ if __name__ == '__main__':
             n_samples=args.count,
             output_dir=args.output_dir,
             board_key=args.board,
+            allow_model_mismatch=args.allow_model_mismatch,
+            max_unanswered=args.max_unanswered,
         )

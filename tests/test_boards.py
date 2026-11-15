@@ -95,6 +95,37 @@ class BoardTableTest(unittest.TestCase):
         self.assertIsNotNone(boards.mismatch("nicla", "SOMETHING_ELSE"))
 
 
+class IdentityLinesTest(unittest.TestCase):
+    def test_fingerprint_is_the_fnv1a_of_the_file(self):
+        # published test vectors of 32-bit FNV-1a
+        with tempfile.TemporaryDirectory() as tmp:
+            for data, expected in ((b"", "811c9dc5"), (b"a", "e40c292c"), (b"foobar", "bf9cf968")):
+                path = os.path.join(tmp, "model.tflite")
+                with open(path, "wb") as fh:
+                    fh.write(data)
+                self.assertEqual(boards.fnv1a32_file(path), expected)
+                self.assertEqual(boards.fnv1a32_file(path, chunk=1), expected)
+
+    def test_identity_is_read_from_the_firmware_lines(self):
+        found = boards.identity(["--- STARTING DIAGNOSTICS ---", "BOARD:NICLA_VISION", "INPUT_SHAPE:120x160x1",
+                                 "MODEL_BYTES:644648", "MODEL_FNV1A:0A1B2C3D", "ARENA_USED:356404", "READY_PIL"])
+        self.assertEqual(found, {"board": "NICLA_VISION",
+                                 "input_shape": {"height": 120, "width": 160, "channels": 1},
+                                 "model_bytes": 644648, "model_fnv1a": "0a1b2c3d", "arena_used_bytes": 356404})
+
+    def test_lines_a_build_does_not_print_are_none(self):
+        found = boards.identity(["BOARD:PORTENTA_H7", "ARENA_USED:181492", "TEMP_C:40", "1"])
+        self.assertEqual((found["board"], found["arena_used_bytes"]), ("PORTENTA_H7", 181492))
+        self.assertIsNone(found["input_shape"])
+        self.assertIsNone(found["model_bytes"])
+        self.assertIsNone(found["model_fnv1a"])
+
+    def test_lines_that_cannot_be_read_are_none_not_an_error(self):
+        found = boards.identity(["INPUT_SHAPE:120x160", "MODEL_BYTES:many", "MODEL_FNV1A:", "ARENA_USED:"])
+        self.assertEqual(found, {"board": None, "input_shape": None, "model_bytes": None,
+                                 "model_fnv1a": None, "arena_used_bytes": None})
+
+
 SKETCHES = {
     "pil": REPO / "deployment" / "pil_firmware" / "pil_firmware.ino",
     "hil": REPO / "deployment" / "hil_firmware" / "hil_firmware.ino",
@@ -126,6 +157,21 @@ class SketchTextTest(unittest.TestCase):
             for board in boards.BOARDS.values():
                 self.assertIn('#define BOARD_NAME "%s"' % board["announces"], source, level)
 
+    def test_pil_sketch_prints_its_identity_lines_and_answers_an_empty_packet(self):
+        source = self.source("pil")
+        for text in ("INPUT_SHAPE:", "MODEL_BYTES:", "MODEL_FNV1A:", "ARENA_USED:"):
+            self.assertIn('Serial.print("%s");' % text, source)
+        self.assertIn('Serial.println("%s");' % boards.READY_PIL, source)
+        self.assertIn("if (image_bytes_received == 0) {", source)
+        self.assertIn('Serial.println("%s");' % boards.READY_HIL, self.source("hil"))
+
+    def test_both_sketches_compute_the_fingerprint_the_host_computes(self):
+        for level in SKETCHES:
+            source = self.source(level)
+            self.assertIn("uint32_t h = %du;" % boards.FNV1A32_OFFSET, source, level)
+            self.assertIn("h *= %du;" % boards.FNV1A32_PRIME, source, level)
+            self.assertIn('snprintf(hex, sizeof(hex), "%08lx"', source, level)
+
     def test_default_arena_of_the_nicla_is_the_documented_one(self):
         expected = "#define TENSOR_ARENA_KB %d" % boards.BOARDS["nicla"]["default_arena_kb"]
         for level in SKETCHES:
@@ -133,11 +179,48 @@ class SketchTextTest(unittest.TestCase):
             self.assertIn(expected, nicla_block, level)
 
 
+class FakeClock:
+    """Stands in for the time module inside a bench: sleeping costs nothing and
+    moves the clock, so timeouts expire at once."""
+
+    def __init__(self):
+        self.now = 1000.0
+
+    def time(self):
+        return self.now
+
+    def sleep(self, seconds):
+        self.now += max(0.0, seconds)
+
+
+def pil_identity(model_path, board="PORTENTA_H7", shape="12x16x1", fnv1a=None, model_bytes=None,
+                 arena=181492):
+    """The identity lines of the PIL sketch for a board that carries model_path."""
+    return ["BOARD:" + board, "INPUT_SHAPE:" + shape,
+            "MODEL_BYTES:%d" % (os.path.getsize(model_path) if model_bytes is None else model_bytes),
+            "MODEL_FNV1A:%s" % (fnv1a or boards.fnv1a32_file(model_path)),
+            "ARENA_USED:%d" % arena, boards.READY_PIL]
+
+
 class SimulatedBoard:
     """Stand-in for serial.Serial: every packet or trigger written to it is
-    answered with the lines of one inference, as the firmware prints them."""
+    answered with the lines of one inference, as the firmware prints them.
 
-    def __init__(self, level, board=None, banner=None, boot=(), drop_link_at=None):
+    For the PIL level:
+      identity      the lines printed for an empty packet (#@). None is a build
+                    without identity lines: it takes the empty packet for an
+                    image and answers with an inference
+      mute          the board answers nothing at all
+      silent_on     numbers of the images (1 = first) that get no answer
+      silent_from   from this image on, no image gets an answer
+      raise_at, failure   the n-th image raises failure (Ctrl+C, an error)
+      drop_link_at  the n-th image finds the port gone
+    inferences counts the images answered, packets the images received and
+    empty_packets the identity requests.
+    """
+
+    def __init__(self, level, board=None, banner=None, boot=(), drop_link_at=None, identity=None,
+                 mute=False, silent_on=(), silent_from=None, raise_at=None, failure=None):
         self.level = level
         self.board = board
         self.banner = banner or BANNER[level]
@@ -145,7 +228,13 @@ class SimulatedBoard:
         self.closed = False
         self.inferences = 0
         self.packets = 0
+        self.empty_packets = 0
         self.drop_link_at = drop_link_at   # the n-th packet finds the port gone
+        self.identity = identity
+        self.mute = mute
+        self.silent_on = set(silent_on)
+        self.silent_from = silent_from
+        self.raise_at, self.failure = raise_at, failure
 
     def answer(self):
         self.inferences += 1
@@ -168,11 +257,27 @@ class SimulatedBoard:
         return self.queue.pop(0) if self.queue else b""
 
     def write(self, data):
+        if self.mute:
+            return len(data)
+        if self.level == "pil" and data == b"#@":
+            # the host asks what is running
+            self.empty_packets += 1
+            if self.identity is not None:
+                self.queue += [line.encode() + b"\r\n" for line in self.identity]
+            else:
+                answered = self.inferences
+                self.answer()                 # an earlier build runs an inference on nothing
+                self.inferences = answered
+            return len(data)
         if data[:1] in (b"#", b"T"):
             self.packets += 1
             if self.packets == self.drop_link_at:
                 import serial
                 raise serial.SerialException("WriteFile failed (the device does not recognise the command)")
+            if self.packets == self.raise_at:
+                raise self.failure
+            if self.packets in self.silent_on or (self.silent_from and self.packets >= self.silent_from):
+                return len(data)
             self.answer()
         return len(data)
 
@@ -190,7 +295,14 @@ pil_benchmark = load_bench("pil_benchmark")
 
 
 class PilFolderCase(unittest.TestCase):
-    """A small class-per-folder test partition and an output folder, for the PIL bench."""
+    """A small class-per-folder test partition, a model file and an output folder, for the PIL bench.
+
+    The bench runs against a simulated board and a fake clock: run_folder() gives it
+    the port (or the ports, one per time the bench opens it) and returns the
+    exit code, None for a run that ended normally, and what was printed.
+    """
+
+    N_PER_CLASS = 2
 
     def setUp(self):
         from PIL import Image
@@ -199,104 +311,137 @@ class PilFolderCase(unittest.TestCase):
         self.folder = os.path.join(self.tmp.name, "test")
         for cls, shade in (("non_person", 40), ("person", 200)):
             os.makedirs(os.path.join(self.folder, cls))
-            for i in range(2):
+            for i in range(self.N_PER_CLASS):
                 Image.new("L", (16, 12), shade + i).save(os.path.join(self.folder, cls, "img_%d.png" % i))
+        self.total = 2 * self.N_PER_CLASS
+        self.model = os.path.join(self.tmp.name, "sim_int8.tflite")
+        with open(self.model, "wb") as fh:
+            fh.write(bytes(range(256)) * 8)
         self.out = os.path.join(self.tmp.name, "out")
+        self.clock = FakeClock()
+
+    def board(self, name="PORTENTA_H7", **kwargs):
+        """A board flashed with the current sketch and with self.model."""
+        return SimulatedBoard("pil", board=name, identity=pil_identity(self.model, board=name), **kwargs)
+
+    def run_folder(self, ports, reopen=None, **options):
+        ports = ports if isinstance(ports, list) else [ports]
+        arguments = dict(port="SIM", baud=115200, folder=self.folder, width=16, height=12, grayscale=True,
+                         pre_delay=0, gap=0, model_tag="sim_int8", model_path=self.model,
+                         output_dir=self.out, board_key="portenta")
+        arguments.update(options)
+        patches = [mock.patch.object(pil_benchmark.serial, "Serial", side_effect=ports),
+                   mock.patch.object(pil_benchmark, "time", self.clock)]
+        if reopen is not None:
+            patches.append(mock.patch.object(pil_benchmark, "reopen_port", reopen))
+        code = None
+        with contextlib.ExitStack() as stack, contextlib.redirect_stdout(io.StringIO()) as log:
+            for patch in patches:
+                stack.enter_context(patch)
+            try:
+                pil_benchmark.send_folder(**arguments)
+            except SystemExit as stop:
+                code = stop.code
+        return code, log.getvalue()
+
+    def metrics(self):
+        with open(os.path.join(self.out, "metrics_sim_int8.json"), encoding="utf-8") as fh:
+            return json.load(fh)
+
+    def predictions(self):
+        with open(os.path.join(self.out, "predictions_sim_int8.csv"), encoding="utf-8", newline="") as fh:
+            return list(csv.DictReader(fh, delimiter=";"))
+
+    def written(self):
+        return sorted(os.listdir(self.out)) if os.path.isdir(self.out) else []
 
 
 @unittest.skipIf(pil_benchmark is None, "pil_benchmark needs pyserial, Pillow and numpy")
 class PilBenchOnSimulatedBoardTest(PilFolderCase):
-    def run_bench(self, board, board_key="portenta"):
-        with mock.patch.object(pil_benchmark.serial, "Serial", return_value=board), \
-                mock.patch.object(pil_benchmark.time, "sleep"), \
-                contextlib.redirect_stdout(io.StringIO()) as log:
-            pil_benchmark.send_folder(port="SIM", baud=115200, folder=self.folder, width=16, height=12,
-                                      grayscale=True, pre_delay=0, gap=0, model_tag="sim_int8",
-                                      model_path=None, output_dir=self.out, board_key=board_key)
-        with open(os.path.join(self.out, "metrics_sim_int8.json"), encoding="utf-8") as fh:
-            return json.load(fh), log.getvalue()
-
     def test_run_is_complete_and_records_the_board(self):
-        metrics, _ = self.run_bench(SimulatedBoard("pil", board="NICLA_VISION"), board_key="nicla")
+        code, log = self.run_folder(self.board("NICLA_VISION"), board_key="nicla")
+        self.assertIsNone(code, log)
+        metrics = self.metrics()
         self.assertEqual(metrics["level"], "PIL")
         self.assertEqual(metrics["run"]["board"], "NICLA_VISION")
         self.assertEqual((metrics["dataset"]["n_images"], metrics["dataset"]["n_answered"],
                           metrics["dataset"]["n_unanswered"]), (4, 4, 0))
         self.assertEqual(metrics["prediction_counts"], {"1": 4})
         self.assertEqual(metrics["latency"]["per_field"]["US_TOTAL"]["mean"], 1011.0)
-        with open(os.path.join(self.out, "predictions_sim_int8.csv"), encoding="utf-8", newline="") as fh:
-            rows = list(csv.DictReader(fh, delimiter=";"))
+        rows = self.predictions()
         self.assertEqual(len(rows), 4)
         self.assertEqual({r["PredClass"] for r in rows}, {"person"})
 
-    def test_firmware_built_before_the_change_still_works(self):
+    def test_firmware_built_before_november_2026_runs_only_when_allowed(self):
+        # no identity lines, no BOARD line, the Spanish banner
         board = SimulatedBoard("pil", board=None, banner=LEGACY_BANNER["pil"])
-        metrics, log = self.run_bench(board)
+        code, log = self.run_folder(board)
+        self.assertEqual(code, 2)
+        self.assertIn("MODEL_FNV1A", log)
+        self.assertEqual((board.inferences, self.written()), (0, []))
+
+        board = SimulatedBoard("pil", board=None, banner=LEGACY_BANNER["pil"])
+        code, log = self.run_folder(board, allow_model_mismatch=True)
+        self.assertIsNone(code, log)
+        metrics = self.metrics()
         self.assertEqual(metrics["dataset"]["n_answered"], 4)
         self.assertIsNone(metrics["run"]["board"])
+        self.assertFalse(metrics["model"]["identity_verified"])
         self.assertIn("did not announce its board", log)
 
     def test_wrong_board_stops_before_measuring_and_leaves_nothing(self):
-        board = SimulatedBoard("pil", board="NICLA_VISION")
-        with mock.patch.object(pil_benchmark.serial, "Serial", return_value=board), \
-                mock.patch.object(pil_benchmark.time, "sleep"), \
-                contextlib.redirect_stdout(io.StringIO()) as log, \
-                self.assertRaises(SystemExit) as ctx:
-            pil_benchmark.send_folder(port="SIM", baud=115200, folder=self.folder, width=16, height=12,
-                                      grayscale=True, pre_delay=0, gap=0, model_tag="sim_int8",
-                                      model_path=None, output_dir=self.out, board_key="portenta")
-        self.assertEqual(ctx.exception.code, 2)
-        self.assertIn("--board nicla", log.getvalue())
-        self.assertEqual(board.inferences, 1)
+        board = self.board("NICLA_VISION")
+        code, log = self.run_folder(board, board_key="portenta")
+        self.assertEqual(code, 2)
+        self.assertIn("--board nicla", log)
+        self.assertEqual(board.inferences, 0)
         self.assertTrue(board.closed)
-        self.assertEqual(os.listdir(self.out), [])
+        self.assertEqual(self.written(), [])
+
+    def test_wrong_board_is_also_found_out_on_a_build_without_identity_lines(self):
+        board = SimulatedBoard("pil", board="NICLA_VISION")     # names its board with every answer
+        code, log = self.run_folder(board, board_key="portenta", allow_model_mismatch=True)
+        self.assertEqual(code, 2)
+        self.assertIn("--board nicla", log)
+        self.assertEqual((board.inferences, self.written()), (0, []))
 
 
 @unittest.skipIf(pil_benchmark is None, "pil_benchmark needs pyserial, Pillow and numpy")
 class PilBenchOnDroppedLinkTest(PilFolderCase):
     """A USB serial link can vanish for a moment while the board keeps running."""
 
-    def run_with(self, ports, reopen=None):
-        patches = [mock.patch.object(pil_benchmark.serial, "Serial", side_effect=ports),
-                   mock.patch.object(pil_benchmark.time, "sleep")]
-        if reopen is not None:
-            patches.append(mock.patch.object(pil_benchmark, "reopen_port", reopen))
-        with contextlib.ExitStack() as stack, contextlib.redirect_stdout(io.StringIO()) as log:
-            for patch in patches:
-                stack.enter_context(patch)
-            pil_benchmark.send_folder(port="SIM", baud=115200, folder=self.folder, width=16, height=12,
-                                      grayscale=True, pre_delay=0, gap=0, model_tag="sim_int8",
-                                      model_path=None, output_dir=self.out, board_key="portenta")
-        return log.getvalue()
-
     def test_port_is_reopened_and_the_same_image_sent_again(self):
-        first = SimulatedBoard("pil", board="PORTENTA_H7", drop_link_at=3)
-        second = SimulatedBoard("pil", board="PORTENTA_H7")
-        log = self.run_with([first, second])
-        with open(os.path.join(self.out, "metrics_sim_int8.json"), encoding="utf-8") as fh:
-            metrics = json.load(fh)
+        first = self.board(drop_link_at=3)
+        second = self.board()
+        code, log = self.run_folder([first, second])
+        self.assertIsNone(code, log)
+        metrics = self.metrics()
         self.assertEqual(metrics["run"]["n_reconnects"], 1)
+        self.assertTrue(metrics["run"]["completed"])
         self.assertEqual((metrics["dataset"]["n_images"], metrics["dataset"]["n_answered"],
                           metrics["dataset"]["n_unanswered"]), (4, 4, 0))
         self.assertEqual((first.inferences, second.inferences), (2, 2))   # no image lost, none counted twice
+        self.assertEqual(second.empty_packets, 0)                         # the board is not asked again
         self.assertTrue(first.closed)
         self.assertIn("Serial link lost", log)
-        with open(os.path.join(self.out, "predictions_sim_int8.csv"), encoding="utf-8", newline="") as fh:
-            self.assertEqual(len(list(csv.DictReader(fh, delimiter=";"))), 4)
+        self.assertEqual(len(self.predictions()), 4)
 
     def test_run_without_drops_records_zero_reconnects(self):
-        self.run_with([SimulatedBoard("pil", board="PORTENTA_H7")])
-        with open(os.path.join(self.out, "metrics_sim_int8.json"), encoding="utf-8") as fh:
-            self.assertEqual(json.load(fh)["run"]["n_reconnects"], 0)
+        code, log = self.run_folder(self.board())
+        self.assertIsNone(code, log)
+        self.assertEqual(self.metrics()["run"]["n_reconnects"], 0)
 
-    def test_link_that_does_not_come_back_ends_the_run_with_a_message(self):
-        first = SimulatedBoard("pil", board="PORTENTA_H7", drop_link_at=2)
-        with self.assertRaises(SystemExit) as ctx:
-            self.run_with([first], reopen=lambda port, baud: None)
-        self.assertEqual(ctx.exception.code, 3)
-        self.assertFalse(os.path.exists(os.path.join(self.out, "metrics_sim_int8.json")))
-        with open(os.path.join(self.out, "predictions_sim_int8.csv"), encoding="utf-8", newline="") as fh:
-            self.assertEqual(len(list(csv.DictReader(fh, delimiter=";"))), 1)   # the image measured before the drop
+    def test_link_that_does_not_come_back_ends_the_run_and_keeps_what_was_measured(self):
+        first = self.board(drop_link_at=2)
+        code, log = self.run_folder(first, reopen=lambda port, baud: None)
+        self.assertEqual(code, 3)
+        self.assertIn("did NOT finish", log)
+        self.assertEqual(len(self.predictions()), 1)   # the image measured before the drop
+        metrics = self.metrics()
+        self.assertFalse(metrics["run"]["completed"])
+        self.assertIn("serial link lost at image 2 of 4 and did not recover", metrics["run"]["stopped_because"])
+        self.assertEqual((metrics["dataset"]["n_images_planned"], metrics["dataset"]["n_images"],
+                          metrics["dataset"]["n_answered"], metrics["run"]["n_reconnects"]), (4, 1, 1, 1))
 
 
 hil_benchmark = load_bench("hil_benchmark")

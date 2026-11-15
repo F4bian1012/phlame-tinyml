@@ -94,11 +94,12 @@ Every evaluation script writes a `metrics_{model}[_int8].json` file capturing cl
 |---|---|---|---|
 | `model.name` | All | `string` | Model architecture tag / run identifier (e.g., `"MobileNetV2+32+20+0.0001+160+120_int8"`). |
 | `model.path` | All | `string` | Relative path to the evaluated `.keras` or `.tflite` model artifact. |
-| `model.sha256` | All | `string` | 64-character SHA-256 hash of the host model file: the `.keras` file in MIL and the `.tflite` file in SIL, PIL and HIL. In PIL it does not prove which model is flashed on the board (only HIL checks that, see `model.identity_verified`). |
+| `model.sha256` | All | `string` | 64-character SHA-256 hash of the host model file: the `.keras` file in MIL and the `.tflite` file in SIL, PIL and HIL. By itself it does not prove which model is flashed on the board: `model.identity_verified` says whether the bench checked that. |
 | `model.bytes` | All | `integer` | Model file size on disk in bytes. |
-| `model.fnv1a_tflite` | HIL | `string` | 8-character hex 32-bit FNV-1a hash computed directly from the host `.tflite` binary file. |
-| `model.fnv1a_chip` | HIL | `string` | 8-character hex 32-bit FNV-1a hash computed by the Portenta H7 firmware over the compiled `g_model[]` in flash and emitted at boot (`MODEL_FNV1A:<hex>`). |
-| `model.identity_verified` | HIL | `boolean` | `true` if the on-chip fingerprint and size match the host `.tflite` file. Confirms that the physical board ran the expected compiled model (a non-cryptographic check against stale or wrongly flashed firmware). |
+| `model.fnv1a_tflite` | PIL, HIL | `string\|null` | 8-character hex 32-bit FNV-1a hash computed directly from the host `.tflite` binary file. In PIL: written from November 2026 on, absent in earlier files; `null` when `--model_path` was not a file (a run allowed with `--allow_model_mismatch`). |
+| `model.fnv1a_chip` | PIL, HIL | `string\|null` | 8-character hex 32-bit FNV-1a hash computed by the firmware over the compiled `g_model[]` in flash (`MODEL_FNV1A:<hex>`), read by the bench before the first image or stimulus. In PIL: written from November 2026 on, absent in earlier files; `null` when the firmware is a build that reports no fingerprint. |
+| `model.identity_verified` | PIL, HIL | `boolean` | `true` if the on-chip fingerprint and size match the host `.tflite` file. Confirms that the physical board ran the expected compiled model (a non-cryptographic check against stale or wrongly flashed firmware). `false` only in a run allowed with `--allow_model_mismatch`. In PIL: written from November 2026 on; the earlier PIL files carry no such check. |
+| `model.arena_used_bytes` | PIL | `integer\|null` | Part of the tensor arena the model uses on the board, as the firmware reports it (`ARENA_USED:<int>`); `null` when the firmware is a build that does not report it to the bench. Written from November 2026 on; absent in earlier files. (HIL records the same figure in `conditions_*.json`, `firmware_model.arena_used_bytes`.) |
 | `model.note` | PIL, HIL | `string` | Explanatory note detailing the verification method and scope of the checksum. |
 | `model.kernels` | SIL | `string` | TFLite kernels that ran the model on the PC, as given with `--kernels`: `"default"` (the interpreter's own choice, which includes the XNNPACK delegate), `"builtin"` (built-in optimized kernels without that delegate) or `"reference"` (reference kernels). Written from November 2026 on; absent in earlier files, which were all measured with the default. |
 
@@ -115,7 +116,8 @@ Every evaluation script writes a `metrics_{model}[_int8].json` file capturing cl
 | `dataset.image_size.width` | MIL, SIL | `integer` | Input width in pixels. |
 | `dataset.image_size.height` | MIL, SIL | `integer` | Input height in pixels. |
 | `dataset.n_samples` | MIL, SIL | `integer` | Total number of test images evaluated in the session. |
-| `dataset.n_images` | PIL | `integer` | Total number of test images sent to the board in the session. |
+| `dataset.n_images` | PIL | `integer` | Number of test images sent to the board and recorded in the session (one row of each CSV); the unanswered ones are among them. |
+| `dataset.n_images_planned` | PIL | `integer` | Number of images the run set out to send; equal to `dataset.n_images` in a completed run. Written from November 2026 on; absent in earlier files. |
 | `dataset.n_stimuli` | HIL | `integer` | Number of optical stimuli presented and recorded in the session (one row of the latency CSV each). |
 | `dataset.n_stimuli_planned` | HIL | `integer` | Number of stimuli the session set out to present; equal to `dataset.n_stimuli` in a completed run. Written from November 2026 on; absent in earlier files. |
 | `dataset.n_answered` | PIL, HIL | `integer` | Number of test items for which the microcontroller successfully returned a class prediction. |
@@ -131,15 +133,18 @@ Every evaluation script writes a `metrics_{model}[_int8].json` file capturing cl
 | `run.input_shape.width` | PIL | `integer` | Image width in pixels. |
 | `run.input_shape.height` | PIL | `integer` | Image height in pixels. |
 | `run.input_shape.channels` | PIL | `integer` | Image channels: `1` for grayscale, `3` for RGB (`--color`). |
+| `run.input_shape_verified` | PIL | `boolean` | `true` when the firmware announced the input shape of its model (`INPUT_SHAPE:<H>x<W>x<C>`) and it is the shape of the images sent; a different shape stops the run before it starts. `false` when the firmware is a build that does not announce it. Written from November 2026 on; absent in earlier files. |
 | `run.pre_delay_s` | PIL | `float` | Warm-up pause after opening the serial port before transmitting data (seconds). |
 | `run.n_samples_requested` | PIL | `integer\|null` | PIL only: value of `--count` (number of images requested); `null` means every image in the folder. |
 | `run.n_reconnects` | PIL | `integer` | Times the serial link dropped during the run and the bench reopened the port and sent the image again; `0` in a run without drops. Written from November 2026 on; absent in earlier files. |
+| `run.max_unanswered` | PIL | `integer` | Value of `--max_unanswered`: images in a row without an answer after which the run is given up (`0`: never). Written from November 2026 on; absent in earlier files. |
+| `run.stopped_because` | PIL | `string\|null` | Why a run that is not `completed` ended (for example `"the board stopped answering: 5 images in a row without an answer (last one: image 37 of 940)"`); `null` in a completed run. Written from November 2026 on; absent in earlier files. (HIL records it in `conditions_*.json`.) |
 | `run.settle_s` | HIL | `float` | Display stabilization time after rendering each stimulus before triggering optical camera capture (default: `1.5` s). |
 | `run.gap_s` | PIL, HIL | `float` | Inter-stimulus delay between successive evaluations (default: `0.5` s). |
 | `run.seed` | HIL | `integer` | Random seed used for reproducible stimulus ordering (default: `42`). |
 | `run.frame_dump` | HIL | `boolean` | `true` if raw 160×120 sensor frames were read back over serial for cross-level validation and image logging. |
 | `run.conditions_complete` | HIL | `boolean` | `true` if all mandatory environmental conditions (`illuminance_lux`, `camera_to_screen_distance_cm`, `ambient_temp_c`) were recorded. |
-| `run.completed` | HIL | `boolean` | `true` when every planned stimulus was presented and recorded. `false` when the session was cut short (a lost serial link, a board that stopped answering, Ctrl+C, an error, or a stimulus image that could not be displayed): the figures of the file then cover only the `dataset.n_stimuli` stimuli measured, and the reason is in `stopped_because` of the conditions file. Written from November 2026 on; absent in earlier files, which are all complete runs. |
+| `run.completed` | PIL, HIL | `boolean` | In PIL: `true` when every planned image was sent and recorded, `false` when the run was cut short (the serial link was lost for good, the board stopped answering, Ctrl+C, an error); the figures of the file then cover only the `dataset.n_images` images recorded. In HIL: `true` when every planned stimulus was presented and recorded. `false` when the session was cut short (a lost serial link, a board that stopped answering, Ctrl+C, an error, or a stimulus image that could not be displayed): the figures of the file then cover only the `dataset.n_stimuli` stimuli measured, and the reason is in `stopped_because` of the conditions file. Written from November 2026 on; absent in earlier files, which are all complete runs. |
 | `run.illuminance_lux` | HIL | `float` | Illuminance measured at the screen plane in lux (`10.0` lux in the primary protocol). |
 | `run.camera_to_screen_distance_cm` | HIL | `float` | Distance from the camera lens to the monitor screen in cm (`24.0` cm in the primary protocol). |
 | `run.ambient_temp_c` | HIL | `float` | Ambient room temperature measured at session start in °C. |
