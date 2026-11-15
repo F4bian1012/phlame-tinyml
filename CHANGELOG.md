@@ -20,6 +20,9 @@ DOI yet (see [Citation](README.md#citation)).
 - `build_ladder_tables.py` rebuilds the eight statistical tables (paired bootstrap intervals, exact McNemar test,
   Holm correction) from the result files, without hardware. It now builds them for any benchmark that has the
   four levels (`--tag`, `--run_suffix`, `--splits_dir`, `--board`), not only for the vehicle benchmark.
+- Without options `build_ladder_tables.py` builds the tables of the COCO benchmark, in `results/tables/coco/`.
+  The tables of the vehicle benchmark, which were what no option gave until 15 November 2026, are built with
+  `--benchmark vehicle`; their place (`results/tables/`) and their content did not change.
 - `build_benchmark_table.py` builds the summary table of a benchmark measured up to PIL, with the image-by-image
   agreement between levels and between boards.
 - MIL and SIL compute their metrics and write their result files through one module, `src/evaluation.py`;
@@ -84,6 +87,14 @@ DOI yet (see [Citation](README.md#citation)).
   only the images of the HIL subset; and `compare_pil_cycles.py` puts the cycles per phase of several PIL runs of
   one model side by side. Together they allow the place of the arena to be measured on one board. No such run is
   published yet.
+- The HIL bench keeps the captured frames of each session in a folder of its own,
+  `data/hil_frames/<name of the session's files>/`, recorded in the conditions file, and stops before opening the
+  port when that folder already holds frames, unless `--overwrite` is given. Before, every session wrote to
+  `data/hil_frames/` and replaced the frames of the one before. A folder given with `--frames_dir` is used as it
+  was.
+- The `model.h` in git of the two sketches carries the `MobileNetV2` of the COCO benchmark; it carried the one of
+  the vehicle benchmark. The build record of the flash budget was made with the earlier header and has not been
+  built again.
 
 Which of these have run on a board and which only against the simulated board of the tests is kept up to date in
 [`docs/hardware.md`](docs/hardware.md).
@@ -147,8 +158,11 @@ Which of these have run on a board and which only against the simulated board of
 - The COCO benchmark is the benchmark of the repository. The vehicle benchmark, measured on private images, is
   kept as an application case outside the main results: its four-level results, its paired decomposition, its
   repeatability sessions and its limitations moved from the README to
-  [`docs/vehicle_benchmark.md`](docs/vehicle_benchmark.md). No result file, table, script or default changed:
-  `build_ladder_tables.py` with no option still rebuilds its eight tables in `results/tables/`.
+  [`docs/vehicle_benchmark.md`](docs/vehicle_benchmark.md). No result file or table changed. The defaults followed
+  afterwards: what `build_ladder_tables.py` builds without options and the model in the `model.h` of the sketches
+  (see above).
+- The header of the README names the two boards: PIL is measured on the Arduino Portenta H7 and on the Arduino
+  Nicla Vision, HIL on the Portenta H7.
 - The README is shorter. The detail of the seven usage steps and of the Arduino Nicla Vision moved to
   [`docs/usage.md`](docs/usage.md); the README keeps the sequence of commands.
 - The README was cut a second time. It keeps the two tables of the COCO benchmark, a short list of what they
@@ -185,6 +199,9 @@ For anyone who used an earlier commit:
 | Spanish keys in the result files (`nivel`, `modelo`, ...) | English keys (`level`, `model`, ...): table in `docs/results_schema.md` |
 | `--path_proyecto` | `--sketch_path` (the former name is still accepted) |
 | `--tag_suffix` of `build_ladder_tables.py` | `--run_suffix` (the former name is still accepted) |
+| `build_ladder_tables.py` without options, for the vehicle benchmark | `build_ladder_tables.py --benchmark vehicle` (without options: the COCO benchmark) |
+| `build_ladder_tables.py --tag <tag>` with the run suffix of the vehicle benchmark implied | add `--run_suffix +32+20+0.0001+160+120` (the suffix implied is now that of the COCO benchmark) |
+| Frames of every HIL session in `data/hil_frames/` | `data/hil_frames/<name of the session's files>/` (`--frames_dir data/hil_frames` gives the former place) |
 | `data/splits/` manifests of the vehicle benchmark | `data/splits_plates/` |
 
 ### Starting Point

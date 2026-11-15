@@ -12,6 +12,9 @@ What is checked is what a physical session cannot afford to get wrong:
   - no stimulus is shown before the model on the board has been verified,
     whatever names the output files;
   - --monitor places the window and is recorded;
+  - the frames of a session go to a folder of its own, which the conditions
+    file names, and are not replaced by another session unless --overwrite or
+    an explicit --frames_dir says so;
   - the keys the bench writes are the ones docs/results_schema.md documents.
 
 The board is the SimulatedBoard of test_boards.py with the boot lines, the
@@ -182,6 +185,11 @@ class HilSessionCase(unittest.TestCase):
         self.tag = "Tiny_sim+1+1+0.1+160+120_int8"
         self.out = str(root / "out")
         self.clock = FakeClock()
+        # Where a session without --frames_dir puts its frames: here, not in data/hil_frames of the repository.
+        self.frames_root = str(root / "hil_frames")
+        frames_root = mock.patch.object(hil_benchmark, "FRAMES_ROOT", self.frames_root)
+        frames_root.start()
+        self.addCleanup(frames_root.stop)
 
     def board(self, **kwargs):
         return RigBoard(self.model, self.clock, **kwargs)
@@ -301,6 +309,115 @@ class CompleteSessionTest(HilSessionCase):
             self.assertEqual(sorted(written - documented), [], "%s keys missing from the docs" % kind)
             # the keys no published file has yet are documented from what the bench writes
             self.assertEqual(sorted(not_yet - written), [], "%s keys the bench does not write" % kind)
+
+
+@unittest.skipUnless(READY, "the HIL bench needs pyserial, OpenCV, numpy, scikit-learn and seaborn")
+class FramesFolderTest(HilSessionCase):
+    """Where the dumped frames of a session go. The frame files are named after the stimulus
+    only, so in one shared folder every session replaced the frames of the one before."""
+
+    def camera(self, level):
+        """A camera whose every frame is one gray level, to tell the frames of two sessions apart."""
+        return lambda: self.np.full((FRAME_H, FRAME_W), level, dtype=self.np.uint8)
+
+    def gray_levels(self, folder):
+        """{frame file: the gray levels it holds} for every file of a folder."""
+        cv2 = hil_benchmark.cv2
+        return {name: self.np.unique(cv2.imread(os.path.join(folder, name), cv2.IMREAD_UNCHANGED)).tolist()
+                for name in sorted(os.listdir(folder))}
+
+    def assert_recorded(self, folder, tag=None):
+        self.assertEqual(os.path.normpath(self.load("conditions", tag)["frames_dir"]), os.path.normpath(folder))
+
+    def two_sessions(self, *extra):
+        """Runs a session of each of two models, one after the other, into the same output folder,
+        as a campaign does. Returns ((tag, gray level of its camera), ...)."""
+        other_tag = "Small_sim+1+1+0.1+160+120_int8"
+        other = os.path.join(self.tmp.name, other_tag + ".tflite")
+        Path(other).write_bytes(bytes(reversed(range(256))) * 8)
+        sessions = ((self.tag, self.model, 10), (other_tag, other, 200))
+        for tag, model, level in sessions:
+            board = RigBoard(model, self.clock, camera=self.camera(level))
+            code, log, _ = self.run_bench(board, "--dump_frames", "--model_path", model, *extra)
+            self.assertIsNone(code, log)
+        return tuple((tag, level) for tag, _model, level in sessions)
+
+    def test_the_default_is_a_folder_per_session_under_data_hil_frames(self):
+        frames_root = os.path.join("data", "hil_frames")
+        with mock.patch.object(hil_benchmark, "FRAMES_ROOT", frames_root):     # the value the module defines
+            self.assertEqual(hil_benchmark.session_frames_dir(None, self.tag), os.path.join(frames_root, self.tag))
+            self.assertEqual(hil_benchmark.session_frames_dir("elsewhere", self.tag), "elsewhere")
+        text = (REPO / "src" / "hil_benchmark.py").read_text(encoding="utf-8")
+        self.assertIn("FRAMES_ROOT = os.path.join('data', 'hil_frames')", text)
+        # the conditions file names that folder relative to the repository, with '/'
+        inside = os.path.join(hil_benchmark.REPO_ROOT, frames_root, self.tag)
+        self.assertEqual(hil_benchmark._relpath_repo(inside), "data/hil_frames/" + self.tag)
+
+    def test_the_folder_of_a_session_is_named_like_its_output_files(self):
+        code, log, _ = self.run_bench(self.board(camera=self.camera(10)), "--dump_frames")
+        self.assertIsNone(code, log)
+        folder = os.path.join(self.frames_root, self.tag)
+        self.assertEqual(os.listdir(self.frames_root), [self.tag])
+        self.assertEqual(sorted(os.listdir(folder)), sorted(row["frame_file"] for row in self.rows()))
+        self.assertEqual(len(os.listdir(folder)), self.total)
+        self.assert_recorded(folder)
+        self.assertIn("saving captured frames to: %s" % folder, log)
+
+    def test_two_sessions_keep_their_frames_apart(self):
+        sessions = self.two_sessions()
+        self.assertEqual(sorted(os.listdir(self.frames_root)), sorted(tag for tag, _ in sessions))
+        for tag, level in sessions:
+            folder = os.path.join(self.frames_root, tag)
+            frames = self.gray_levels(folder)
+            # every frame of the session is there, and it is the one its own camera took
+            self.assertEqual(sorted(frames), sorted(row["frame_file"] for row in self.rows(tag)))
+            self.assertEqual(len(frames), self.total)
+            self.assertEqual(set(map(tuple, frames.values())), {(level,)})
+            self.assert_recorded(folder, tag)
+
+    def test_frames_of_an_earlier_session_with_the_same_name_are_not_replaced_silently(self):
+        code, log, _ = self.run_bench(self.board(camera=self.camera(10)), "--dump_frames")
+        self.assertIsNone(code, log)
+        folder = os.path.join(self.frames_root, self.tag)
+        first = self.gray_levels(folder)
+        # The same model again with its results in another folder: only the frames would collide.
+        again = os.path.join(self.tmp.name, "out_again")
+        board = self.board(camera=self.camera(200))
+        code, log, _ = self.run_bench(board, "--dump_frames", "--output_dir", again)
+        self.assertEqual(code, 1)
+        self.assertIn("already holds %d frame(s) of an earlier session named %s" % (self.total, self.tag), log)
+        self.assertIn("--frames_dir", log)
+        self.assertEqual(board.triggers, 0)
+        self.assertEqual(board.queue[-1], b"READY_HIL\r\n")      # the boot lines were never read
+        self.assertFalse(os.path.exists(again))
+        self.assertEqual(self.gray_levels(folder), first)
+        # --overwrite is the way to replace them, and the bench says that it does
+        code, log, _ = self.run_bench(self.board(camera=self.camera(200)), "--dump_frames", "--output_dir", again,
+                                      "--overwrite")
+        self.assertIsNone(code, log)
+        self.assertIn("[WARN] --overwrite: %s holds %d frame(s) of an earlier session" % (folder, self.total), log)
+        self.assertEqual(sorted(self.gray_levels(folder)), sorted(first))
+        self.assertEqual(set(map(tuple, self.gray_levels(folder).values())), {(200,)})
+
+    def test_a_folder_given_with_the_option_is_used_as_it_is(self):
+        shared = os.path.join(self.tmp.name, "my_frames")
+        (first, _), (second, level) = self.two_sessions("--frames_dir", shared)
+        self.assert_recorded(shared, first)
+        self.assert_recorded(shared, second)
+        # No folder per session inside it and no refusal: it works as it did when every session
+        # wrote to one folder, and the second session has replaced the frames of the first.
+        frames = self.gray_levels(shared)
+        self.assertEqual(sorted(frames), sorted(row["frame_file"] for row in self.rows(second)))
+        self.assertEqual(set(map(tuple, frames.values())), {(level,)})
+        self.assertFalse(os.path.exists(self.frames_root))
+
+    def test_a_session_without_frame_dump_names_no_folder_and_creates_none(self):
+        code, log, _ = self.run_bench(self.board())
+        self.assertIsNone(code, log)
+        conditions = self.load("conditions")
+        self.assertEqual((conditions["frame_dump"], conditions["frames_dir"]), (False, None))
+        self.assertEqual({row["frame_file"] for row in self.rows()}, {""})
+        self.assertFalse(os.path.exists(self.frames_root))
 
 
 @unittest.skipUnless(READY, "the HIL bench needs pyserial, OpenCV, numpy, scikit-learn and seaborn")

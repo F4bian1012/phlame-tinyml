@@ -3,10 +3,10 @@
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/Python-3.13-brightgreen)
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-2.16%2B-orange)
-![Hardware](https://img.shields.io/badge/Hardware-Arduino_Portenta_H7-teal)
+![Hardware](https://img.shields.io/badge/Hardware-Arduino_Portenta_H7_and_Nicla_Vision-teal)
 
 
-An open-source framework to train, quantize, deploy and measure CNN image classifiers on resource-constrained microcontrollers (specifically the **Arduino Portenta H7**), evaluated across a four-level MIL→SIL→PIL→HIL fidelity ladder.
+An open-source framework to train, quantize, deploy and measure CNN image classifiers on resource-constrained microcontrollers (the **Arduino Portenta H7** and, for PIL, the **Arduino Nicla Vision**), evaluated across a four-level MIL→SIL→PIL→HIL fidelity ladder.
 
 ---
 
@@ -93,16 +93,16 @@ The suite runs the scripts against simulated boards and invented data, recompute
 
 ## Reproduce the Published Results Without Hardware
 
-The per-image results of every published run are in git, so the published tables can be rebuilt in seconds without a board, a dataset or trained models. There are two sets. The table of the COCO benchmark is rebuilt by `python src/build_benchmark_table.py --tag COCO --output_dir results/smoke_test/tables` (see [Reproduce the Public Benchmark (COCO)](#reproduce-the-public-benchmark-coco)). The eight statistical tables in `results/tables/` are those of the vehicle application case ([`docs/vehicle_benchmark.md`](docs/vehicle_benchmark.md)), which `build_ladder_tables.py` builds when it is given no benchmark, in about 10 seconds. This writes to a git-ignored folder, so `results/tables/` stays untouched for comparison:
+The per-image results of every published run are in git, so the published tables can be rebuilt in seconds without a board, a dataset or trained models. There are two sets. The table of the COCO benchmark is rebuilt by `python src/build_benchmark_table.py --tag COCO --output_dir results/smoke_test/tables` (see [Reproduce the Public Benchmark (COCO)](#reproduce-the-public-benchmark-coco)). The eight statistical tables in `results/tables/` are those of the vehicle application case ([`docs/vehicle_benchmark.md`](docs/vehicle_benchmark.md)), which `build_ladder_tables.py --benchmark vehicle` builds. This writes to a git-ignored folder, so `results/tables/` stays untouched:
 
 ```bash
-python src/build_ladder_tables.py --output_dir results/smoke_test/tables
+python src/build_ladder_tables.py --benchmark vehicle --output_dir results/smoke_test/tables
 python tests/tables_check.py results/tables results/smoke_test/tables
 ```
 
-The second command says whether the rebuilt tables are the published ones; it leaves out the date and the commit of the run, which change every time.
+The second command says whether the rebuilt tables are the published ones, date and commit aside.
 
-The same script rebuilds the ladder of the Visual Wake Words run ([Results](#results), section 2): add `--tag VWW --archs MobileNetV2 --deployable MobileNetV2 --splits_dir data/splits_vww` and another `--output_dir`.
+Without `--benchmark` the script builds the COCO tables (`results/tables/coco/`) and needs that benchmark's HIL sessions ([Results](#results), section 1). For the Visual Wake Words run (section 2): `--tag VWW --run_suffix +32+20+0.0001+160+120 --splits_dir data/splits_vww --archs MobileNetV2 --deployable MobileNetV2` and another `--output_dir`.
 
 Try the preprocessing on the 8 public sample images:
 

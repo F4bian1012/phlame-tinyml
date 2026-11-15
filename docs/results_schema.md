@@ -281,7 +281,7 @@ Alongside `metrics_*.json`, the HIL benchmark generates a standalone `conditions
 | `stimulus_monitor.monitors` | `array[array[integer]]` | The same four numbers for every monitor found, the primary one first. |
 | `notes` | `string` | User-provided laboratory notes (monitor model, lighting fixtures, etc.). |
 | `frame_dump` | `boolean` | `true` when the captured frames were sent back and saved (`--dump_frames`, also implied by `--sil_model` / `--mil_model`). |
-| `frames_dir` | `string\|null` | Folder where the dumped frames were written; `null` when `frame_dump` is `false`. |
+| `frames_dir` | `string\|null` | Folder where the dumped frames were written; `null` when `frame_dump` is `false`. Without `--frames_dir` it is the folder of the session, `data/hil_frames/<model_tag>`. Until 15 November 2026 the default was `data/hil_frames` for every session: the sessions that name that folder shared it and each replaced the frames of the one before, so it does not hold the frames of all of them. |
 | `sil_model` | `string\|null` | Path to the companion INT8 model executed on the host for paired cross-validation. |
 | `sil_kernels` | `string\|null` | TFLite kernels that ran `sil_model` on the host (`--sil_kernels`); `null` without `--sil_model`. Written from November 2026 on; absent in earlier files, which used the default. |
 | `mil_model` | `string\|null` | Path to the companion float model executed on the host for paired cross-validation. |

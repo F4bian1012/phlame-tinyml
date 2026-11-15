@@ -7,31 +7,40 @@ ladder (MIL -> SIL -> PIL -> HIL) from the per-image result files in results/.
 Run from the repository root:
 
     python src/build_ladder_tables.py
-    python src/build_ladder_tables.py --output_dir results/tables --bootstrap 10000
+    python src/build_ladder_tables.py --benchmark vehicle
+    python src/build_ladder_tables.py --output_dir results/smoke_test/tables/coco --bootstrap 10000
 
-Without options it rebuilds the tables of the vehicle benchmark, the one the
-paper reports. Another benchmark that has the four levels is one command:
+Without options it builds the tables of the COCO benchmark (person / non_person
+on MS-COCO), the benchmark of the repository, in results/tables/coco.
+--benchmark vehicle builds those of the vehicle application case
+(docs/vehicle_benchmark.md) in results/tables, where they are published. Another
+benchmark that has the four levels is one command, here the Visual Wake Words run:
 
-    python src/build_ladder_tables.py --tag COCO --run_suffix +32+50+0.0003+160+120 --splits_dir data/splits_coco
+    python src/build_ladder_tables.py --tag VWW --run_suffix +32+20+0.0001+160+120 --splits_dir data/splits_vww \
+        --archs MobileNetV2 --deployable MobileNetV2
 
+  --benchmark    coco (default) or vehicle: the tag, the run suffix and the partition of
+                 one of the two published benchmarks. Each of the next three options
+                 replaces its part, so the three together name any other benchmark
   --tag          tag of the runs, as given to the training scripts: the runs are named
-                 <Architecture>_<tag><run_suffix>; without it, <Architecture><run_suffix>
+                 <Architecture>_<tag><run_suffix>; with an empty tag (--tag ""),
+                 <Architecture><run_suffix>
   --run_suffix   the rest of the run name: +batch+epochs+learning rate+width+height
   --splits_dir   partition of the benchmark; its test_manifest.csv gives the rig subset
                  (hil_subset) and the class names
   --archs, --deployable   architectures at MIL and SIL, and those that also run on the board
   --board        board of the PIL and HIL runs: results/{pil,hil} for the Portenta H7,
                  results/nicla/{pil,hil} for the Nicla Vision
-  --output_dir   default results/tables for the vehicle benchmark and
-                 results/tables/<tag in lower case> with --tag, so that two benchmarks
-                 do not replace each other's tables
+  --output_dir   default results/tables/<tag in lower case> (results/tables/coco), and
+                 results/tables for runs without a tag (the vehicle benchmark), so that
+                 two benchmarks do not replace each other's tables
 
-Inputs (all tracked in git; <run> = <Architecture>[_<tag>]<run_suffix>, by default
-<Architecture>+32+20+0.0001+160+120; n is given for the vehicle benchmark):
-  results/mil/predictions_<run>.csv           MIL: float model on the host        (n = 940)
-  results/sil/predictions_<run>_int8.csv      SIL: INT8 model on the host         (n = 940)
+Inputs (<run> = <Architecture>[_<tag>]<run_suffix>, by default
+<Architecture>_COCO+32+50+0.0003+160+120; n is given for the COCO benchmark):
+  results/mil/predictions_<run>.csv           MIL: float model on the host        (n = 5,000)
+  results/sil/predictions_<run>_int8.csv      SIL: INT8 model on the host         (n = 5,000)
   results/sil/metrics_<run>_int8.json         exact .tflite size and SHA-256
-  results/pil/predictions_<run>_int8.csv      PIL: INT8 on the MCU, images sent over serial (n = 940)
+  results/pil/predictions_<run>_int8.csv      PIL: INT8 on the MCU, images sent over serial (n = 5,000)
   results/pil/metrics_<run>_int8.json         PIL per-phase latency (DWT cycle counter)
   results/hil/latency_metrics_<run>_int8.csv  HIL: INT8 on the MCU, camera frames (n = 200), plus the
                                               host float/INT8 re-classification of the same frame
@@ -52,8 +61,9 @@ Outputs (in --output_dir):
   ladder_tables.tex         the same tables in LaTeX (booktabs)
   table<k>_<name>.csv       unrounded values of every table
   ladder_summary.json       headline numbers and provenance (input SHA-256, seeds,
-                            library versions, git commit; and, for a benchmark other
-                            than the default one, the options that define it)
+                            library versions, git commit; and the options that define
+                            the benchmark, except in the summary of the vehicle
+                            benchmark, which keeps the keys of the published file)
 
 Methods
   * Metric: binary macro-averaged F1. Differences are computed from unrounded values.
@@ -91,35 +101,53 @@ from scipy.stats import t as t_dist
 import boards
 import cli
 
-# The defaults describe the vehicle benchmark, the one the tables of the paper report.
+# What names the runs and the partition of the two published benchmarks. COCO is the
+# benchmark of the repository and the one built without options; the vehicle benchmark is
+# the application case (docs/vehicle_benchmark.md), whose runs carry no tag.
+BENCHMARKS = {
+    "coco": {"tag": "COCO", "run_suffix": "+32+50+0.0003+160+120", "splits_dir": "data/splits_coco"},
+    "vehicle": {"tag": None, "run_suffix": "+32+20+0.0001+160+120", "splits_dir": "data/splits_plates"},
+}
+DEFAULT_BENCHMARK = "coco"
+VEHICLE = BENCHMARKS["vehicle"]
+# The same architectures in both benchmarks.
 DEFAULT_ARCHS = "MobileNetV2,MobileNetV3Large,ResNet18,MobileNet,MobileNetV3Small,SqueezeNet,ResNet8"
 DEFAULT_DEPLOYABLE = "MobileNetV2,MobileNet,MobileNetV3Small,SqueezeNet,ResNet8"
-DEFAULT_RUN_SUFFIX = "+32+20+0.0001+160+120"
-DEFAULT_SPLITS_DIR = "data/splits_plates"
 FLASH_BYTES = 2 * 1024 * 1024  # STM32H747XI internal flash: 2 MiB
 
 
 # ----------------------------------------------------------------------------
 # Command line
 # ----------------------------------------------------------------------------
-def parse_args():
+def parse_args(argv=None):
+    of_default = BENCHMARKS[DEFAULT_BENCHMARK]
     p = cli.ArgumentParser(
         description="Rebuild the fidelity-ladder tables (paired bootstrap CIs, exact McNemar, "
                     "Holm) from the per-image result files in results/. Without options: the "
-                    "vehicle benchmark of the paper; --tag, --run_suffix and --splits_dir name "
-                    "another benchmark that has the four levels.")
+                    "COCO benchmark, the benchmark of the repository; --benchmark vehicle: the "
+                    "vehicle application case; --tag, --run_suffix and --splits_dir name another "
+                    "benchmark that has the four levels.")
     p.add_argument("--root", default=".",
                    help="Repository root; all other paths are relative to it (default: .)")
+    p.add_argument("--benchmark", choices=sorted(BENCHMARKS), default=DEFAULT_BENCHMARK,
+                   help="Published benchmark to build: its tag, run suffix and partition (default: %s). "
+                        "vehicle: runs without a tag, suffix %s, partition %s, tables in results/tables. "
+                        "--tag, --run_suffix and --splits_dir each replace their part"
+                        % (DEFAULT_BENCHMARK, VEHICLE["run_suffix"], VEHICLE["splits_dir"]))
     p.add_argument("--output_dir", default=None,
-                   help="Output folder (default: results/tables; results/tables/<tag in lower case> "
-                        "with --tag; under results/nicla/ with --board nicla)")
+                   help="Output folder (default: results/tables/<tag in lower case>, which is "
+                        "results/tables/%s without options; results/tables for runs without a tag, as "
+                        "with --benchmark vehicle; under results/nicla/ with --board nicla)"
+                        % of_default["tag"].lower())
     p.add_argument("--tag", default=None,
-                   help="Tag of the runs, as given to the training scripts with --tag (e.g. COCO): the "
-                        "runs are named {architecture}_{tag}{run_suffix}. Default: no tag, the runs are "
-                        "named {architecture}{run_suffix}")
-    p.add_argument("--run_suffix", default=DEFAULT_RUN_SUFFIX,
+                   help="Tag of the runs, as given to the training scripts with --tag: the runs are "
+                        "named {architecture}_{tag}{run_suffix} (default: %s, or that of --benchmark). "
+                        "An empty tag (--tag \"\") is for runs trained without one, which are named "
+                        "{architecture}{run_suffix}" % of_default["tag"])
+    p.add_argument("--run_suffix", default=None,
                    help="Rest of the run name after the architecture and the tag: "
-                        "+batch+epochs+learning rate+width+height (default: %s)" % DEFAULT_RUN_SUFFIX)
+                        "+batch+epochs+learning rate+width+height (default: %s, or that of --benchmark)"
+                        % of_default["run_suffix"])
     # Name of --run_suffix until November 2026; still accepted.
     p.add_argument("--tag_suffix", dest="run_suffix", default=argparse.SUPPRESS, help=argparse.SUPPRESS)
     p.add_argument("--archs", default=DEFAULT_ARCHS,
@@ -128,10 +156,10 @@ def parse_args():
     p.add_argument("--deployable", default=DEFAULT_DEPLOYABLE,
                    help="Comma-separated architectures that fit on the MCU (have PIL and HIL runs). "
                         "The first one is the reference for the rig subset and the repeatability runs.")
-    p.add_argument("--splits_dir", default=DEFAULT_SPLITS_DIR,
+    p.add_argument("--splits_dir", default=None,
                    help="Partition folder of the benchmark, as written by split_dataset.py; its "
                         "test_manifest.csv gives the rig subset (hil_subset) and the class names "
-                        "(default: %s)" % DEFAULT_SPLITS_DIR)
+                        "(default: %s, or that of --benchmark)" % of_default["splits_dir"])
     p.add_argument("--manifest", default=None,
                    help="Test manifest with the hil_subset column, when it is not "
                         "<splits_dir>/test_manifest.csv (checked if present)")
@@ -151,7 +179,13 @@ def parse_args():
                         "subset (default: 4000)")
     p.add_argument("--subsample_seed", type=int, default=7,
                    help="Seed of those subsamples (default: 7)")
-    return p.parse_args()
+    args = p.parse_args(argv)
+    # What --tag, --run_suffix and --splits_dir leave unsaid comes from the benchmark.
+    for key, value in BENCHMARKS[args.benchmark].items():
+        if getattr(args, key) is None:
+            setattr(args, key, value)
+    args.tag = args.tag or None      # --tag "": runs named without a tag
+    return args
 
 
 # ----------------------------------------------------------------------------
@@ -433,10 +467,11 @@ def main():
     board = boards.BOARDS[args.board]
     manifest_given = args.manifest is not None
     manifest = (args.manifest if manifest_given else os.path.join(args.splits_dir, "test_manifest.csv")).replace(os.sep, "/")
-    default_manifest = f"{DEFAULT_SPLITS_DIR}/test_manifest.csv"
-    # The benchmark the script builds without options: the vehicle benchmark of the paper.
-    paper_benchmark = (not args.tag and args.run_suffix == DEFAULT_RUN_SUFFIX
-                       and args.board == boards.DEFAULT_BOARD and manifest == default_manifest)
+    # The vehicle benchmark as it was published (--benchmark vehicle): its tables keep the
+    # wording of the published files, and its summary their keys.
+    vehicle_benchmark = (not args.tag and args.run_suffix == VEHICLE["run_suffix"]
+                         and args.board == boards.DEFAULT_BOARD
+                         and manifest == f"{VEHICLE['splits_dir']}/test_manifest.csv")
     if args.output_dir is None:
         args.output_dir = os.path.join(boards.results_dir(args.board, "tables"), *([args.tag.lower()] if args.tag else []))
     stop_if_levels_are_missing(args.root, required_inputs(archs, dep, tag, pil_dir, hil_dir), archs,
@@ -476,7 +511,8 @@ def main():
             subset_check = flagged == {os.path.basename(n) for n in rig}
             if not subset_check:
                 sys.exit("[ERROR] The rig images do not match hil_subset == 1 in the manifest")
-    elif manifest_given or args.splits_dir.replace(os.sep, "/") != DEFAULT_SPLITS_DIR:
+    elif manifest_given or args.splits_dir.replace(os.sep, "/") != VEHICLE["splits_dir"]:
+        # Only the partition of the vehicle benchmark may come without its manifest, as it always could.
         sys.exit(f"[ERROR] Test manifest not found: {manifest}")
     class_names, class_names_source = read_class_names(io, args, man, f"results/mil/predictions_{tag(archs[0])}.csv")
     rig_pos = np.array([pos[n] for n in rig])
@@ -602,7 +638,7 @@ def main():
     # "original" is the HIL run of the ladder (the one in the HIL folder itself). In the vehicle
     # benchmark it was measured before the protocol of the repeatability runs was fixed, which is
     # what its role says; in another benchmark it is simply the run the other tables use.
-    original_role = ("original (different protocol, excluded from the mean)" if paper_benchmark
+    original_role = ("original (different protocol, excluded from the mean)" if vehicle_benchmark
                      else "run of the ladder (not in the mean of the repeatability runs)" if rep_dirs
                      else "run of the ladder")
     for d in rep_dirs:
@@ -704,8 +740,9 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
     c0, c1 = class_names
     md, tex = [], []
-    # What tells this benchmark from the default one, for the title and the LaTeX labels
-    # (tab:ladder1 for the vehicle benchmark, tab:ladder-coco-1 for a benchmark tagged COCO).
+    # What names the benchmark in the title and the LaTeX labels: its tag and, when it is not the
+    # Portenta H7, its board (tab:ladder-coco-1 for the COCO benchmark; tab:ladder1 for the
+    # vehicle benchmark, whose runs carry no tag).
     marks = ([args.tag] if args.tag else []) + ([board["label"]] if args.board != boards.DEFAULT_BOARD else [])
     label_stem = "ladder" + "".join("-" + m.lower().replace(" ", "") for m in marks) + ("-" if marks else "")
 
@@ -878,9 +915,9 @@ def main():
                         "platform": platform.platform()},
         "inputs_sha256": dict(sorted(io.read.items())),
     }
-    # The options that define the benchmark are recorded when it is not the default one, so the
-    # summary of the vehicle benchmark keeps the keys of the published file.
-    if not paper_benchmark or args.class_names:
+    # The options that define the benchmark are recorded, except for the vehicle benchmark,
+    # whose summary keeps the keys of the published file.
+    if not vehicle_benchmark or args.class_names:
         summary["parameters"]["benchmark"] = {
             "tag": args.tag, "run_suffix": args.run_suffix, "board": board["announces"], "manifest": manifest,
             "class_names": [c0, c1], "class_names_from": class_names_source,

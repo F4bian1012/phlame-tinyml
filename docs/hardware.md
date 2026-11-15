@@ -32,8 +32,11 @@ internal flash. Measured on a build of the PIL firmware with `AllOpsResolver`
 The HIL firmware carries 14 KiB more code, which leaves ~1360 KiB.
 
 Which of the INT8 models of the COCO benchmark fit, at 160×120. "Flash used" counts the bootloader region,
-the PIL firmware code and the model. The build measured carries the `MobileNetV2` of the repository's `model.h`
-(1,335,488 bytes in all, 645,640 of them the model); each row is that budget plus the `.tflite` of the model:
+the PIL firmware code and the model. The build of the record carried the `MobileNetV2` of the vehicle application
+case (1,335,488 bytes in all, 645,640 of them the model), which was the `model.h` of the repository when it was
+made. Since 15 November 2026 the `model.h` of the repository carries the `MobileNetV2` of the COCO benchmark
+(644,648 bytes), and the record has not been built again with it. Each row is the budget of that build, which
+does not count its model, plus the `.tflite` of the COCO model:
 
 | Model | `.tflite` | Flash used | Fits |
 |---|---|---|---|
@@ -129,8 +132,11 @@ left for the heap, against 451,984 in the default build (sizes read from the `.e
 summary for this board).
 
 **RAM budget on the Nicla Vision.** The board has no external SDRAM: 523,624 bytes of internal RAM hold the arena,
-the buffers, the camera frame and everything else. Reported by the compiler for the default sizes, with the
-`model.h` in the repository (`MobileNetV2`, 630.5 KiB):
+the buffers, the camera frame and everything else. Reported by the compiler for the default sizes, in builds
+made with the `MobileNetV2` of the vehicle application case (630.5 KiB), which the `model.h` of the repository
+carried until 15 November 2026. It now carries the COCO `MobileNetV2` (629.5 KiB), with which these three builds
+have not been repeated; the PIL build of that model measured for the table above took 1,026,512 bytes of flash
+and left the same 67,992 bytes of RAM:
 
 | Sketch | Flash (of 1,966,080 bytes) | Global RAM (of 523,624 bytes) | Left for the heap and the rest |
 |---|---|---|---|
@@ -198,13 +204,14 @@ Adding a third board takes one more block in each sketch and one entry in `src/b
 
 ## HIL Rig and Session
 
-The HIL bench shows each stimulus full-screen on a monitor that the camera of the board looks at. Three things about that set-up are handled on the host:
+The HIL bench shows each stimulus full-screen on a monitor that the camera of the board looks at. Four things about that set-up are handled on the host:
 
 - **Which monitor.** The stimulus window opens where the system puts it. `--monitor N` (bench and calibrator; Windows only) sends it to the N-th monitor, the primary one being 0, and the conditions file records the choice (`stimulus_monitor`). The option makes the process DPI-aware, so that the monitor rectangles are in physical pixels. On a display scaled above 100% that can change how large and how sharp the stimulus is drawn compared with a session without the option; this has not been measured. Calibrate and measure with the same value.
 - **Alignment.** `calibrate_hil_rig.py` shows its patterns through the same window and reads the captured frames with the same protocol (`'T'`, `'F1'`), so it measures what the bench will see. Its acceptance criteria, at the 160×120 of the frame: centre shift up to 2 px, scale within 3%, rotation up to 1°, fit residual up to 1.5 px; eight gray bands in increasing order with a range of at least 150 levels; corner-to-centre ratio of a flat field of at least 0.60, with its mean varying by at most 2 levels (standard deviation) between captures and at most 2% of saturated pixels; and a fine-to-coarse checkerboard contrast of at least 0.50. They are reported as PASS or WARN in `results/hil/calibration/calibration_{UTC time}.json`, never enforced: keep the report with the results of the session.
 - **A session that ends early.** Every stimulus is written to the latency CSV as soon as it is measured. If the serial link drops, the board stops answering, the operator presses Ctrl+C or anything else fails, the bench still writes the conditions file and, when at least one stimulus was answered, the metrics and the confusion matrix, all marked `completed: false` with the number of stimuli planned; it then ends with exit code 3. Unlike the PIL bench it does not reopen the port and repeat the stimulus. A key pressed in the stimulus window during the settle time is ignored: before November 2026 it ended the wait (that is what `cv2.waitKey` does) and the capture was triggered early.
+- **The frames of each session.** With `--dump_frames`, `--sil_model` or `--mil_model` the bench saves every captured frame as `frame_<idx>_<image>.png`, a name that does not carry the model. Each session therefore writes to a folder of its own, `data/hil_frames/<name of its output files>/` (git-ignored), which the conditions file records as `frames_dir`; the bench stops before opening the port when that folder already holds frames, unless `--overwrite` is given. A folder given with `--frames_dir` is used as it is. Until 15 November 2026 every session wrote to `data/hil_frames/` itself and replaced the frames of the one before, which is how frames of the first COCO sessions were lost ([`results/hil/before_rig_adjustment/`](../results/hil/before_rig_adjustment/README.md)).
 
-**What has run on the physical rig** (2026-11-15, Portenta H7). The calibrator, in both modes, and the bench (a 20-image session of the COCO `MobileNetV2`, with the model fingerprint verified and every frame also classified on the PC) ran with `--monitor 1`: the stimulus window opened on the second monitor and the camera captured it. Not exercised on the rig: a session that ends early, a key pressed during the settle time, and the effect of DPI awareness on the size of the stimulus (no session was run without `--monitor` to compare). The tests cover the first two against a simulated board and window (`tests/test_hil_session.py`).
+**What has run on the physical rig** (2026-11-15, Portenta H7). The calibrator, in both modes, and the bench (a 20-image session of the COCO `MobileNetV2`, with the model fingerprint verified and every frame also classified on the PC) ran with `--monitor 1`: the stimulus window opened on the second monitor and the camera captured it. Not exercised on the rig: a session that ends early, a key pressed during the settle time, the folder of frames per session, which is later than these sessions, and the effect of DPI awareness on the size of the stimulus (no session was run without `--monitor` to compare). The tests cover the first three against a simulated board and window (`tests/test_hil_session.py`).
 
 **When the board does not answer.** The HIL sketch prints its boot lines once, after a restart, and stops for good when the camera does not initialize (`CAM_INIT:FAIL`: on the Portenta H7, a Vision Shield that is not fully seated on its two connectors does this, and moving the camera can unseat it). The bench must therefore be the first to open the port after a restart, which flashing provides. The calibrator does not need that: when the firmware is silent it asks for RESET, stays on the port while it disappears, opens it again and reads the boot lines (`tests/test_calibration_restart.py`). A firmware left in the middle of a frame by Ctrl+C was seen to stop answering until the next restart; the cause was not traced.
 

@@ -3,8 +3,13 @@
 """
 tables_check.py - Says whether a rebuilt set of ladder tables is the published one.
 
-    python src/build_ladder_tables.py --output_dir results/smoke_test/tables
+    python src/build_ladder_tables.py --benchmark vehicle --output_dir results/smoke_test/tables
     python tests/tables_check.py results/tables results/smoke_test/tables
+
+The two folders hold the tables of one benchmark: here the vehicle benchmark,
+published at the top level of results/tables. The tables build_ladder_tables.py
+builds without options, those of the COCO benchmark, have results/tables/coco
+as their folder and are compared in the same way.
 
 What is compared, and how:
 

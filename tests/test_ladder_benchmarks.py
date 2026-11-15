@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Checks that src/build_ladder_tables.py builds the tables of a benchmark other
-than the vehicle one with one command line.
+Checks which benchmark src/build_ladder_tables.py builds: the COCO benchmark
+without options, the vehicle benchmark with --benchmark vehicle, and any other
+benchmark that has the four levels with one command line.
 
 Two benchmarks are used. An invented one ("ZOO": three architectures, classes
 cat and dog, its own tag, run suffix, partition and rig subset), written to a
-temporary folder with predictions whose macro-F1 the test computes on its own;
-and the Visual Wake Words run that is in the repository, whose figures are the
-ones the README reports. The tables of the vehicle benchmark, which the script
-builds without options, are covered by tests/test_published_tables.py.
+temporary folder with predictions whose macro-F1 the test computes on its own,
+and written again under the run names and the partition of the COCO and of the
+vehicle benchmark to see what the script builds by default; and the Visual Wake
+Words run that is in the repository, whose figures are the ones the README
+reports. The published tables of the vehicle benchmark are covered by
+tests/test_published_tables.py.
 
 Needs numpy and scipy (the packages of the script); skipped without them.
 
@@ -44,15 +47,24 @@ OPTIONS = ["--tag", TAG, "--run_suffix", SUFFIX, "--splits_dir", "data/splits_zo
            "--archs", ",".join(ARCHS), "--deployable", ",".join(DEPLOYABLE), "--bootstrap", "200"]
 
 
-def run_of(arch):
-    return "%s_%s%s" % (arch, TAG, SUFFIX)
+# What names the two published benchmarks for the script: tag, run suffix, partition and architectures.
+PUBLISHED_ARCHS = ["MobileNetV2", "MobileNetV3Large", "ResNet18", "MobileNet", "MobileNetV3Small", "SqueezeNet", "ResNet8"]
+PUBLISHED_DEPLOYABLE = ["MobileNetV2", "MobileNet", "MobileNetV3Small", "SqueezeNet", "ResNet8"]
+AS_COCO = dict(tag="COCO", suffix="+32+50+0.0003+160+120", splits="data/splits_coco",
+               archs=PUBLISHED_ARCHS, deployable=PUBLISHED_DEPLOYABLE)
+AS_VEHICLE = dict(tag=None, suffix="+32+20+0.0001+160+120", splits="data/splits_plates",
+                  archs=PUBLISHED_ARCHS, deployable=PUBLISHED_DEPLOYABLE)
 
 
-def invented_predictions():
+def run_of(arch, tag=TAG, suffix=SUFFIX):
+    return "%s_%s%s" % (arch, tag, suffix) if tag else arch + suffix
+
+
+def invented_predictions(archs=ARCHS):
     """{(level, architecture): {image: predicted label}}, the same on every call."""
     rng = random.Random(20261115)
     out = {}
-    for arch in ARCHS:
+    for arch in archs:
         for level in ("MIL", "SIL", "PIL", "HIL", "MILc", "SILc"):
             names = RIG if level in ("HIL", "MILc", "SILc") else [name for name, _ in IMAGES]
             out[(level, arch)] = {name: (1 - TRUE[name]) if rng.random() < ERROR_RATE[level] else TRUE[name]
@@ -100,39 +112,46 @@ def write_hil(folder, stem, pred, announces, seed=42):
     (folder / ("conditions_%s.json" % stem)).write_text(json.dumps(conditions), encoding="utf-8")
 
 
-def build_benchmark(root, board_folder="results", announces="PORTENTA_H7"):
-    """Writes the invented benchmark under root; returns its predictions."""
+def build_benchmark(root, board_folder="results", announces="PORTENTA_H7", tag=TAG, suffix=SUFFIX,
+                    splits="data/splits_zoo", archs=ARCHS, deployable=DEPLOYABLE):
+    """Writes the invented benchmark under root; returns its predictions.
+
+    tag, suffix, splits, archs and deployable are what names it for the script: its own by default,
+    or those of a published benchmark (AS_COCO, AS_VEHICLE) around the same invented images."""
     root = Path(root)
-    pred = invented_predictions()
-    splits = root / "data" / "splits_zoo"
-    splits.mkdir(parents=True)
-    with open(splits / "test_manifest.csv", "w", encoding="utf-8", newline="") as fh:
+    pred = invented_predictions(archs)
+    splits_dir = root.joinpath(*splits.split("/"))
+    splits_dir.mkdir(parents=True)
+    with open(splits_dir / "test_manifest.csv", "w", encoding="utf-8", newline="") as fh:
         writer = csv.writer(fh)
         writer.writerow(["split", "class_name", "label", "filename", "src_path", "dst_path", "hil_subset"])
         for name, label in IMAGES:
-            writer.writerow(["test", CLASSES[label], label, name, "", "data/splits_zoo/test/%s/%s" % (CLASSES[label], name),
+            writer.writerow(["test", CLASSES[label], label, name, "", "%s/test/%s/%s" % (splits, CLASSES[label], name),
                              int(name in RIG)])
     board_root = root.joinpath(*board_folder.split("/"))
-    for arch in ARCHS:
-        run = run_of(arch)
+    for arch in archs:
+        run = run_of(arch, tag, suffix)
         write_predictions(root / "results" / "mil" / ("predictions_%s.csv" % run), pred[("MIL", arch)])
         write_predictions(root / "results" / "sil" / ("predictions_%s_int8.csv" % run), pred[("SIL", arch)])
-        size = 3 * 1024 * 1024 if arch == "Huge" else 300 * 1024
+        size = 300 * 1024 if arch in deployable else 3 * 1024 * 1024
         (root / "results" / "sil" / ("metrics_%s_int8.json" % run)).write_text(
             json.dumps({"model": {"bytes": size, "sha256": "0" * 64, "kernels": "reference"}}), encoding="utf-8")
         # An alternative SIL run with every answer wrong: it must never be taken for the SIL level.
         write_predictions(root / "results" / "sil_kernels" / "default" / ("predictions_%s_int8.csv" % run),
                           {name: 1 - label for name, label in IMAGES})
-        if arch in DEPLOYABLE:
+        if arch in deployable:
             write_predictions(board_root / "pil" / ("predictions_%s_int8.csv" % run), pred[("PIL", arch)])
             metrics = dict(latency("US_PRE", "US_INF", "US_POST", "US_TOTAL", "CYC_INF"), run={"board": announces})
             (board_root / "pil" / ("metrics_%s_int8.json" % run)).write_text(json.dumps(metrics), encoding="utf-8")
             write_hil(board_root / "hil", run + "_int8",
                       (pred[("HIL", arch)], pred[("SILc", arch)], pred[("MILc", arch)]), announces)
-    # One repeatability run of this benchmark's reference architecture, and one of another benchmark.
-    reference = pred[("HIL", DEPLOYABLE[0])]
-    write_hil(board_root / "hil" / "rep1", "%s_%s_rep1" % (DEPLOYABLE[0], TAG), (reference, reference, reference), announces)
-    write_hil(board_root / "hil" / "rep7", "%s_rep7" % DEPLOYABLE[0], (reference, reference, reference), announces)
+    # One repeatability run of this benchmark's reference architecture, and one of another benchmark
+    # (a run without a tag when this one has a tag, a run with a tag when it has none).
+    ref = deployable[0]
+    reference = pred[("HIL", ref)]
+    own, other = ("%s_%s_rep1" % (ref, tag), "%s_rep7" % ref) if tag else ("%s_rep1" % ref, "%s_OTHER_rep7" % ref)
+    write_hil(board_root / "hil" / "rep1", own, (reference, reference, reference), announces)
+    write_hil(board_root / "hil" / "rep7", other, (reference, reference, reference), announces)
     return pred
 
 
@@ -169,7 +188,7 @@ class SecondBenchmarkTest(unittest.TestCase):
         self.assertEqual(len([n for n in names if n.startswith("table") and n.endswith(".csv")]), 8, names)
         for name in ("ladder_tables.md", "ladder_tables.tex", "ladder_summary.json"):
             self.assertIn(name, names)
-        # the folder of the default benchmark is left alone
+        # the tables of the published benchmarks are left alone: nothing at the top level, no other folder
         self.assertEqual([p.name for p in (self.root / "results" / "tables").iterdir()], ["zoo"])
 
     def test_every_level_is_the_one_of_its_own_folder(self):
@@ -260,7 +279,8 @@ class RefusedBenchmarkTest(unittest.TestCase):
     def test_a_wrong_run_name_lists_the_runs_there_are(self):
         options = [o for o in OPTIONS if o not in ("--run_suffix", SUFFIX)]
         text = self.refused(*options)
-        self.assertIn("No MIL run is named Tiny_ZOO+32+20+0.0001+160+120", text)
+        # without --run_suffix the runs are looked for under the suffix of the default benchmark, COCO
+        self.assertIn("No MIL run is named Tiny_ZOO+32+50+0.0003+160+120", text)
         self.assertIn("results/mil has: Tiny_ZOO+4+3+0.01+8+6", text)
 
     def test_the_partition_of_another_benchmark_is_refused(self):
@@ -334,12 +354,106 @@ class OptionsTest(unittest.TestCase):
 
 
 @unittest.skipUnless(READY, "build_ladder_tables.py needs numpy and scipy")
+class DefaultBenchmarkTest(unittest.TestCase):
+    """Which benchmark the script builds when the command line does not name one."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.tables = self.root / "results" / "tables"
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    @staticmethod
+    def summary(folder):
+        with open(folder / "ladder_summary.json", encoding="utf-8") as fh:
+            return json.load(fh)
+
+    def test_without_options_it_builds_the_coco_benchmark(self):
+        build_benchmark(self.root, **AS_COCO)
+        result = run_script(self.root)
+        self.assertEqual(result.returncode, 0, result.stdout[-3000:])
+        # in the folder of the COCO tables, and nothing at the top level, where the vehicle tables are
+        self.assertEqual([p.name for p in self.tables.iterdir()], ["coco"])
+        out = self.tables / "coco"
+        self.assertEqual(len(list(out.glob("table*.csv"))), 8)
+        text = (out / "ladder_tables.md").read_text(encoding="utf-8")
+        self.assertIn("# PHLAME - fidelity-ladder tables (COCO)", text)
+        self.assertIn("Runs named `<architecture>_COCO+32+50+0.0003+160+120`; "
+                      "partition `data/splits_coco/test_manifest.csv`", text)
+        self.assertIn("\\label{tab:ladder-coco-1}", (out / "ladder_tables.tex").read_text(encoding="utf-8"))
+        summary = self.summary(out)
+        self.assertEqual(summary["parameters"]["archs"], PUBLISHED_ARCHS)
+        self.assertEqual(summary["parameters"]["deployable"], PUBLISHED_DEPLOYABLE)
+        benchmark = summary["parameters"]["benchmark"]
+        self.assertEqual((benchmark["tag"], benchmark["run_suffix"], benchmark["manifest"]),
+                         ("COCO", "+32+50+0.0003+160+120", "data/splits_coco/test_manifest.csv"))
+        self.assertEqual(benchmark["repeatability_runs"], ["rep1"])
+        self.assertIn("results/hil/latency_metrics_MobileNetV2_COCO+32+50+0.0003+160+120_int8.csv",
+                      summary["inputs_sha256"])
+        # the sentence about the first run of the vehicle benchmark is not said of the default benchmark
+        self.assertEqual([row["role"] for row in read_csv(out / "table4_repeatability.csv")],
+                         ["run of the ladder (not in the mean of the repeatability runs)", "strict replicate"])
+
+    def test_without_options_the_runs_of_the_vehicle_benchmark_are_not_taken(self):
+        build_benchmark(self.root, **AS_VEHICLE)
+        result = run_script(self.root)
+        self.assertEqual(result.returncode, 1, result.stdout[-3000:])
+        self.assertIn("need the four levels", result.stdout)
+        self.assertIn("results/mil/predictions_MobileNetV2_COCO+32+50+0.0003+160+120.csv", result.stdout)
+        self.assertFalse(self.tables.exists(), "nothing is written by a refused run")
+
+    def test_one_option_builds_the_vehicle_benchmark_where_it_is_published(self):
+        build_benchmark(self.root, **AS_VEHICLE)
+        result = run_script(self.root, "--benchmark", "vehicle")
+        self.assertEqual(result.returncode, 0, result.stdout[-3000:])
+        # at the top level of results/tables, with the title, the labels and the summary keys of the published files
+        self.assertEqual([p.name for p in self.tables.iterdir() if p.is_dir()], [])
+        self.assertEqual(len(list(self.tables.glob("table*.csv"))), 8)
+        text = (self.tables / "ladder_tables.md").read_text(encoding="utf-8")
+        self.assertEqual(text.splitlines()[0], "# PHLAME - fidelity-ladder tables")
+        self.assertNotIn("Runs named", text)
+        self.assertIn("\\label{tab:ladder1}", (self.tables / "ladder_tables.tex").read_text(encoding="utf-8"))
+        summary = self.summary(self.tables)
+        self.assertNotIn("benchmark", summary["parameters"])
+        self.assertIn("results/mil/predictions_MobileNetV2+32+20+0.0001+160+120.csv", summary["inputs_sha256"])
+        self.assertIn("data/splits_plates/test_manifest.csv", summary["inputs_sha256"])
+        rows = read_csv(self.tables / "table4_repeatability.csv")
+        self.assertEqual([row["run"] for row in rows], ["original", "rep1"])
+        self.assertEqual(rows[0]["role"], "original (different protocol, excluded from the mean)")
+        self.assertIn("left out: rep7", result.stdout)
+
+    def test_each_option_replaces_its_part_of_the_benchmark(self):
+        # runs trained without a tag, with their own suffix and partition: --tag "" says there is none
+        build_benchmark(self.root, tag=None)
+        options = [o for o in OPTIONS if o not in ("--tag", TAG)]
+        result = run_script(self.root, "--tag", "", *options)
+        self.assertEqual(result.returncode, 0, result.stdout[-3000:])
+        self.assertTrue((self.tables / "table1_ladder.csv").is_file())
+        benchmark = self.summary(self.tables)["parameters"]["benchmark"]
+        self.assertEqual((benchmark["tag"], benchmark["run_suffix"], benchmark["manifest"]),
+                         (None, SUFFIX, "data/splits_zoo/test_manifest.csv"))
+        # the same options after --benchmark vehicle, whose runs carry no tag, name the same benchmark
+        again = run_script(self.root, "--benchmark", "vehicle", *options, "--output_dir", "again")
+        self.assertEqual(again.returncode, 0, again.stdout[-3000:])
+        self.assertEqual(self.summary(self.root / "again")["parameters"]["benchmark"], benchmark)
+
+    def test_a_benchmark_the_script_does_not_know_is_refused(self):
+        # --benchmark names one of the published benchmarks; any other is named by its three options
+        result = run_script(self.root, "--benchmark", "zoo")
+        self.assertEqual(result.returncode, 2, result.stdout[-3000:])
+        self.assertIn("invalid choice: 'zoo'", result.stdout)
+
+
+@unittest.skipUnless(READY, "build_ladder_tables.py needs numpy and scipy")
 class VisualWakeWordsTest(unittest.TestCase):
     """A real second benchmark: the four-level Visual Wake Words run published in the repository."""
 
     def test_one_command_gives_the_figures_of_the_readme(self):
         with tempfile.TemporaryDirectory() as tmp:
-            result = run_script(REPO, "--tag", "VWW", "--archs", "MobileNetV2", "--deployable", "MobileNetV2",
+            result = run_script(REPO, "--tag", "VWW", "--run_suffix", "+32+20+0.0001+160+120",
+                                "--archs", "MobileNetV2", "--deployable", "MobileNetV2",
                                 "--splits_dir", "data/splits_vww", "--bootstrap", "200", "--output_dir", tmp)
             self.assertEqual(result.returncode, 0, result.stdout[-3000:])
             row = read_csv(Path(tmp) / "table1_ladder.csv")[0]

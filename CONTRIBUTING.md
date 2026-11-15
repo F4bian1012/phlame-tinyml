@@ -45,9 +45,9 @@ hand-worked values and checks every published result file against the documented
   TensorFlow is needed only by `tests/test_sil_kernels.py` and by part of `tests/test_count_macs.py` and
   `tests/test_software_versions.py`; the bench tests need pyserial, Pillow, OpenCV, scikit-learn and seaborn; the
   table tests need numpy and scipy.
-- To compare the tables yourself:
+- To compare the tables yourself (those of the vehicle application case, the ladder tables in `results/tables/`):
   ```bash
-  python src/build_ladder_tables.py --output_dir results/smoke_test/tables
+  python src/build_ladder_tables.py --benchmark vehicle --output_dir results/smoke_test/tables
   python tests/tables_check.py results/tables results/smoke_test/tables
   ```
 - `.github/workflows/tests.yml` runs both steps on Linux and on Windows for every push to `main` and every pull

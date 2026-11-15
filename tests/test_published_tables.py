@@ -3,8 +3,11 @@
 """
 Checks that the tables in results/tables/ are what src/build_ladder_tables.py
 builds from the result files in git, and that the bootstrap is reproducible.
+Those tables are the ones of the vehicle benchmark, which the script builds
+with --benchmark vehicle (without options it builds the COCO benchmark, into
+results/tables/coco/; tests/test_ladder_benchmarks.py checks which is which).
 
-  - A rebuild with the default options gives the published tables: the eight
+  - A rebuild of the vehicle benchmark gives the published tables: the eight
     CSV files, the LaTeX and the Markdown files and the summary, leaving out
     the date, the commit and the library versions (tests/tables_check.py says
     exactly what is compared).
@@ -36,13 +39,14 @@ import tables_check  # noqa: E402
 
 SCRIPT = str(REPO / "src" / "build_ladder_tables.py")
 PUBLISHED = REPO / "results" / "tables"
+BENCHMARK = ("--benchmark", "vehicle")   # the one option that names the benchmark of those tables
 READY = all(importlib.util.find_spec(name) for name in ("numpy", "scipy"))
 
 
 def rebuild(out_dir, *options):
     env = dict(os.environ, PYTHONIOENCODING="utf-8")
-    return subprocess.run([sys.executable, SCRIPT, "--output_dir", str(out_dir), *options], cwd=REPO, env=env,
-                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8")
+    return subprocess.run([sys.executable, SCRIPT, *BENCHMARK, "--output_dir", str(out_dir), *options], cwd=REPO,
+                          env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8")
 
 
 def read_csv(path):

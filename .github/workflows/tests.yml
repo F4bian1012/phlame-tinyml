@@ -82,7 +82,9 @@ jobs:
       - name: Run the tests
         run: python -m unittest discover -s tests -v
 
+      # The ladder tables at the top level of results/tables are those of the vehicle
+      # benchmark; without --benchmark the script builds the COCO ones (results/tables/coco).
       - name: Rebuild the tables and compare them with results/tables
         run: |
-          python src/build_ladder_tables.py --output_dir results/smoke_test/ci/tables
+          python src/build_ladder_tables.py --benchmark vehicle --output_dir results/smoke_test/ci/tables
           python tests/tables_check.py results/tables results/smoke_test/ci/tables

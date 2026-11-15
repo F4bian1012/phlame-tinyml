@@ -63,6 +63,10 @@ gap into attributable components:
   MIL vs SIL  = INT8 QUANTIZATION loss (same hardware, same captured frame)
   SIL vs HIL  = MCU vs PC EXECUTION divergence (TFLM vs TFLite kernels)
   PIL vs HIL  = physical FRONTEND degradation (display / optics / sensor)
+The frames are saved as frame_<idx>_<image>.png in a folder of the session,
+data/hil_frames/<tag>/ (git-ignored), or in --frames_dir when it is given. The
+bench stops before opening the port when the folder of the session already
+holds frames, unless --overwrite is given.
 
 Typical usage (full fidelity ladder on live camera frames, manifest hil_subset):
   python src/hil_benchmark.py --port COM9 \
@@ -1003,6 +1007,27 @@ MAX_CONSECUTIVE_UNANSWERED = 5
 # Exit code of a run that did not measure every planned stimulus.
 EXIT_INCOMPLETE = 3
 
+# Captured frames (--dump_frames, --sil_model, --mil_model). A frame file is
+# named after its stimulus only (frame_<idx>_<image>.png), so two sessions that
+# write to one folder replace each other's frames. Without --frames_dir every
+# session therefore gets a folder of its own under FRAMES_ROOT, named like its
+# output files.
+FRAMES_ROOT = os.path.join('data', 'hil_frames')
+FRAME_FILE = re.compile(r"^frame_\d+_.+\.png$")
+
+
+def session_frames_dir(frames_dir, model_tag):
+    """Folder the captured frames of a session go to: --frames_dir as it was
+    given, or else data/hil_frames/<model_tag>."""
+    return frames_dir if frames_dir else os.path.join(FRAMES_ROOT, model_tag)
+
+
+def frames_in(folder):
+    """Names of the frame files a folder already holds."""
+    if not folder or not os.path.isdir(folder):
+        return []
+    return sorted(name for name in os.listdir(folder) if FRAME_FILE.match(name))
+
 
 def latency_csv_path(output_dir, model_tag):
     return os.path.join(output_dir, f"latency_metrics_{model_tag}.csv")
@@ -1325,6 +1350,22 @@ def run_benchmark(args):
           f"latency_metrics_{model_tag}.csv", f"conditions_{model_tag}.json")],
         args.overwrite,
         hint="give the session its own folder and name with --output_dir and --model_tag")
+    # The same holds for its frames. The folder the bench chooses is the session's
+    # own, so frames found there are those of an earlier session with this name
+    # (one that wrote its results to another --output_dir, or this one again).
+    # A folder given with --frames_dir is the operator's and is used as it is.
+    dump_frames = (args.dump_frames or args.sil_model is not None
+                   or args.mil_model is not None)
+    frames_dir = session_frames_dir(args.frames_dir, model_tag) if dump_frames else None
+    earlier_frames = frames_in(frames_dir) if dump_frames and not args.frames_dir else []
+    if earlier_frames and not args.overwrite:
+        print(f"ERROR: {frames_dir} already holds {len(earlier_frames)} frame(s) of an earlier "
+              f"session named {model_tag}, and this session would replace them.")
+        print("Nothing was written. Either:")
+        print("  - give this session its own name with --model_tag, or its frames their own "
+              "folder with --frames_dir")
+        print("  - pass --overwrite to replace them.")
+        sys.exit(1)
     if args.folder:
         print(f"[WARN] Explicit --folder provided: reading from {args.folder} "
               f"and bypassing the manifest hil_subset filter.")
@@ -1359,9 +1400,6 @@ def run_benchmark(args):
     # Cross-validation: raw frame-dump + PC-side MIL/SIL
     sil_model = None
     mil_model = None
-    dump_frames = (args.dump_frames or args.sil_model is not None
-                   or args.mil_model is not None)
-    frames_dir = None
     if args.sil_model:
         sil_model = SilModel(args.sil_model, args.sil_kernels)
     if args.mil_model:
@@ -1371,10 +1409,14 @@ def run_benchmark(args):
         ser.flush()
         read_lines_until(ser, lambda l: l == "FRAME_DUMP:ON", timeout_s=5,
                          echo=False)
-        # Store captured frames under data/ (git-ignored; for local traceability)
-        frames_dir = args.frames_dir
+        # Captured frames are kept for local traceability (data/hil_frames is git-ignored).
         os.makedirs(frames_dir, exist_ok=True)
         print(f"[INFO] Frame-dump enabled; saving captured frames to: {frames_dir}")
+        if earlier_frames:
+            print(f"[WARN] --overwrite: {frames_dir} holds {len(earlier_frames)} frame(s) of an "
+                  f"earlier session named {model_tag}. Those this session captures again are "
+                  f"replaced; the frames of this session are the ones its latency CSV names "
+                  f"(column frame_file).")
 
     # Stimulus rig: host-controlled monitor window
     stimulus_monitor = open_stimulus_window(fullscreen=not args.windowed, monitor=args.monitor)
@@ -1694,10 +1736,12 @@ def parse_args():
                              "the PC over each captured frame (implies "
                              "--dump_frames). Combined with --sil_model, "
                              "isolates INT8 quantization loss.")
-    parser.add_argument('--frames_dir', default=os.path.join('data',
-                                                             'hil_frames'),
-                        help="Directory for saved captured frames, git-ignored "
-                             "(default: data/hil_frames)")
+    parser.add_argument('--frames_dir', default=None,
+                        help="Directory for the captured frames. Default: a folder of "
+                             "the session, data/hil_frames/<name of its output files> "
+                             "(git-ignored), so that one session does not replace the "
+                             "frames of another. A folder given here is used as it is, "
+                             "whatever it holds")
     args = parser.parse_args()
     if args.manifest is None:
         args.manifest = os.path.join(args.splits_dir, 'test_manifest.csv')

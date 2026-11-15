@@ -44,8 +44,8 @@ below before any number on this page.
   ([Results](../README.md#results), section 2) has the four levels for one model, and the COCO benchmark stops at
   PIL.
 - For traceability: the framework, its result format and its statistics were developed on it, its result files
-  and tables are in the repository as they were measured, `python src/build_ladder_tables.py` rebuilds its tables
-  when it is given no benchmark, and the test suite recomputes them (`tests/test_published_tables.py`).
+  and tables are in the repository as they were measured, `python src/build_ladder_tables.py --benchmark vehicle`
+  rebuilds its tables, and the test suite recomputes them (`tests/test_published_tables.py`).
 - What it does support: every level is evaluated on the same 940 (or 200) images, so the differences between
   levels are comparisons on identical images and remain valid as such. The accuracies themselves say little about
   vehicles the models have not seen.
@@ -106,11 +106,12 @@ Cross-running the exact same 200 test stimuli as **digital files** (MIL₂₀₀
 
 The statistics are paired bootstrap 95% intervals (10,000 resamples, seed 20261016), exact McNemar tests with
 Holm correction and per-class Fisher tests; the script is deterministic. The tables are rebuilt in about 10
-seconds without a board, a dataset or trained models. This writes to a git-ignored folder, and the second command
-says whether the rebuilt tables are the published ones:
+seconds without a board, a dataset or trained models. `--benchmark vehicle` names this benchmark: without it the
+script builds the tables of the COCO benchmark. This writes to a git-ignored folder, and the second command says
+whether the rebuilt tables are the published ones:
 
 ```bash
-python src/build_ladder_tables.py --output_dir results/smoke_test/tables
+python src/build_ladder_tables.py --benchmark vehicle --output_dir results/smoke_test/tables
 python tests/tables_check.py results/tables results/smoke_test/tables
 ```
 
@@ -172,7 +173,10 @@ portability to another microcontroller family. The COCO benchmark was then measu
   `results/nicla/pil/`), and the tables (`results/tables/`).
 - **Model files:** distributed like the other published models (see
   [Data Availability](../README.md#data-availability) in the README); `python src/verify_models.py --set plates`
-  checks them against `models/checksums.sha256`.
+  checks them against `models/checksums.sha256`. The `model.h` of the two firmware sketches carried the
+  `MobileNetV2` of this benchmark until 15 November 2026, and the build record of the flash budget
+  ([`flash_budget_build.txt`](flash_budget_build.txt)) was made with it; the sketches now carry the `MobileNetV2`
+  of the COCO benchmark.
 - **Licence-plate photographs:** withheld. The photographs of this benchmark show identifiable licence plates,
   which are personal data under Colombian data-protection law (**Law 1581 of 2012**), so they are neither in this
   repository nor in its releases. They are available from the author upon reasonable academic request, subject to
