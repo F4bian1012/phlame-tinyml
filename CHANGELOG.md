@@ -22,6 +22,9 @@ DOI yet (see [Citation](README.md#citation)).
   four levels (`--tag`, `--run_suffix`, `--splits_dir`, `--board`), not only for the vehicle benchmark.
 - `build_benchmark_table.py` builds the summary table of a benchmark measured up to PIL, with the image-by-image
   agreement between levels and between boards.
+- MIL and SIL compute their metrics and write their result files through one module, `src/evaluation.py`;
+  the files they write did not change. The scripts that use TensorFlow answer `--help` and a wrong option
+  without loading it.
 
 ### Your Own Dataset
 
@@ -115,6 +118,8 @@ Which of these have run on a board and which only against the simulated board of
 - `CITATION.cff` and `.zenodo.json` describe version 1.0.0 without a release date or a DOI, and the README says
   what is published today; tests keep the three in agreement.
 - The Apache-2.0 licence text that the two firmware sketches refer to is in `deployment/`.
+- `pyproject.toml` states the project metadata (name, version, licence, dependencies). It installs no code:
+  the scripts are still run from a checkout as `python src/<script>.py`.
 
 ### Tests and Continuous Integration
 

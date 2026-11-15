@@ -45,7 +45,9 @@ but training, calibration and MIL read grayscale only.
 
 1. Parse its options with `cli.ArgumentParser`, with at least `--width`, `--height`, `--batch_size`, `--epochs`,
    `--learning_rate`, `--splits_dir`, `--tag` (`type=artifacts.valid_tag`), `--overwrite` and `--seed`, and call
-   `train_common.add_recipe_arguments(parser)` for `--lr_schedule` and `--augmentation`.
+   `train_common.add_recipe_arguments(parser)` for `--lr_schedule` and `--augmentation`. Do it in a
+   `parse_args()` that the script calls above the line that imports TensorFlow, as the three do, so that
+   `--help` and a wrong option answer at once.
 2. Take the names of its outputs from `artifacts.model_stem()` and `artifacts.training_curve_name()`, and call
    `artifacts.refuse_to_overwrite()` on them before doing any work.
 3. Call `keras.utils.set_random_seed(seed)` before the data and the model exist.

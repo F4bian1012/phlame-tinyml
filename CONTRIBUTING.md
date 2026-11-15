@@ -74,6 +74,11 @@ These are what the code and the history already follow.
   (`artifacts.refuse_to_overwrite()`). Scratch outputs go to `results/smoke_test/`, which git ignores.
 - **One image loader.** Training, calibration, MIL, SIL and the PIL bench read image files through
   `src/images.py` and nothing else, so every level receives the same bytes.
+- **One evaluation for the PC levels.** MIL and SIL compute their metrics and write their result files
+  through `src/evaluation.py`; a script only adds what is its own (how the model runs, its own keys).
+- **The command line comes before TensorFlow.** A script that uses TensorFlow defines `parse_args()` at the
+  top and calls it, when run as a script, above the line that imports TensorFlow, so `--help` and a wrong
+  option answer at once (`tests/test_help_without_tensorflow.py`).
 - **Failures are visible.** A step that reports an error ends with a non-zero exit code.
 - **Result files have a documented schema.** Every key of `metrics_*.json` and `conditions_*.json` is in
   [`docs/results_schema.md`](docs/results_schema.md), and `tests/test_results_schema.py` checks the document and

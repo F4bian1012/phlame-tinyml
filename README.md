@@ -656,6 +656,7 @@ All scripts live in `src/`. Detailed descriptions, output artifacts and usage no
 | Shared | `artifacts.py` | Helper module, not run directly: run names (`--tag`), overwrite protection and the per-model label order. |
 | Shared | `cli.py` | Helper module, not run directly: lets every option be written with `_` or `-`. |
 | Shared | `images.py` | Helper module, not run directly: the one image loader of training, calibration, MIL, SIL and the PIL bench. |
+| Shared | `evaluation.py` | Helper module, not run directly: the metrics, the confusion matrix and the three result files of the two PC levels (MIL and SIL). |
 | Shared | `train_common.py` | Helper module, not run directly: in-memory data and recipe options of the three training scripts. |
 | Shared | `boards.py` | Helper module, not run directly: what changes with the board (`--board`) and the serial text the two board benches wait for. |
 
@@ -669,10 +670,11 @@ phlame-tinyml/
 ├── results/               # mil/, sil/, pil/, hil/, tables/, training_curves/
 ├── src/                   # Python source code (see Scripts)
 ├── tensorboard_logs/      # TensorBoard event logs from training
-├── tests/                 # test_results_schema.py, test_own_dataset.py, test_cli.py, test_boards.py, test_release.py, test_compare_results.py, test_near_duplicates.py, test_images.py, test_training_recipe.py, test_sil_kernels.py, test_benchmark_table.py, test_hil_session.py, test_calibration.py, test_statistics.py, test_published_tables.py, test_serial_framing.py, test_split_properties.py, test_ladder_benchmarks.py, test_pil_session.py, test_software_versions.py, test_count_macs.py
+├── tests/                 # test_results_schema.py, test_own_dataset.py, test_cli.py, test_boards.py, test_release.py, test_compare_results.py, test_near_duplicates.py, test_images.py, test_training_recipe.py, test_sil_kernels.py, test_benchmark_table.py, test_hil_session.py, test_calibration.py, test_statistics.py, test_published_tables.py, test_serial_framing.py, test_split_properties.py, test_ladder_benchmarks.py, test_pil_session.py, test_software_versions.py, test_count_macs.py, test_evaluation.py, test_help_without_tensorflow.py, test_project_metadata.py
 ├── CITATION.cff
 ├── LICENSE.txt
 ├── README.md
+├── pyproject.toml         # Project metadata; the scripts are run from src/, nothing is installed
 ├── requirements.txt       # Minimum compatible versions and hardware setup
 └── requirements-lock.txt  # Exact versions of the project environment
 ```
