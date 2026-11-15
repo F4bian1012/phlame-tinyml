@@ -69,7 +69,7 @@ section of `requirements.txt`.
 | PIL | Arduino Portenta H7 |
 | HIL | Arduino Portenta H7, Vision Shield (HM01B0 camera) and a monitor for the stimuli |
 
-The firmware toolchain above is needed only for PIL and HIL. See [Hardware Details](#hardware-details). The two sketches also build for the Arduino Nicla Vision (`arduino:mbed_nicla` core, 4.6.0 used), which has not been validated on the board yet; see [Running PIL and HIL on the Arduino Nicla Vision](#running-pil-and-hil-on-the-arduino-nicla-vision).
+The firmware toolchain above is needed only for PIL and HIL. See [Hardware Details](#hardware-details). The two sketches also build for the Arduino Nicla Vision (`arduino:mbed_nicla` core, 4.6.0 used): its PIL sketch has run on that board and its HIL sketch has not; see [Running PIL and HIL on the Arduino Nicla Vision](#running-pil-and-hil-on-the-arduino-nicla-vision).
 
 ---
 
@@ -89,8 +89,10 @@ venv\Scripts\Activate.ps1
 
 python -m pip install --upgrade pip
 pip install -r requirements.txt
-python -m unittest discover -s tests -v   # checks the installation and the results schema
+python -m unittest discover -s tests -v   # runs the test suite: no board, dataset or model needed
 ```
+
+The suite runs the scripts against simulated boards and invented data, recomputes the statistics of the published tables and checks every published result file against the documented schema; it trains and flashes nothing. A test whose package is missing is reported as skipped, not as failed, so `OK (skipped=N)` means that part of the installation was not exercised: with every package of `requirements.txt` installed, no test is skipped.
 
 > On Windows, if PowerShell blocks the activation script, run once:
 > `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
@@ -113,11 +115,13 @@ The firmware toolchain is described under [Requirements](#requirements).
 
 ## Reproduce the Paper's Results Without Hardware
 
-The per-image results are in git, so every table of the paper can be rebuilt in about 10 seconds without a board, a dataset or trained models. This writes to a git-ignored folder, so `results/tables/` stays untouched for comparison:
+The per-image results are in git, so the eight statistical tables of the vehicle benchmark (`results/tables/`) can be rebuilt in about 10 seconds without a board, a dataset or trained models. This writes to a git-ignored folder, so `results/tables/` stays untouched for comparison:
 
 ```bash
 python src/build_ladder_tables.py --output_dir results/smoke_test/tables
 ```
+
+The same script rebuilds the ladder of the Visual Wake Words run ([Results](#results), section 4): add `--tag VWW --archs MobileNetV2 --deployable MobileNetV2 --splits_dir data/splits_vww` and another `--output_dir`.
 
 Try the preprocessing on the 8 public sample images:
 
@@ -360,7 +364,7 @@ Run the bench. It displays the `hil_subset` of the test partition and writes to 
 ```bash
 python src/hil_benchmark.py --port COM9 --model_path models/tflite/{model_name}_int8.tflite --lux 10 --distance_cm 24 --ambient_temp 24
 ```
-The bench aborts if the fingerprint of the model on the board does not match `--model_path`, or if a rig condition (`--lux`, `--distance_cm`, `--ambient_temp`) is missing. It waits for ENTER before the first stimulus, so the camera can be placed in front of the monitor; `--no_confirm` skips the wait, and is needed where there is no interactive terminal. Adding `--sil_model models/tflite/{model_name}_int8.tflite --mil_model models/checkpoints/{model_name}.keras` also classifies every captured frame on the PC, which separates the effect of the camera from the effect of the chip.
+The bench aborts if the fingerprint of the model on the board does not match `--model_path`, or if a rig condition (`--lux`, `--distance_cm`, `--ambient_temp`) is missing. Each stimulus stays on screen for `--settle` seconds before its capture: the default, 1.5 s, is the value of every published session of the vehicle benchmark (the Visual Wake Words session used 1.0 s). It waits for ENTER before the first stimulus, so the camera can be placed in front of the monitor; `--no_confirm` skips the wait, and is needed where there is no interactive terminal. Adding `--sil_model models/tflite/{model_name}_int8.tflite --mil_model models/checkpoints/{model_name}.keras` also classifies every captured frame on the PC, which separates the effect of the camera from the effect of the chip.
 
 Before a session, `python src/calibrate_hil_rig.py --port COM9 --live` shows a test pattern and says how to move the camera until it frames the monitor, and `--report` writes a calibration report (geometry, tone response, vignetting, exposure stability and focus) to `results/hil/calibration/`. A session that is cut short keeps what it measured: every stimulus is written to the CSV as it is measured, and the other files are written marked `completed: false`, with exit code 3 (see [`docs/scripts.md`](docs/scripts.md#5-camera-in-the-loop-hil-evaluation)).
 
@@ -387,7 +391,7 @@ Two things differ from the Portenta H7 (details in [Hardware and Porting](docs/h
 - **Memory.** The Nicla Vision has no external SDRAM, so the tensor arena is a static array in its 511 KiB of internal RAM: 368 KiB by default, sized for `MobileNetV2`. `--arena_kb` changes it at compile time, and `--compile_only` reports the RAM use without a board.
 - **Camera.** Its GC2145 is a colour sensor: the firmware reads RGB565 and converts it to 8-bit luminance (BT.601 weights, as Pillow does) before the same preprocessing as on the Portenta H7.
 
-> **Status.** The PIL bench has run on a Nicla Vision: with the published `MobileNetV2` of the vehicle benchmark it answered the 940 test images, with the same prediction as a Portenta H7 measured the same day for all of them and 19.7% fewer inference cycles (`results/nicla/pil/`; see [Boards and Memory](docs/hardware.md#boards-and-memory)). The HIL sketch builds for the board and has not been run on it yet.
+> **Status.** The PIL bench has run on a Nicla Vision: with the published `MobileNetV2` of the vehicle benchmark it answered the 940 test images, with the same prediction as a Portenta H7 measured the same day for all of them and 19.7% fewer inference cycles (`results/nicla/pil/`; see [Boards and Memory](docs/hardware.md#boards-and-memory)). That Portenta H7 run is not among the published files: against the one in `results/pil/`, measured in September, the Nicla Vision run agrees on 937 of the 940 images and takes 19.3% fewer cycles. The HIL sketch builds for the board and has not been run on it yet.
 
 ---
 
@@ -449,10 +453,10 @@ Cross-running the exact same 200 test stimuli as **digital files** (MIL₂₀₀
 | `SqueezeNet` | 0.8949 | 0.8949 | 0.9099 | 0.8949 | 0.8899 | 0.8899 | **200 / 200 (100.0%)** | −0.0200 (n.s.) |
 | `ResNet8` | 0.9600 | 0.9600 | 0.9600 | 0.8527 | 0.8527 | 0.8632 | **198 / 200 (99.0%)** | −0.0968 (p < 0.001, Holm < 0.001) |
 
-- **On-chip execution fidelity (SIL ↔ PIL and SIL\* ↔ HIL):** Across all 10 paired comparisons (5 architectures × 2 input domains), moving from PC INT8 simulation to the physical Cortex-M7 chip never degrades F1-macro (Δ ≥ 0 in all 10 cases). F1 can hide changes that cancel out, so image-level agreement is the stricter check: SIL ↔ PIL on the 940 test files is 99.4%–99.6%, except `MobileNetV3Small` (95.96%, 38 images change), and SIL\* ↔ HIL on captured frames is 97.0%–100.0%.
+- **On-chip execution fidelity (SIL ↔ PIL and SIL\* ↔ HIL):** Across all 10 paired comparisons (5 architectures × 2 input domains), moving from PC INT8 simulation to the physical Cortex-M7 chip does not lower F1-macro in any of them (Δ from 0.0000 to +0.0250), and no difference is significant: at most 9 of the 200 images change between right and wrong, and the exact McNemar p is 0.18 or more before any correction. That is no measurable effect on these images, not proof that the chip never degrades: in the Visual Wake Words run of section 4 the same step on captured frames is −0.0097 (0.6892 → 0.6795, not significant either). F1 can hide changes that cancel out, so image-level agreement is the stricter check: SIL ↔ PIL on the 940 test files is 99.4%–99.6%, except `MobileNetV3Small` (95.96%, 38 images change), and SIL\* ↔ HIL on captured frames is 97.0%–100.0%.
 - **Optical front end in FP32 (MIL₂₀₀ → MIL\*₂₀₀):** Replacing the file with the camera frame changes F1-macro by −0.1073 in `ResNet8` (Holm p < 0.001), −0.0454 in `MobileNet` (Holm p = 0.156), −0.0351 in `MobileNetV3Small` (Holm p = 0.156), −0.0357 in `MobileNetV2` (Holm p = 0.287) and 0.0000 in `SqueezeNet` (Holm p = 1.000). Only `ResNet8` is individually significant.
-- **Physical gap on the chip (PIL₂₀₀ → HIL₂₀₀):** This is a different quantity, shown in the last column of the table: significant in `ResNet8`, `MobileNet` and `MobileNetV2`, and −0.0200 (not significant) in `MobileNetV3Small` and `SqueezeNet`.
-- **Bench repeatability (`results/hil/rep1..rep4/`, `MobileNetV2`):** Across 3 fixed-seed (`seed=42`) sessions under identical physical conditions, the PIL → HIL gap on the fixed 200-image subset is −0.0561, −0.0563, and −0.0509 (repeatability sd = 0.0030, CV = 5.5%, pairwise image agreement 96.5%–97.5%; sd = 0.0065 across all 4 runs when including the `rep4` `seed=7` presentation-order control at −0.0664, with 189/200 stimuli or 94.5% receiving an identical prediction across all 4 sessions). Combining 200-image subset sampling variance with bench repeatability yields an overall `MobileNetV2` frontend gap of **−0.057 [−0.098, −0.017] (95% CI)**.
+- **Physical gap on the chip (PIL₂₀₀ → HIL₂₀₀):** This is a different quantity, shown in the last column of the table: significant in `ResNet8` and `MobileNet`, and −0.0200 (not significant) in `MobileNetV3Small` and `SqueezeNet`. In `MobileNetV2` the gap is negative in all five sessions measured (−0.0509 to −0.0664), but whether it stays significant after the Holm correction depends on the session: Holm p = 0.022 with the session of the table and with `rep4`, and 0.080, 0.058 and 0.093 with `rep1`, `rep2` and `rep3` (Holm over the five architectures, the other four unchanged; unadjusted p from 0.007 to 0.031).
+- **Bench repeatability (`results/hil/rep1..rep4/`, `MobileNetV2`):** Across 3 fixed-seed (`seed=42`) sessions under identical physical conditions, the PIL → HIL gap on the fixed 200-image subset is −0.0561, −0.0563, and −0.0509 (repeatability sd = 0.0030, CV = 5.6%, pairwise image agreement 96.5%–97.5%; sd = 0.0065 across all 4 runs when including `rep4`, the one session with another presentation order (`seed=7`), at −0.0664, with 189/200 stimuli or 94.5% receiving an identical prediction across all 4 sessions). The session of the tables, which used the order of the replicates and also streamed every frame back, gives −0.0664 as well, so the data do not single out the order as the cause of the wider spread. Combining 200-image subset sampling variance with bench repeatability yields an overall `MobileNetV2` frontend gap of **−0.057 [−0.098, −0.017] (95% CI)**.
 
 ---
 
@@ -565,23 +569,29 @@ Sizes in this README use binary units (1 KiB = 1,024 bytes; 1 MiB = 1,024 KiB), 
 
 **Flash budget (this is a hard limit).** The model is linked into the firmware as
 a C array, so the quantized model and the firmware code share the same 2 MiB of
-internal flash. Measured on the PIL firmware with `AllOpsResolver`:
+internal flash. Measured on a build of the PIL firmware with `AllOpsResolver`
+([`docs/flash_budget_build.txt`](docs/flash_budget_build.txt) records the build):
 
 | | Size |
 |---|---|
-| Firmware code (TFLite-Micro + all kernels, no model) | ~673 KiB |
 | Internal flash (STM32H747, `0x08000000`–`0x081FFFFF`) | 2048 KiB |
-| **Headroom left for `model.h`** | **~1375 KiB** |
+| Bootloader region (the application starts at `0x08040000`) | 256 KiB |
+| Firmware code (TFLite-Micro + all kernels, no model) | ~418 KiB |
+| **Headroom left for `model.h`** | **~1374 KiB** |
 
-Which of the framework's INT8 models fit, at 160×120:
+The HIL firmware carries 14 KiB more code, which leaves ~1360 KiB.
 
-| Model | `.tflite` | Binary | Fits |
+Which of the framework's INT8 models fit, at 160×120. "Flash used" counts the bootloader region,
+the PIL firmware code and the model; it was measured on a build for `MobileNetV2` (1,335,488 bytes)
+and is that budget plus the `.tflite` for the others:
+
+| Model | `.tflite` | Flash used | Fits |
 |---|---|---|---|
 | `MobileNet` | 311 KiB | 0.96 MiB | yes |
 | `MobileNetV2` | 631 KiB | 1.27 MiB | yes |
 | `SqueezeNet` | 808 KiB | 1.45 MiB | yes |
 | `MobileNetV3Small` | 817 KiB | 1.46 MiB | yes |
-| `ResNet8` | 1249 KiB | 1.88 MiB | yes, 126 KiB to spare |
+| `ResNet8` | 1249 KiB | 1.88 MiB | yes, 125 KiB to spare |
 | `MobileNetV3Large` | 2181 KiB | 2.79 MiB | **no** — 0.79 MiB over |
 | `ResNet18` | 11057 KiB | 11.46 MiB | **no** — 9.46 MiB over |
 
@@ -608,6 +618,7 @@ Memory configuration, upload troubleshooting, the serial protocol and porting to
 | [`docs/scripts.md`](docs/scripts.md) | Detailed description, output artifacts and usage notes of every script |
 | [`docs/results_schema.md`](docs/results_schema.md) | Every key of the `metrics_*.json` and `conditions_*.json` files |
 | [`docs/hardware.md`](docs/hardware.md) | Boards and memory, upload troubleshooting, serial protocol and porting |
+| [`docs/flash_budget_build.txt`](docs/flash_budget_build.txt) | Build record behind the flash budget of the two firmwares on the Portenta H7 |
 | [`docs/data_independence.md`](docs/data_independence.md) | How the independence of a test split is checked, and what the check found on each published partition |
 
 ### Scripts
@@ -671,16 +682,16 @@ phlame-tinyml/
 - **Published models are files, not recipes:** The models behind the published results were trained before the training scripts had a seed, so training again does not give the same weights. The published numbers of the PC levels are reproduced from the published model files (see [Reproduce the Public Benchmark (COCO)](#reproduce-the-public-benchmark-coco)). New trainings record their seed, which repeats a run exactly on a CPU but not on a GPU.
 - **`SqueezeNet` on COCO:** The shared hyper-parameters did not train it (constant output, accuracy 0.500), and the resulting INT8 file does not execute on the board (see the note under the COCO table). Its results on the vehicle benchmark are unaffected. `train_squeezenet.py` now has two options for this case, `--kernel_initializer he_normal` and `--batch_norm`, both off by default; what they gave in a pilot is in [`docs/scripts.md`](docs/scripts.md#2-model-training-ml-pipelines).
 - **Post-training quantization only:** The INT8 files come from post-training quantization calibrated on 100 training images. Much of the published work on person detection for microcontrollers uses quantization-aware training, which PHLAME does not implement, so its INT8 accuracy is not to be compared with those figures as if the method were the same.
-- **2 MiB internal flash ceiling with `AllOpsResolver`:** Linking all TFLite-Micro kernels (`~673 KiB`) leaves `~1,375 KiB` of internal flash for `model.h` on the STM32H747XI. Consequently, `MobileNetV3Large` (`2,181 KiB`) and `ResNet18` (`11,057 KiB`) serve as desktop MIL/SIL baselines: each `.tflite` alone exceeds the 2 MiB flash, so deploying them requires running from external memory (QSPI flash or SDRAM, not implemented in PHLAME) or a narrower variant, which is a different model. Unstructured pruning, a lower input resolution and `MicroMutableOpResolver` do not solve it.
+- **2 MiB internal flash ceiling with `AllOpsResolver`:** The bootloader region (256 KiB) and the firmware with all TFLite-Micro kernels (`~418 KiB`) leave `~1,374 KiB` of internal flash for `model.h` on the STM32H747XI. Consequently, `MobileNetV3Large` (`2,181 KiB`) and `ResNet18` (`11,057 KiB`) serve as desktop MIL/SIL baselines: each `.tflite` alone exceeds the 2 MiB flash, so deploying them requires running from external memory (QSPI flash or SDRAM, not implemented in PHLAME) or a narrower variant, which is a different model. Unstructured pruning, a lower input resolution and `MicroMutableOpResolver` do not solve it.
 - **Internal RAM limits what runs without external SDRAM:** The Portenta H7's 8 MiB of external SDRAM is what lets the five deployable architectures run under one 4 MiB arena. On a board without it, such as the Arduino Nicla Vision (511 KiB of internal RAM for everything), the default 368 KiB arena covers `MobileNet` (`177.2 KiB`), `MobileNetV3Small` (`220.5 KiB`) and `MobileNetV2` (`348.1 KiB`); `ResNet8` (`388.8 KiB`) and `SqueezeNet` (`404.7 KiB`) need a larger arena that leaves little RAM for the rest (see [Boards and Memory](docs/hardware.md#boards-and-memory)). These are build-time figures.
 - **One fully measured platform:** All HIL results and all PIL results of the tables come from one board: Arduino Portenta H7 (STM32H747XI Cortex-M7 at 400 MHz, 8 MiB external SDRAM) with the Vision Shield HM01B0 camera. The host benches and the serial protocols do not assume this board, and both sketches build for the Arduino Nicla Vision (`--board nicla`: same MCU, static arena in internal RAM, GC2145 colour camera converted to luminance), and a first PIL run on that board is published in `results/nicla/pil/`; its HIL sketch has not been run, and no results on other MCU families are reported (see [Portability](docs/hardware.md#portability)).
-- **Presentation-order variance in the stimulus rig:** While fixed-seed HIL sessions (`seed=42`) exhibit sd = 0.0030 F1-macro across replicas on the fixed 200-image subset, permuting the stimulus presentation order (`rep4`, `seed=7`) shifts the measured gap (−0.0664 vs. the −0.0544 mean of the fixed-seed sessions, 4-run sd = 0.0065); accounting for both 200-image sampling variance and bench repeatability yields the conservative frontend interval of −0.057 [−0.098, −0.017] (95% CI).
+- **Session-to-session variation of the HIL gap, known from few runs:** The three strict replicates (`seed=42`) give sd = 0.0030 F1-macro on the fixed 200-image subset. The one session with another presentation order (`rep4`, `seed=7`) gives −0.0664 against their mean of −0.0544 (4-run sd = 0.0065), but so does the session of the tables, which used the order of the replicates (it was measured two hours earlier and streamed every frame back): with one run of each kind, the data do not separate an effect of the order from the variation between sessions. Accounting for both 200-image sampling variance and bench repeatability yields the conservative frontend interval of −0.057 [−0.098, −0.017] (95% CI).
 - **Non-interchangeability of PIL and HIL inference cycle counts:** Across all evaluated models, `CYC_INF` in HIL is systematically 0.81%–2.77% lower than in PIL despite an identical `400.0 MHz` clock and SDRAM arena layout (cause not identified: arena and cache configuration are the same in both firmwares). PIL and HIL latency baselines should therefore be reported separately rather than mixed.
 - **Two decoders behind the published results:** The results published so far (the vehicle benchmark, the Visual Wake Words run and the COCO runs of section 1) were measured with TensorFlow decoding the JPEG files at MIL and SIL and Pillow at PIL, which do not give the same pixels, so their SIL-to-PIL differences mix the decoder with the chip (on the vehicle benchmark the decoder alone changes 4 to 33 of the 940 SIL predictions, depending on the model). The scripts now read every image through one loader (`src/images.py`); the published files are kept as measured, and a re-run of a published MIL or SIL result differs from them by that decoder effect. The images of the full COCO partition (`data/splits_coco/`) are stored as lossless PNG for the same reason: the pixels read from a JPEG file depend on the library that decodes it, those of a PNG file do not (on 200 of its files Pillow, OpenCV and TensorFlow give identical pixels). The vehicle and Visual Wake Words partitions stay JPEG.
 - **The published PIL files predate the on-chip model verification in PIL:** they were measured when `pil_benchmark.py` hashed the `.tflite` passed with `--model_path` on the host and never compared it with the board, so their `sha256` does not prove which model was flashed and they carry no `model.identity_verified`; a stale `model.h` is detected in them only indirectly (per-architecture cycle signature, Table 7 attribution check). Since November 2026 the PIL sketch reports the FNV-1a fingerprint of its model and the bench compares it with the `.tflite` before the first image, as the HIL bench does. That check is tested against a simulated board and the sketch builds for both boards; it has not been run on a board yet.
 - **FP32 firmware branch not validated:** Both firmwares divide the pixel by 255 when the model is floating point, while the INT8 branch and every published model use the raw pixel (0–255). All published results use INT8 models, so that branch never ran; do not deploy a floating-point `.tflite` without checking it.
 - **Text end-of-inference markers:** The benches find the end of each inference by a line of text printed by the firmware, so a port must keep that line (see [Serial Protocol](docs/hardware.md#serial-protocol-pil-bench)).
-- **Argmax class output over serial:** The firmware reports the predicted class index (`argmax`) rather than full per-class logit vectors to keep post-processing deterministic (`< 1 µs`) and compatible with arbitrary class counts.
+- **Argmax class output over serial:** The firmware reports the predicted class index (`argmax`) rather than full per-class logit vectors to keep post-processing short and compatible with arbitrary class counts: its median is 0.5 to 0.7 µs in each of the 16 PIL and HIL runs behind sections 2 to 4 of [Results](#results), and 117 of their 7,000 measurements take 1 µs or more (7.5 µs at most).
 
 ---
 
