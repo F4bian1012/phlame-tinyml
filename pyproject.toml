@@ -1,0 +1,73 @@
+# Project metadata of PHLAME, in the standard place for tools that read it.
+#
+# It does not change how the repository is used: the scripts are run from a
+# checkout as `python src/<script>.py`, after `pip install -r requirements.txt`,
+# as the README says. Nothing in src/ is installed as a module or as a command:
+# the scripts find each other because they sit in the same folder, and several
+# have names (cli, images, boards, artifacts) that would be too general in a
+# shared environment. `pip install .` therefore installs the dependencies
+# below and no code.
+#
+# Kept equal to CITATION.cff (version, licence, author, repository) and to
+# requirements.txt (dependencies) by tests/test_project_metadata.py.
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "phlame-tinyml"
+version = "1.0.0"
+description = "Reproducible evaluation of TinyML image classifiers on ARM Cortex-M microcontrollers across the MIL, SIL, PIL and HIL fidelity ladder"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE.txt"]
+authors = [
+    { name = "Jheyson Fabian Villavisan" },
+]
+# The versions the scripts and the tests have run on: 3.13 on Windows and 3.12 on Linux.
+requires-python = ">=3.12"
+keywords = [
+    "PHLAME",
+    "TinyML",
+    "MLOps",
+    "Hardware-in-the-Loop",
+    "Processor-in-the-Loop",
+    "fidelity ladder",
+    "microcontrollers",
+    "ARM Cortex-M7",
+    "TensorFlow Lite Micro",
+    "INT8 quantization",
+]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Embedded Systems",
+]
+# Minimum versions, the same as requirements.txt, which says what needs each
+# one; requirements-lock.txt pins the versions the published results ran on.
+dependencies = [
+    "tensorflow>=2.16.0",
+    "opencv-python>=4.8.0",
+    "pillow>=10.0.0",
+    "numpy>=2.0.0",
+    "scikit-learn>=1.3.0",
+    "seaborn>=0.12.0",
+    "scipy>=1.13.0",
+    "pyserial>=3.5",
+    "matplotlib>=3.7.0",
+    "tensorboard>=2.15.0",
+]
+
+[project.urls]
+Repository = "https://github.com/F4bian1012/phlame-tinyml"
+
+[tool.setuptools]
+# No module and no package: see the note at the top of this file.
+py-modules = []
+packages = []
