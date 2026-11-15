@@ -359,7 +359,9 @@ Run the bench. It displays the `hil_subset` of the test partition and writes to 
 ```bash
 python src/hil_benchmark.py --port COM9 --model_path models/tflite/{model_name}_int8.tflite --lux 10 --distance_cm 24 --ambient_temp 24
 ```
-The bench aborts if the fingerprint of the model on the board does not match `--model_path`, or if a rig condition (`--lux`, `--distance_cm`, `--ambient_temp`) is missing. It waits for ENTER before the first stimulus, so the camera can be placed in front of the monitor; `--no_confirm` skips the wait. Adding `--sil_model models/tflite/{model_name}_int8.tflite `--mil_model models/checkpoints/{model_name}.keras` also classifies every captured frame on the PC, which separates the effect of the camera from the effect of the chip.
+The bench aborts if the fingerprint of the model on the board does not match `--model_path`, or if a rig condition (`--lux`, `--distance_cm`, `--ambient_temp`) is missing. It waits for ENTER before the first stimulus, so the camera can be placed in front of the monitor; `--no_confirm` skips the wait, and is needed where there is no interactive terminal. Adding `--sil_model models/tflite/{model_name}_int8.tflite --mil_model models/checkpoints/{model_name}.keras` also classifies every captured frame on the PC, which separates the effect of the camera from the effect of the chip.
+
+Before a session, `python src/calibrate_hil_rig.py --port COM9 --live` shows a test pattern and says how to move the camera until it frames the monitor, and `--report` writes a calibration report (geometry, tone response, vignetting, exposure stability and focus) to `results/hil/calibration/`. A session that is cut short keeps what it measured: every stimulus is written to the CSV as it is measured, and the other files are written marked `completed: false`, with exit code 3 (see [`docs/scripts.md`](docs/scripts.md#5-camera-in-the-loop-hil-evaluation)).
 
 ### Running PIL and HIL on the Arduino Nicla Vision
 The same two sketches build for the Nicla Vision; `--board nicla` selects it in the three scripts that deal with the board. Steps 1 to 5 do not change.
@@ -625,6 +627,7 @@ All scripts live in `src/`. Detailed descriptions, output artifacts and usage no
 | Evaluation | `sil_benchmark.py` | SIL level. |
 | Evaluation | `pil_benchmark.py` | PIL level, image over serial. |
 | Evaluation | `hil_benchmark.py` | HIL level, camera in the loop. |
+| Evaluation | `calibrate_hil_rig.py` | Check the HIL rig (camera against monitor) before a session. |
 | Deployment | `tflite_to_c.py` | `.tflite` to the `model.h` C header. |
 | Deployment | `compile_upload_arduino.py` | Compile and upload a firmware with `arduino-cli` (`--board portenta` or `nicla`). |
 | Analysis | `build_ladder_tables.py` | Rebuild the eight statistical tables of the paper in `results/tables/`. |
