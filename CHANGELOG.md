@@ -54,9 +54,16 @@ DOI yet (see [Citation](README.md#citation)).
   same prediction for every image.
 - The benchmark has its fourth level: HIL sessions of the five models that fit, on the Portenta H7 and the 200
   images of the HIL subset, four repeatability sessions of `MobileNetV2`, and the eight ladder tables in
-  `results/tables/coco/`, which a test and the CI now rebuild and compare. The rig report taken before the
-  sessions is in `results/hil/calibration/`. A first set of sessions, measured the same day before the camera
-  was aligned, was published and then withdrawn; it is in the history of the repository (commit 407a025).
+  `results/tables/coco/`, which a test and the CI now rebuild and compare. A first set of sessions, measured
+  before the camera was aligned, was published and then withdrawn; it is in the history of the repository
+  (commit 407a025).
+- The nine HIL sessions on the Portenta H7 were measured again on 2026-11-16 and replace those of 2026-11-15,
+  which had one calibration report for the nine and remain in the history of the repository (commit ea491c2).
+  Each session now has a report taken right before it (`results/hil/calibration/`), and the distance,
+  illuminance and temperature were read during the sessions (23 cm, 1 lux, 24 °C). Every report passes the
+  geometry and focus checks and fails the gray-scale and flat-field ones. Macro-F1 falls from PIL to HIL by
+  0.062 to 0.150, a distinguishable amount for three of the five models, and the repeatability sessions of
+  `MobileNetV2` give 0.659 to 0.691. The ladder tables were rebuilt.
 - `find_near_duplicates.py` and `independence_report.py` look for test images that show the same photo or scene
   as a training image and recompute the results without them; what they found on the COCO partition is in
   [`docs/data_independence.md`](docs/data_independence.md).
@@ -73,7 +80,7 @@ DOI yet (see [Citation](README.md#citation)).
 - HIL of the COCO benchmark on the Nicla Vision: `MobileNetV2`, `MobileNet` and `MobileNetV3Small` over the 200
   images of the HIL subset, with the report of the calibrator before each session (`results/nicla/hil/`,
   tables in `results/nicla/tables/coco/`). With that camera, from 94 cm, no model loses a distinguishable amount
-  from PIL to HIL; on the Portenta H7 two do. `SqueezeNet` and `ResNet8` cannot run HIL on this board.
+  from PIL to HIL; on the Portenta H7 three do. `SqueezeNet` and `ResNet8` cannot run HIL on this board.
 - Three repeatability sessions of `MobileNetV2` at HIL on the Nicla Vision (`results/nicla/hil/rep1` to `rep3`):
   macro-F1 0.835 to 0.869, with the camera creeping up to 1.6 px within a session.
 - A first attempt on the Nicla Vision was discarded: the board crept on its mount during three sessions measured

@@ -105,7 +105,7 @@ python src/calibrate_hil_rig.py --port COM9 --report
 ```
 Run the bench. It displays the `hil_subset` of the test partition and writes to `results/hil/`:
 ```bash
-python src/hil_benchmark.py --port COM9 --model_path models/tflite/{model_name}_int8.tflite --lux 11 --distance_cm 22 --ambient_temp 24
+python src/hil_benchmark.py --port COM9 --model_path models/tflite/{model_name}_int8.tflite --lux 1 --distance_cm 23 --ambient_temp 24
 ```
 The bench aborts if the fingerprint of the model on the board does not match `--model_path`, or if a rig condition (`--lux`, `--distance_cm`, `--ambient_temp`) is missing. Each stimulus stays on screen for `--settle` seconds before its capture: the default is 1.5 s, the value of the sessions of the COCO benchmark (the Visual Wake Words session used 1.0 s). It waits for ENTER before the first stimulus, so the camera can be placed in front of the monitor; `--no_confirm` skips the wait, and is needed where there is no interactive terminal. Adding `--sil_model models/tflite/{model_name}_int8.tflite --mil_model models/checkpoints/{model_name}.keras` also classifies every captured frame on the PC, which separates the effect of the camera from the effect of the chip. The frames are then saved in a folder of the session, `data/hil_frames/{model_name}_int8/` (git-ignored; `--frames_dir` gives another), so the next session does not replace them.
 
