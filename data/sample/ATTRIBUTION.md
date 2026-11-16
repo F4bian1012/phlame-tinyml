@@ -2,8 +2,6 @@
 
 This directory ships an 8-image smoke-test sample (**4 `non_person`** and **4 `person`**, preprocessed to `160×120` grayscale with EXIF stripped) drawn from the held-out `test` partition (`hil_subset == 1`) of the **Visual Wake Words (VWW)** benchmark subset (`data/splits_vww/test_manifest.csv`).
 
-No personal data or vehicle license plates from the primary application dataset are included in this repository.
-
 ## Licenses
 
 1. **Dataset Annotations (MS-COCO 2017):** Licensed by the COCO Consortium under the [Creative Commons Attribution 4.0 International License (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/) (see [cocodataset.org/#termsofuse](https://cocodataset.org/#termsofuse)).

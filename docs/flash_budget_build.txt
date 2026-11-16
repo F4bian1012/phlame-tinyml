@@ -98,8 +98,8 @@ docs/hardware.md are this budget plus the size of their .tflite, not separate bu
 
 Against the record before this one
 ----------------------------------
-Until 15 November 2026 the two headers carried the MobileNetV2 of the vehicle application case
-(645,640 bytes), and the record before this one, in the history of this file, was built with it.
-That model is 992 bytes larger. Without the model the HIL firmware is the same 442,088 bytes, its
-sketch not having changed in between; the PIL firmware is 16 bytes larger (427,720 against 427,704),
-its sketch having gained the ARENA_MEMORY identity line in between.
+The record before this one, in the history of this file, was built with the model header the two
+sketches carried until 15 November 2026, which was 992 bytes larger (645,640 bytes). Without the
+model the HIL firmware is the same 442,088 bytes, its sketch not having changed in between; the PIL
+firmware is 16 bytes larger (427,720 against 427,704), its sketch having gained the ARENA_MEMORY
+identity line in between.

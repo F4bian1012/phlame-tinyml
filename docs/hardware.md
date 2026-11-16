@@ -76,8 +76,8 @@ The Portenta H7 FQBN needs `:split=100_0` (2 MiB of flash for the M7 core): with
 does not fit. Of those 2 MiB the first 256 KiB are the bootloader region; the sizes of the two sketches, read
 from a build, are in [`flash_budget_build.txt`](flash_budget_build.txt).
 
-**What has run on a board.** The results published before November 2026 (the Visual Wake Words run and the vehicle
-application case) were measured with the single-board sketches that preceded these. The two-board PIL sketch was then checked on a Portenta H7 against its predecessor, following steps 5 and 6
+**What has run on a board.** The Visual Wake Words run, published before November 2026, was measured with the
+single-board sketches that preceded these. The two-board PIL sketch was then checked on a Portenta H7 against its predecessor, following steps 5 and 6
 of the README with the same model and the same 300 test images: both gave the same prediction for all 300 images,
 and the bench recorded `BOARD:PORTENTA_H7`. The two-board HIL sketch first ran on a
 Portenta H7 on 2026-11-15 (see [HIL Rig and Session](#hil-rig-and-session)), and on a Nicla Vision the same day:
@@ -87,21 +87,16 @@ the calibrator taken before each session). Its camera sees the monitor through a
 `ResNet8` needs on this board the HIL sketch does not start (it prints `BOARD:NICLA_VISION` and nothing else), and
 after being unplugged and plugged again the board did not answer the calibrator until it was reset or flashed.
 
-**First runs on a Nicla Vision** (2026-11-14, `results/nicla/pil/`). The PIL sketch boots on the board, allocates
-the default 368 KiB arena (`MobileNetV2` uses 356,404 bytes of it, the same as on the Portenta H7) and reports the
-same 400 MHz clock. With the `MobileNetV2` of the vehicle application case ([`vehicle_benchmark.md`](vehicle_benchmark.md)) it answered the 940 test images
-without a dropped link, and gave the same prediction as a Portenta H7 measured the same day for all 940 (937 of
-940 against the Portenta H7 file published in September, for the reason given under
-[Serial Protocol](#serial-protocol-pil-bench): the pixels the host sent were no longer the same for three files).
-One difference stands out: the inference takes 128.8 million cycles on the Nicla Vision and 160.5 million on the
-Portenta H7, 19.7% fewer, with the same MCU, clock and model. The arena is in internal RAM on one board and in
-external SDRAM on the other, which is the cause (see *Arena in internal RAM on the Portenta H7* below).
-
-**The COCO benchmark on both boards** (2026-11-14 and 15, `results/pil/` and `results/nicla/pil/`). The five
+**The COCO benchmark on both boards** (2026-11-14 and 15, `results/pil/` and `results/nicla/pil/`). On the Nicla
+Vision the PIL sketch boots, allocates the default 368 KiB arena (`MobileNetV2` uses 356,404 bytes of it, the same
+as on the Portenta H7) and reports the same 400 MHz clock. The five
 models that fit were measured on each board over the 5,000 test images: ten runs, every image answered, no
 dropped link, and the two boards give the same prediction for every image of every model. Both boards carry the same
 STM32H747, so that agreement is a consistency check between two boards, not evidence of portability to other
-microcontroller families. Arena, flash and RAM
+microcontroller families. One difference stands out: an inference of `MobileNetV2` takes 128.8 million cycles on
+the Nicla Vision and 160.5 million on the Portenta H7, 19.7% fewer, with the same MCU, clock and model. The arena
+is in internal RAM on one board and in external SDRAM on the other, which is the cause (see *Arena in internal RAM
+on the Portenta H7* below). Arena, flash and RAM
 are those of each flashed build (`ARENA_USED` in the boot lines, sizes reported by the compiler):
 
 | Model | Arena used (bytes) | `--arena_kb` on the Nicla Vision | Nicla Vision: flash / RAM left (bytes) | `INF` Portenta H7 (ms) | `INF` Nicla Vision (ms) |
@@ -287,10 +282,11 @@ number of images planned in `dataset.n_images_planned`, and ends with exit code 
 cover only the images recorded.
 
 **What the host sends depends on its decoder.** The bench decodes each image file on the host and sends the
-pixels. With JPEG files the pixels are not fixed by the file alone: the same Portenta H7, model and JPEG test
-images gave 3 different predictions out of 940 between the run published in September and a run in November,
-and both boards agreed with each other on all 940 in November. A partition stored as lossless PNG
-(`reshape_images.py --format png`) removes that dependence: every decoder returns the same pixels.
+pixels. With JPEG files the pixels are not fixed by the file alone: two decoders can return different pixels for
+the same file (TensorFlow and Pillow did, on every one of 200 JPEG files compared, by up to 24 grey levels: see the
+[usage notes](scripts.md#usage-notes)), so a prediction can change with the library that read the image. A
+partition stored as lossless PNG (`reshape_images.py --format png`) removes that dependence: every decoder returns
+the same pixels.
 
 **Input handling.** Received bytes (uint8, 0–255) are written into the model
 input tensor. For an INT8 model the firmware reads the tensor's own
@@ -315,7 +311,7 @@ single integer line (argmax of the output tensor). Diagnostic banners and the
 on-chip CPU temperature (`°C`, from STM32H7 factory calibration) are also printed
 around each inference; `pil_benchmark.py` parses the integer class from the stream.
 Reporting the class index rather than the full per-class logit vector keeps the
-post-processing short and compatible with arbitrary class counts: its median is 0.5 to 0.7 µs in each of the 16 PIL and HIL runs measured before the COCO benchmark (the Visual Wake Words run and the vehicle application case), and 117 of their 7,000 measurements take 1 µs or more (7.5 µs at most).
+post-processing short and compatible with arbitrary class counts: its median is 0.49 to 0.75 µs on the Portenta H7 and 0.29 to 0.34 µs on the Nicla Vision in each of the 24 published PIL and HIL runs (the COCO benchmark and the Visual Wake Words run), and 495 of their 52,900 measurements take 1 µs or more (10.0 µs at most).
 
 **Board announcement.** Each sketch prints `BOARD:<name>` (`PORTENTA_H7` or
 `NICLA_VISION`): at boot in both, and in PIL also among the identity lines and with every

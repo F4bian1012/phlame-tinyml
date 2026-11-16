@@ -18,11 +18,9 @@ DOI yet (see [Citation](README.md#citation)).
   by image.
 - On-chip latency per phase (pre-processing, inference, post-processing), from the cycle counter of the Cortex-M7.
 - `build_ladder_tables.py` rebuilds the eight statistical tables (paired bootstrap intervals, exact McNemar test,
-  Holm correction) from the result files, without hardware. It now builds them for any benchmark that has the
-  four levels (`--tag`, `--run_suffix`, `--splits_dir`, `--board`), not only for the vehicle benchmark.
-- Without options `build_ladder_tables.py` builds the tables of the COCO benchmark, in `results/tables/coco/`.
-  The tables of the vehicle benchmark, which were what no option gave until 15 November 2026, are built with
-  `--benchmark vehicle`; their place (`results/tables/`) and their content did not change.
+  Holm correction) from the result files, without hardware. It builds them for any benchmark that has the four
+  levels: without options those of the COCO benchmark, in `results/tables/coco/`, and another one is named with
+  `--tag`, `--run_suffix`, `--splits_dir` and `--board`.
 - `build_benchmark_table.py` builds the summary table of a benchmark measured up to PIL, with the image-by-image
   agreement between levels and between boards.
 - MIL and SIL compute their metrics and write their result files through one module, `src/evaluation.py`;
@@ -36,8 +34,8 @@ DOI yet (see [Citation](README.md#citation)).
 - `--tag` gives each dataset its own run name, and the scripts stop instead of replacing an existing checkpoint,
   `.tflite` or result file unless `--overwrite` is given.
 - The label order travels with each model (`{run}.classes.txt`).
-- `data/splits/` is a working folder that git ignores; the published partitions live in `data/splits_coco/`,
-  `data/splits_plates/` and `data/splits_vww/`.
+- `data/splits/` is a working folder that git ignores; the published partitions live in `data/splits_coco/`
+  and `data/splits_vww/`.
 - `split_dataset.py --test_input_dir` takes the test images from a separate source, so that training and test
   cannot share a file.
 
@@ -60,7 +58,7 @@ DOI yet (see [Citation](README.md#citation)).
   sessions is in `results/hil/calibration/`. A first set of sessions, measured the same day before the camera
   was aligned, was published and then withdrawn; it is in the history of the repository (commit 407a025).
 - `find_near_duplicates.py` and `independence_report.py` look for test images that show the same photo or scene
-  as a training image and recompute the results without them; what they found on each published partition is in
+  as a training image and recompute the results without them; what they found on the COCO partition is in
   [`docs/data_independence.md`](docs/data_independence.md).
 
 ### Two Boards
@@ -107,8 +105,8 @@ DOI yet (see [Citation](README.md#citation)).
   port when that folder already holds frames, unless `--overwrite` is given. Before, every session wrote to
   `data/hil_frames/` and replaced the frames of the one before. A folder given with `--frames_dir` is used as it
   was.
-- The `model.h` in git of the two sketches carries the `MobileNetV2` of the COCO benchmark; it carried the one of
-  the vehicle benchmark. The build record of the flash budget was made again with the new header.
+- The `model.h` in git of the two sketches carries the `MobileNetV2` of the COCO benchmark, and the build record
+  of the flash budget was made again with that header.
 
 Which of these have run on a board and which only against the simulated board of the tests is kept up to date in
 [`docs/hardware.md`](docs/hardware.md).
@@ -132,6 +130,8 @@ Which of these have run on a board and which only against the simulated board of
   model in PIL, whether a run was completed, and the software versions behind a result (`software`).
 - `count_macs.py` counts the multiply-accumulate operations of a `.tflite` from its graph;
   `results/tables/macs_COCO.csv` has the count of the seven COCO models.
+- The results, tables and partition manifests of a private application case the framework was first developed on
+  were removed from the repository on 2026-11-15; they remain in its history up to commit 645875d.
 
 ### Reproducible Training
 
@@ -170,14 +170,9 @@ Which of these have run on a board and which only against the simulated board of
 - [`docs/hardware.md`](docs/hardware.md), [`docs/scripts.md`](docs/scripts.md),
   [`docs/results_schema.md`](docs/results_schema.md), [`docs/data_independence.md`](docs/data_independence.md)
   and the build record of the flash budget, [`docs/flash_budget_build.txt`](docs/flash_budget_build.txt).
-- Several statements of the README were reworded to say what the data show, among them the significance of the
-  PIL-to-HIL gap of `MobileNetV2`, which depends on the session.
-- The COCO benchmark is the benchmark of the repository. The vehicle benchmark, measured on private images, is
-  kept as an application case outside the main results: its four-level results, its paired decomposition, its
-  repeatability sessions and its limitations moved from the README to
-  [`docs/vehicle_benchmark.md`](docs/vehicle_benchmark.md). No result file or table changed. The defaults followed
-  afterwards: what `build_ladder_tables.py` builds without options and the model in the `model.h` of the sketches
-  (see above).
+- Several statements of the README were reworded to say what the data show.
+- The COCO benchmark is the benchmark of the repository: it is what `build_ladder_tables.py` builds without
+  options and the model in the `model.h` of the sketches (see above).
 - The header of the README names the two boards: PIL is measured on the Arduino Portenta H7 and on the Arduino
   Nicla Vision, HIL on the Portenta H7.
 - The README is shorter. The detail of the seven usage steps and of the Arduino Nicla Vision moved to
@@ -216,14 +211,12 @@ For anyone who used an earlier commit:
 | Spanish keys in the result files (`nivel`, `modelo`, ...) | English keys (`level`, `model`, ...): table in `docs/results_schema.md` |
 | `--path_proyecto` | `--sketch_path` (the former name is still accepted) |
 | `--tag_suffix` of `build_ladder_tables.py` | `--run_suffix` (the former name is still accepted) |
-| `build_ladder_tables.py` without options, for the vehicle benchmark | `build_ladder_tables.py --benchmark vehicle` (without options: the COCO benchmark) |
-| `build_ladder_tables.py --tag <tag>` with the run suffix of the vehicle benchmark implied | add `--run_suffix +32+20+0.0001+160+120` (the suffix implied is now that of the COCO benchmark) |
+| `build_ladder_tables.py --tag <tag>` with the run suffix `+32+20+0.0001+160+120` implied | add `--run_suffix +32+20+0.0001+160+120` (the suffix implied is now that of the COCO benchmark) |
 | Frames of every HIL session in `data/hil_frames/` | `data/hil_frames/<name of the session's files>/` (`--frames_dir data/hil_frames` gives the former place) |
-| `data/splits/` manifests of the vehicle benchmark | `data/splits_plates/` |
 
 ### Starting Point
 
 What the repository already had at the beginning of November 2026, before the changes above: the three families
 of training scripts with INT8 quantization, the PIL bench with per-phase latency, the camera-in-the-loop HIL bench
-with the model fingerprint, the results of the vehicle benchmark at four levels with its repeatability sessions,
-a four-level run on Visual Wake Words, and the script that builds the statistical tables.
+with the model fingerprint, a four-level run on Visual Wake Words, and the script that builds the statistical
+tables.

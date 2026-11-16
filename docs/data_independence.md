@@ -4,7 +4,7 @@ A test split measures generalisation only if its images are not also in the trai
 `split_dataset.py` separates files, not photos: if the raw data holds several copies of one photo
 (augmented, re-encoded, taken in a burst), the copies can land in different splits and the test
 accuracy is then partly a memory test. This page says how the repository checks for that, what the
-check found on each published partition, and what it cannot find.
+check found on the published COCO partition, and what it cannot find.
 
 ## Method
 
@@ -94,13 +94,11 @@ folders are left out.
 `delta` is cleaned minus full. Its 95 % interval comes from resampling the test images 10,000 times
 (seeded) and computing both figures on each resample, so it is paired.
 
-The two published partitions below were checked with these commands (the images have to be on disk):
+The published COCO partition below was checked with these commands (the images have to be on disk):
 
 ```bash
 python src/find_near_duplicates.py --splits_dir data/splits_coco --overwrite
 python src/independence_report.py  --splits_dir data/splits_coco --overwrite
-python src/find_near_duplicates.py --splits_dir data/splits_plates --region center --overwrite
-python src/independence_report.py  --splits_dir data/splits_plates --overwrite
 ```
 
 If the test shares photos with train/val, the remedy is upstream: remove the copies from the raw
@@ -249,56 +247,11 @@ images have another label here. The two benchmarks have their own models and are
 separately, so neither result is affected. But a model trained on the VWW partition has seen 1,400
 images of this test and must not be evaluated on it, and the two partitions must not be merged.
 
-## Plates (Secondary Benchmark)
-
-The plates partition is that of the vehicle application case; its results and its other caveats are in
-[`vehicle_benchmark.md`](vehicle_benchmark.md).
-
-**The test split of the plates partition is not independent of its training data.** The partition
-(`data/splits_plates`: 940 test images, 5,336 train and validation images) comes from a dataset that
-holds several copies of many of its photos (identical, rotated or mirrored), and the split separated
-the copies.
-
-`find_near_duplicates.py --splits_dir data/splits_plates --region center` (fixed camera, so the
-middle of the frame is compared; thresholds: `ncc` 0.8426 and 25.95 inliers) gives:
-
-| | Test images | Of 940 |
-|---|---|---|
-| Identical pixels to a train/val image | 12 | 1.3 % |
-| `near_duplicate` (both measures) | 726 | 77.2 % |
-| `review` | 96 | 10.2 % |
-| `distinct` | 118 | 12.6 % |
-
-- Of the 726, 574 match a training image and 152 a validation image; 448 of the 714 that are not
-  exact copies are mirrored or rotated by 3° or more with respect to their match; 11 carry the other
-  class label than their match.
-- With the cross-correlation alone, as in the first check of 2 November 2026, 763 test images
-  (81.2 %) are above the threshold and 41 are in the review band; the script reproduces both counts.
-- In the 200-image `hil_subset`: 148 `near_duplicate`, 25 `review`, 27 `distinct`.
-- Inside the test: 274 images are a `near_duplicate` of another test image.
-
-These are the verdicts of the detector; unlike for COCO, the pairs were not checked one by one for
-this page. The controls are well separated on this partition (copies: 1st percentile `ncc` 0.92 and
-34 inliers; different photos: 99th percentile 0.76 and 18), and the exact duplicates need no
-judgement. The tables are in `data/splits_plates/`; they hold file names and scores, no image.
-
-**Effect on the results** (`results/tables/independence_plates.csv`, the 24 published plates runs).
-On the 118 `distinct` images macro-F1 differs from the published figure by −0.052 to +0.063 at MIL,
-SIL and PIL, with intervals between ±0.03 and ±0.06 wide; five of the 19 exclude zero (MobileNet and
-MobileNetV3Small score higher on the clean images). On the rig only 27 of the 200 images are
-`distinct`, too few to say anything (intervals of ±0.05 to ±0.13).
-
-The clean subset is too small to re-establish the plates results on independent images. They are
-kept as a secondary benchmark with this reading: every level of the ladder is evaluated on the same
-940 (or 200) images, so the differences between levels are comparisons on identical images and
-remain valid as such; the accuracies themselves are measured on a test that shares most of its
-photos with the training data and say little about vehicles the models have not seen.
-
 ## What the Check Cannot Detect
 
-- **The same subject photographed again.** Two photos of one vehicle, person or place taken from
+- **The same subject photographed again.** Two photos of one object, person or place taken from
   different viewpoints or on different days are not related by a rotation, a scale and a mirror, so
-  neither measure links them. Independence at the level of subjects (no vehicle, no person, no
+  neither measure links them. Independence at the level of subjects (no object, no person, no
   location on both sides) can only come from how the data were collected and split.
 - **Copies beyond the search.** Only the 10 (alignment) and 30 (features) train/val images that the
   embedding ranks closest to a test image are verified. A copy that the embedding ranks lower is

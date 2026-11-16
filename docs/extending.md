@@ -80,7 +80,7 @@ The commands are those of [Usage](../README.md#usage-full-pipeline), unchanged. 
 | Does it fit? | `compile_upload_arduino.py --compile_only` | Flash: the `.tflite` is linked into the firmware. Tensor arena: known only on a board, see below. |
 | PIL, HIL | `pil_benchmark.py`, `hil_benchmark.py` | The firmware registers every TFLite-Micro operator (`AllOpsResolver`), so no operator list is edited. |
 | Summary table | `build_benchmark_table.py --tag <tag>` | Nothing: it finds the runs by their tag. |
-| Ladder tables | `build_ladder_tables.py` | Name the architectures: `--archs` (all, the first one fixes the image order) and `--deployable` (those with PIL and HIL runs). The defaults are the seven and the five of the published benchmarks. The tables handle two classes. |
+| Ladder tables | `build_ladder_tables.py` | Name the architectures: `--archs` (all, the first one fixes the image order) and `--deployable` (those with PIL and HIL runs). The defaults are the seven and the five of the COCO benchmark. The tables handle two classes. |
 | MACs | `count_macs.py` | An operator it knows neither as counted nor as free of products ends the run with exit code 3 and is named: add it to `COUNTED`, with its formula, or to `NO_MACS` in the script. |
 | Checksums | `models/checksums.sha256`, `verify_models.py` | Only when its results go into the repository, see below. |
 
@@ -102,9 +102,11 @@ The commands are those of [Usage](../README.md#usage-full-pipeline), unchanged. 
 **Results in the repository.** A result file records the SHA-256 of the model it used, and
 `models/checksums.sha256` lists every model file behind a published result. `python src/verify_models.py --results`
 and `tests/test_release.py` fail while a published result (one that git tracks) names a model that is not in the
-list. `python src/verify_models.py --update_list --set coco` (or `vww`, `plates`) rewrites the entries of that set
+list. `python src/verify_models.py --update_list --set coco` (or `vww`) rewrites the entries of that set
 from the model files its published results name, sorted by path. The archive a model is released in
-follows its tag: `_COCO` and `_VWW` have their own, every other name goes with the vehicle benchmark. If the new
+follows its tag: `_COCO` and `_VWW` have their own. A name with another tag, or with none, belongs to no
+published set, and the list refuses it: results published under a new tag need that set added to `SETS` and
+`set_of()` in `src/verify_models.py`. If the new
 files are the first published ones to carry a key that `tests/test_results_schema.py` lists as not yet
 published, that test asks for the key to be taken off its list.
 
@@ -195,12 +197,9 @@ Cortex-M, so a core without it needs another clock and that part of the sketches
 
 ### What Has Been Exercised
 
-- **PIL on the Nicla Vision: run on the board.** The runs are in `results/nicla/pil/`: the `MobileNetV2` of the
-  vehicle application case (940 images, see [`vehicle_benchmark.md`](vehicle_benchmark.md#the-same-model-on-a-second-board)) and the COCO models that fit the board (5,000 test images each). For every COCO
-  model measured on both boards, the two boards gave the same prediction for each of the 5,000 images
-  (`python src/build_benchmark_table.py --tag COCO` recounts it). For the vehicle model see
-  [Boards and Memory](hardware.md#boards-and-memory): the Portenta H7 run it is compared with there was not
-  published.
+- **PIL on the Nicla Vision: run on the board.** The runs are in `results/nicla/pil/`: the COCO models that
+  fit the board (5,000 test images each). For every one of them the two boards gave the same prediction for
+  each of the 5,000 images (`python src/build_benchmark_table.py --tag COCO` recounts it).
 - **HIL on the Nicla Vision: measured for three models.** `MobileNetV2`, `MobileNet` and `MobileNetV3Small` ran
   the 200 images of the COCO HIL subset on 2026-11-15 (`results/nicla/hil/`). With the arena that `SqueezeNet`
   or `ResNet8` needs (`--arena_kb 408` and `392`), the HIL sketch does not start on this board: it prints its

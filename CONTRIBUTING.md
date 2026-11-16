@@ -15,7 +15,7 @@ it gives:
   for PIL and HIL and, in files written from November 2026 on, the software versions;
 - for a board problem, the board, the version of its Arduino core and the lines the firmware prints at boot.
 
-Do not attach photographs that show people or licence plates.
+Do not attach photographs that show people or other personal data.
 
 ## Setting Up
 
@@ -45,10 +45,10 @@ hand-worked values and checks every published result file against the documented
   TensorFlow is needed only by `tests/test_sil_kernels.py` and by part of `tests/test_count_macs.py` and
   `tests/test_software_versions.py`; the bench tests need pyserial, Pillow, OpenCV, scikit-learn and seaborn; the
   table tests need numpy and scipy.
-- To compare the tables yourself (those of the vehicle application case, the ladder tables in `results/tables/`):
+- To compare the tables yourself (the ladder tables of the COCO benchmark, in `results/tables/coco/`):
   ```bash
-  python src/build_ladder_tables.py --benchmark vehicle --output_dir results/smoke_test/tables
-  python tests/tables_check.py results/tables results/smoke_test/tables
+  python src/build_ladder_tables.py --output_dir results/smoke_test/tables/coco
+  python tests/tables_check.py results/tables/coco results/smoke_test/tables/coco
   ```
 - `.github/workflows/tests.yml` runs both steps on Linux and on Windows for every push to `main` and every pull
   request.
@@ -65,8 +65,7 @@ These are what the code and the history already follow.
   documents and commit messages.
 - **Run names.** Every file of a model derives from
   `{architecture}[_{tag}]+{batch}+{epochs}+{learning rate}+{width}+{height}` (`src/artifacts.py`). Give each
-  dataset its own `--tag`; the names without a tag belong to the vehicle application case
-  ([`docs/vehicle_benchmark.md`](docs/vehicle_benchmark.md)).
+  dataset its own `--tag`; `COCO` and `VWW` are those of the published runs.
 - **Command line.** Scripts parse their options with `cli.ArgumentParser` (`src/cli.py`), which accepts every
   multi-word option with `_` or `-`. Declare options with `_`. The four benches share `--model_path`,
   `--splits_dir`, `--output_dir` and `--overwrite`; the two board benches also share `--port`, `--board`,
@@ -100,7 +99,7 @@ These are what the code and the history already follow.
 - Image files of the datasets. The partitions are published as manifests and reports (`data/splits_*/`); the
   images are rebuilt from their public source. The eight photographs of `data/sample/` are the only ones in the
   repository.
-- Photographs with licence plates or other personal data, in any form, figures and previews included.
+- Photographs with personal data, in any form, figures and previews included.
 - Local paths and user names in result files and documents.
 
 ## Extending
