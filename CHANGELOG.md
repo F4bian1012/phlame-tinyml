@@ -140,6 +140,9 @@ Which of these have run on a board and which only against the simulated board of
   runs with one seed are identical on a CPU and not on a GPU; the record is what lets them be compared.
 - A step that fails ends with a non-zero exit code, so a chain of commands does not carry on with the files of an
   earlier run.
+- `prune_model.py` prunes the convolutions of a nested backbone too (of a MobileNet it pruned only the
+  classifier), ends with a non-zero exit code when it reports an error and stops instead of replacing an existing
+  pruned model unless `--overwrite` is given.
 
 ### Release Tooling
 

@@ -159,7 +159,7 @@ are the same photograph.
   match with its scoreboard, the same cat in front of the same television, the same train at the
   same signal). In a few of them the place and the framing are the same and the subject is not
   (another bus at the same street corner, another train on the same curve, the other player on the
-  same court). Five are marked "probably" in the notes, where the scene has little that identifies
+  same court). Five carry a doubt in the notes ("probably", or two readings), where the scene has little that identifies
   it (a snow ridge, a surf break, bears on a slope, a hotel room, cows in a field).
 - **By class and split.** 71 of the 2,637 `non_person` test images (2.7 %) and 58 of the 2,363
   `person` images (2.5 %); 110 match a training image and 19 a validation image. The 129 test
@@ -173,7 +173,7 @@ are the same photograph.
   0.0006 to 0.0014 over the sixteen figures (PIL and HIL of five models on the Portenta H7 and of three
   on the Nicla Vision), computed from the published prediction files on the other 199 images. The
   differences between PIL and HIL change by 0.0005 at most.
-- **Agreement with an earlier check.** A smaller COCO partition of 12,000 images, whose test was a
+- **Agreement with an earlier check.** A smaller COCO partition of 13,000 images, whose test was a
   part of this one, had been checked the same way before: the four pairs confirmed there are all
   among the 129, with the same train/val image.
 
@@ -202,9 +202,10 @@ same surfer on the same wave is `person` in one frame and `non_person` in the ot
   scene is shared with another training image, one the embedding did not rank among its candidates,
   is not seen by the detector nor by this check.
 
-**Effect on the results.** `independence_report.py` on the 19 COCO runs (MIL and SIL for seven
-architectures, PIL on the Portenta H7 for the five that fit; the PIL runs on the Nicla Vision give the
-same prediction for every image); macro-F1, Δ = cleaned − full, 95 % paired bootstrap interval; full
+**Effect on the results.** `independence_report.py` on the 19 COCO runs of the three levels that use the
+whole test (MIL and SIL for seven architectures, PIL on the Portenta H7 for the five that fit; the PIL runs
+on the Nicla Vision give the same prediction for every image; the table was made before the HIL sessions,
+which use 200 of these images); macro-F1, Δ = cleaned − full, 95 % paired bootstrap interval; full
 table with accuracy in `results/tables/independence_coco.csv`:
 
 | Level | Architecture | F1 full (n=5000) | F1 `confirmed` (n=4871) | Δ [95 % interval] | F1 `strict` (n=3681) | Δ [95 % interval] |
@@ -230,10 +231,10 @@ table with accuracy in `results/tables/independence_coco.csv`:
 | PIL | SqueezeNet | 0.8344 | 0.8322 | −0.0021 [−0.0034, −0.0007] | 0.8263 | −0.0081 [−0.0138, −0.0022] |
 
 - **Without the 129 confirmed images** macro-F1 changes by −0.0021 to −0.0002 and accuracy by
-  −0.0021 to −0.0001; 8 of the 19 intervals exclude zero, the order of the architectures is the same at MIL and SIL (at PIL `SqueezeNet` and `ResNet8`, 0.0007 apart, swap places), and the gap between two levels of one
+  −0.0021 to −0.0001; 8 of the 19 intervals exclude zero, the order of the architectures is the same at MIL and SIL (at PIL `SqueezeNet` and `ResNet8`, 0.0007 apart, swap places), and the gap between two consecutive levels of one
   architecture moves by at most 0.0004.
 - **Without all 1,319 suspect images** macro-F1 changes by −0.0112 to −0.0032; 15 of the 19 intervals exclude zero,
-  the order of the architectures is the same at each level, and the gap between two levels of one architecture moves by at most 0.0043.
+  the order of the architectures is the same at each level, and the gap between two consecutive levels of one architecture moves by at most 0.0043.
   1,190 of those images are different photos from their closest train/val image, so this drop is not
   an effect of shared data alone: test images that resemble some training image are slightly easier
   for the models.

@@ -105,7 +105,7 @@ Every evaluation script writes a `metrics_{model}[_int8].json` file capturing cl
 | `prediction_counts` | PIL | `object` | Frequency dictionary mapping predicted class index strings (`"0"`, `"1"`, etc.) to total counts (see Section 6). |
 | `cross_validation` | HIL | `object` | Summary of paired PC MIL/SIL evaluation on the exact camera-captured frames (see Section 8). |
 | `artifacts` | All | `object` | Relative filesystem paths to companion outputs (PNG heatmap, CSV tables, conditions JSON; see Section 9). |
-| `software` | All | `object` | Versions of the software on the PC that produced the file (see Section 10). Written from November 2026 on; absent in earlier files. |
+| `software` | All | `object` | Versions of the software on the PC that produced the file (see Section 10). Written from 15 November 2026 on; absent in earlier files. |
 
 ### 2. Model Traceability (`model`)
 | Key | Level | Type | Description |
@@ -236,7 +236,7 @@ Values of `<FIELD>` (`CYC_*` in core cycles, `US_*` in microseconds):
 | `artifacts.conditions_json` | HIL | `string` | Relative path to the companion test rig environment record (`conditions_*.json`). |
 
 ### 10. Software Behind the Result (`software`)
-The versions that can change a figure, read when the file is written by `artifacts.software_versions()`. Each level lists the packages it uses, with the key names of the training record (`{model}.training.json`, block `software`). A version is the one of the module that was running; for a package the run did not import, the one of the installed distribution. The block holds no path, user name or host name. On PIL and HIL it describes the PC only: the model runs on the board, whose firmware is identified by `run.board` and the fingerprint in `model`. Written from November 2026 on; absent in earlier files.
+The versions that can change a figure, read when the file is written by `artifacts.software_versions()`. Each level lists the packages it uses, with the key names of the training record (`{model}.training.json`, block `software`). A version is the one of the module that was running; for a package the run did not import, the one of the installed distribution. The block holds no path, user name or host name. On PIL and HIL it describes the PC only: the model runs on the board, whose firmware is identified by `run.board` and the fingerprint in `model`. Written from 15 November 2026 on; absent in earlier files, among them the published MIL, SIL and PIL files of the COCO benchmark, which were measured before that (the HIL files carry it).
 
 | Key | Level | Type | Description |
 |---|---|---|---|

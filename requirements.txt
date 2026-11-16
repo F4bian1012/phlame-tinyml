@@ -78,9 +78,10 @@ tensorboard>=2.15.0
 # ==============================================================================
 # Train on WSL2 (Ubuntu 24.04) in its own venv with the CUDA-enabled build:
 #   pip install "tensorflow[and-cuda]>=2.16.0"
-# plus the rest of this file. Keep the SAME tensorflow/keras versions on both
-# sides so the .keras and .tflite files are interchangeable (verified with
-# tensorflow 2.21 + keras 3.13 on Windows and WSL2). The serial benches
+# plus the rest of this file. Keep the SAME tensorflow version on both sides so
+# the .keras and .tflite files are interchangeable (the published models were
+# trained with tensorflow 2.21.0 + keras 3.13.2 on WSL2 and are loaded with
+# tensorflow 2.21.0 + keras 3.15.1 on Windows). The serial benches
 # (pil_benchmark.py, hil_benchmark.py) stay on the Windows side, where
 # the board's COM port is.
 

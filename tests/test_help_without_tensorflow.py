@@ -32,10 +32,12 @@ SCRIPTS = {
     "train_mobilenet.py": "--base_model",
     "train_resnet.py": "--dropout_rate",
     "train_squeezenet.py": "--batch_norm",
+    "prune_model.py": "--sparsity",
 }
 TRAINERS = ("train_mobilenet.py", "train_resnet.py", "train_squeezenet.py")
 # Options a script requires: without them argparse complains about those first.
-REQUIRED = {"mil_benchmark.py": ("--model_path", "m.keras"), "sil_benchmark.py": ("--model_path", "m.tflite")}
+REQUIRED = {"mil_benchmark.py": ("--model_path", "m.keras"), "sil_benchmark.py": ("--model_path", "m.tflite"),
+            "prune_model.py": ("--model_path", "m.keras", "--sparsity", "0.5", "--technique", "global")}
 MARK = "TENSORFLOW-WAS-IMPORTED"
 
 
