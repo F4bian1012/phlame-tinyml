@@ -70,7 +70,7 @@ the top of each sketch, selected by the build target (`--board` in `compile_uplo
 | Image buffer | 400 KiB in external SDRAM (up to 320×320 RGB) | Static array: 19,200 bytes by default (one 160×120 grayscale image) |
 | Camera (HIL) | HM01B0 of the Vision Shield, monochrome, 160×120 | Built-in GC2145, colour: read as RGB565 at 160×120 and converted to luminance |
 | Announces | `BOARD:PORTENTA_H7` | `BOARD:NICLA_VISION` |
-| Status | PIL and HIL measured on the board | PIL measured on the board; HIL builds, not run yet |
+| Status | PIL and HIL measured on the board | PIL measured on the board (five models); HIL measured for three of them |
 
 The Portenta H7 FQBN needs `:split=100_0` (2 MiB of flash for the M7 core): with the default split the firmware
 does not fit. Of those 2 MiB the first 256 KiB are the bootloader region; the sizes of the two sketches, read
@@ -199,7 +199,7 @@ Both host benches (`pil_benchmark.py` and `hil_benchmark.py`) and the wire proto
 
 Adding a third board takes one more block in each sketch and one entry in `src/boards.py`; [`extending.md`](extending.md#adding-a-board) lists what each of them holds and which tests notice.
 
-**Not yet verified on a Nicla Vision.** The PIL sketch has run on the board (see [Boards and Memory](#boards-and-memory)); the HIL sketch has not. Until it does, these remain open: the byte order of the RGB565 frame (taken from the core's own viewers; a wrong order would show as a visibly corrupted frame-dump), the image the GC2145 gives at 160×120 (according to the driver, a central 640×480 window subsampled by four, so a narrower field of view than the full sensor), and whether the RAM left is enough for the camera frame at run time. The five models that fit have run on the board at PIL.
+**What the Nicla Vision showed at HIL.** Both sketches have run on the board (see [Boards and Memory](#boards-and-memory)). The three points that were open before its first HIL sessions, on 2026-11-15, were settled by them. The byte order of the RGB565 frame is right: the dumped frames are clean images of the stimulus. The GC2145 gives at 160×120 a narrower field of view than the HM01B0 of the Vision Shield (according to the driver, a central 640×480 window subsampled by four): the camera had to be 94 cm from the monitor to frame it, against 22 cm for the Portenta H7. And the RAM left is enough for the camera frame with the default arena, which `MobileNetV2`, `MobileNet` and `MobileNetV3Small` fit, and not with the arena `SqueezeNet` or `ResNet8` needs: with `--arena_kb 408` or `392` the HIL sketch prints its board line and does not start.
 
 ## HIL Rig and Session
 

@@ -46,7 +46,7 @@ The last command rebuilds the table of this benchmark (`results/tables/benchmark
 
 ### Board Levels
 
-PIL and HIL use the commands of steps 5 to 7 of [Usage](../README.md#usage-full-pipeline) with `--splits_dir data/splits_coco`, on either board. The published PIL files of these models are protected against replacement, so add `--output_dir` (or `--overwrite`). A PIL run of the 5,000 images takes from 65 minutes (`MobileNet` on the Nicla Vision) to almost 5 hours (`ResNet8` on the Portenta H7). The published HIL sessions are those of the Portenta H7 on the 200 images of the `hil_subset` ([Results](../README.md#results), section 1).
+PIL and HIL use the commands of steps 5 to 7 of [Usage](../README.md#usage-full-pipeline) with `--splits_dir data/splits_coco`, on either board. The published PIL files of these models are protected against replacement, so add `--output_dir` (or `--overwrite`). A PIL run of the 5,000 images takes from 65 minutes (`MobileNet` on the Nicla Vision) to almost 5 hours (`ResNet8` on the Portenta H7). The published HIL sessions, on the 200 images of the `hil_subset`, are those of five models on the Portenta H7 and of three on the Nicla Vision ([Results](../README.md#results), section 1).
 
 ### Training
 

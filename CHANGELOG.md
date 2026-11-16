@@ -74,6 +74,8 @@ DOI yet (see [Citation](README.md#citation)).
   images of the HIL subset, with the report of the calibrator before each session (`results/nicla/hil/`,
   tables in `results/nicla/tables/coco/`). With that camera, from 94 cm, no model loses a distinguishable amount
   from PIL to HIL; on the Portenta H7 two do. `SqueezeNet` and `ResNet8` cannot run HIL on this board.
+- Three repeatability sessions of `MobileNetV2` at HIL on the Nicla Vision (`results/nicla/hil/rep1` to `rep3`):
+  macro-F1 0.835 to 0.869, with the camera creeping up to 1.6 px within a session.
 - A first attempt on the Nicla Vision was discarded: the board crept on its mount during three sessions measured
   behind a single calibration report. The documents now ask for a report before every session.
 - Why the Nicla Vision needs fewer cycles than the Portenta H7 for the same model was measured: with the tensor

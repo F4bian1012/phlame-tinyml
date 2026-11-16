@@ -72,8 +72,7 @@ Methods
     identical numbers.
 
 Note: the keys of the metrics_*.json files read here ('model', 'latency',
-'per_field', 'mean', 'std') are documented in "Results Format"
-in the README.
+'per_field', 'mean', 'std') are documented in docs/results_schema.md.
 
 Dependencies: numpy and scipy (scipy is installed with scikit-learn). pandas is not needed.
 """
