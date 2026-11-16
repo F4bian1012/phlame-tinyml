@@ -13,11 +13,9 @@ data/raw/*
 data/raw_vww/*
 data/raw_coco_*/
 data/processed/*
-data/augmented/*
 data/hil_frames*/
 !data/raw/.gitkeep
 !data/processed/.gitkeep
-!data/augmented/.gitkeep
 !data/raw_vww/vww_subset_report.json
 
 # Splits. data/splits/ is the working partition of the user's own dataset and

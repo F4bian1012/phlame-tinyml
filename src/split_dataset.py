@@ -11,12 +11,13 @@ evaluate EXACTLY the same held-out images.
 
 Why this script exists
 ----------------------
-Without an explicit on-disk split, train_*.py uses `validation_split` over the
-full directory while the evaluators (mil_benchmark.py, sil_benchmark.py) read
-THAT SAME full directory -> reported accuracy includes training images (data
-leakage). Moreover, each benchmark selected images differently (manual folder
-in PIL, random sampling in HIL), so gaps across ladder levels were not
-attributable. This script solves both issues.
+Before the split was written to disk, train_*.py used `validation_split` over
+the full directory while the evaluators (mil_benchmark.py, sil_benchmark.py)
+read THAT SAME full directory -> the reported accuracy included training images
+(data leakage). Moreover, each benchmark selected images differently (manual
+folder in PIL, random sampling in HIL), so gaps across ladder levels were not
+attributable. This script solved both issues: the training scripts and the four
+levels now read the partition it writes, and training stops without it.
 
 Input
 -----

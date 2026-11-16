@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import argparse
 import os
+import sys
 import cli
 
 def calculate_sparsity(model):
@@ -102,21 +103,23 @@ def main():
     
     args = parser.parse_args()
     
+    # A step that reports an error ends with a non-zero exit code, like the other
+    # scripts, so a chained pipeline does not carry on with an earlier file.
     if not os.path.exists(args.model_path):
         print(f"Error: Model path {args.model_path} does not exist.")
-        return
-        
+        sys.exit(1)
+
     if not (0.0 <= args.sparsity < 1.0):
         print("Error: Sparsity must be in the range [0.0, 1.0) (e.g., 0.2 for 20%).")
-        return
+        sys.exit(1)
 
     print(f"Loading model from {args.model_path}...")
     try:
         model = tf.keras.models.load_model(args.model_path)
     except Exception as e:
         print(f"Error loading model: {e}")
-        return
-        
+        sys.exit(1)
+
     initial_sparsity = calculate_sparsity(model)
     print(f"Initial model sparsity: {initial_sparsity*100:.2f}%")
     
@@ -137,6 +140,7 @@ def main():
         print("Model saved successfully.")
     except Exception as e:
         print(f"Error saving pruned model: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

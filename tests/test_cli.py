@@ -129,7 +129,7 @@ class FailureExitCodeTest(unittest.TestCase):
         # Read from the source, without importing TensorFlow: after printing an
         # error these scripts used to return normally.
         for script in ("quantize_int8_basic.py", "mil_benchmark.py", "sil_benchmark.py",
-                       "train_mobilenet.py", "train_resnet.py", "train_squeezenet.py"):
+                       "train_mobilenet.py", "train_resnet.py", "train_squeezenet.py", "prune_model.py"):
             lines = (SRC / script).read_text(encoding="utf-8").splitlines()
             for i, line in enumerate(lines[:-1]):
                 if "print(" in line and "rror" in line and lines[i + 1].strip() in ("return", "return None"):

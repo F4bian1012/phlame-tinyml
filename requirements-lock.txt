@@ -5,10 +5,12 @@
 # minimum compatible versions.
 #   pip install -r requirements-lock.txt
 #
-# Provenance: the result JSONs do not record package versions. This venv is
-# the likely source of the results in results/ because it predates them
-# (latest results: 2026-10-16/17) and it is the only environment on the
-# development machine with scikit-learn, which the evaluation scripts require.
+# Provenance: the result files that carry a `software` block (see
+# docs/results_schema.md) record the versions that produced them, and they are
+# the versions below. The files written before that block existed do not
+# record them: this venv is their likely source, because it predates them and
+# it is the only environment on the development machine with scikit-learn,
+# which the evaluation scripts require.
 # ==============================================================================
 
 # --- Direct dependencies (requirements.txt) ---

@@ -25,7 +25,8 @@ license-files = ["LICENSE.txt"]
 authors = [
     { name = "Jheyson Fabian Villavisan" },
 ]
-# The versions the scripts and the tests have run on: 3.13 on Windows and 3.12 on Linux.
+# The versions the scripts and the tests have run on: 3.13 on Windows and 3.12 on Linux
+# (the tests that need no TensorFlow also on 3.13 on Linux: .github/workflows/tests.yml).
 requires-python = ">=3.12"
 keywords = [
     "PHLAME",

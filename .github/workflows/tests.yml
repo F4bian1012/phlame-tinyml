@@ -6,15 +6,16 @@
 # Two kinds of installation:
 #
 #   light  Everything in requirements.txt except TensorFlow and TensorBoard.
-#          Only tests/test_sil_kernels.py needs TensorFlow, and it is skipped
-#          when TensorFlow is missing; the rest of the suite and the tables
-#          need numpy, scipy, Pillow, OpenCV, pyserial, scikit-learn, seaborn
-#          and matplotlib. These jobs are short and are the ones to look at
-#          first.
+#          TensorFlow is needed only by tests/test_sil_kernels.py and by part
+#          of tests/test_count_macs.py and tests/test_software_versions.py,
+#          which are skipped when it is missing; the rest of the suite and the
+#          tables need numpy, scipy, Pillow, OpenCV, pyserial, scikit-learn,
+#          seaborn and matplotlib. These jobs are short and are the ones to
+#          look at first.
 #   full   requirements.txt exactly as the README installs it, TensorFlow
 #          included, with the Python version verified on each system. These
 #          jobs say whether the documented installation still works on a
-#          clean machine and they run the TensorFlow test as well. The file
+#          clean machine and they run the TensorFlow tests as well. The file
 #          gives minimum versions, so a new release of a package can turn
 #          them red: that is the point of having them.
 #
