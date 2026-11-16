@@ -30,6 +30,13 @@ per set, phlame-models-<set>-<tag>.zip, holding the files at their paths under
 models/. A model named with another tag, or with none, belongs to no published
 set: it is a user's own model.
 
+An archive also carries, for each of its models that has them, the records the
+scripts write next to a model: the training record (<name>.training.json: the
+recipe, the history of each epoch and the software versions) and the order of
+the classes (<name>.classes.txt). They are not in the checksum list. A path of
+the machine the model was trained on (splits_dir) is reduced to the name of its
+last folder before the record goes into the archive.
+
 Exit codes: 0 everything checked agrees with the list; 1 a file or a result
 disagrees with it, a required file is missing or a download failed; 2 the
 list or the command line cannot be used.
@@ -57,6 +64,10 @@ MANIFEST = os.path.join("models", "checksums.sha256")
 RELEASES_URL = "https://github.com/F4bian1012/phlame-tinyml/releases/download"
 SETS = ("coco", "vww")
 ENTRY = re.compile(r"^([0-9a-f]{64}) [ *](models/(?:checkpoints/[^/]+\.keras|tflite/[^/]+\.tflite))$")
+# Records written next to a model by the training scripts and by quantize_int8_basic.py.
+RECORD_SUFFIXES = (".training.json", ".classes.txt")
+PATH_KEY = re.compile(r"(_dir|_path|_file)$")
+ABSOLUTE = re.compile(r"^(/|\\\\|[A-Za-z]:[\\/])")
 # Fixed date of the archive members, so the same files give the same archive.
 ZIP_DATE = (2026, 1, 1, 0, 0, 0)
 
@@ -254,6 +265,33 @@ def archive_name(which, tag):
     return "phlame-models-%s-%s.zip" % (which, tag)
 
 
+def records_of(rel, root):
+    """Paths, relative to root, of the records that exist next to the listed model rel."""
+    stem = os.path.splitext(rel)[0]
+    return [stem + suffix for suffix in RECORD_SUFFIXES if os.path.isfile(os.path.join(root, stem + suffix))]
+
+
+def without_local_paths(value, key=""):
+    """A training record as it is published: under a key that names a folder or a file (*_dir,
+    *_path, *_file), an absolute path of the machine the record was written on is reduced to its
+    last component, which says which folder it was and nothing else about that machine."""
+    if isinstance(value, dict):
+        return {k: without_local_paths(v, k) for k, v in value.items()}
+    if isinstance(value, str) and PATH_KEY.search(key) and ABSOLUTE.match(value):
+        return re.split(r"[\\/]+", value.rstrip("\\/"))[-1]
+    return value
+
+
+def record_bytes(path):
+    """Content of a record as it goes into an archive."""
+    if path.endswith(".training.json"):
+        with io.open(path, encoding="utf-8") as fh:
+            data = without_local_paths(json.load(fh))
+        return (json.dumps(data, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+    with open(path, "rb") as fh:
+        return fh.read()
+
+
 def build_bundle(entries, root, out_dir, tag, manifest_file):
     """Writes one archive per set plus SHA256SUMS.txt. Every listed file of the
     set must be present and correct: an archive with a wrong or missing model
@@ -277,8 +315,15 @@ def build_bundle(entries, root, out_dir, tag, manifest_file):
                 with open(path, "rb") as src, archive.open(info, "w") as dst:
                     for block in iter(lambda: src.read(1 << 20), b""):
                         dst.write(block)
+            records = sorted(record for rel in chosen for record in records_of(rel, root))
+            for rel in records:
+                info = zipfile.ZipInfo(rel, date_time=ZIP_DATE)
+                info.compress_type = zipfile.ZIP_DEFLATED
+                info.external_attr = 0o644 << 16
+                archive.writestr(info, record_bytes(os.path.join(root, rel)))
         sums.append((sha256_file(target), os.path.basename(target)))
-        print("Wrote %s (%d models, %.1f MiB)" % (target, len(chosen), os.path.getsize(target) / 2 ** 20))
+        print("Wrote %s (%d models, %d training and class records, %.1f MiB)"
+              % (target, len(chosen), len(records), os.path.getsize(target) / 2 ** 20))
     with io.open(os.path.join(out_dir, "SHA256SUMS.txt"), "w", encoding="utf-8", newline="\n") as fh:
         for digest, name in sums:
             fh.write("%s  %s\n" % (digest, name))
@@ -289,7 +334,8 @@ def download(entries, root, tag, which, base_url, overwrite):
     """Fetches the archive of each requested set and unpacks the listed models.
     Only members named in the list are written, at their listed path, and a
     model that is already there is kept unless it differs and --overwrite is
-    given. Returns the number of problems."""
+    given. The records of those models (training record, class order) are
+    written next to them. Returns the number of problems."""
     problems = 0
     base = (base_url or "%s/%s" % (RELEASES_URL, tag)).rstrip("/")
     for name in (SETS if which == "all" else (which,)):
@@ -313,13 +359,27 @@ def download(entries, root, tag, which, base_url, overwrite):
                 print("FAILED    %s is not a zip archive" % url)
                 problems += 1
                 continue
+            records = {os.path.splitext(rel)[0] + suffix for rel in chosen for suffix in RECORD_SUFFIXES}
             with archive:
                 for member in archive.namelist():
-                    if member not in chosen:
-                        continue      # the checksum list inside the archive, or anything unexpected
-                    problems += unpack_member(archive, member, chosen[member], root, overwrite)
+                    if member in chosen:
+                        problems += unpack_member(archive, member, chosen[member], root, overwrite)
+                    elif member in records:
+                        unpack_record(archive, member, root, overwrite)
+                    # anything else: the checksum list inside the archive, or something unexpected
         problems += verify_files(chosen, root, require_all=True)
     return problems
+
+
+def unpack_record(archive, member, root, overwrite):
+    """Writes a record of the archive next to its model. A record already there is the user's own
+    and is kept, unless --overwrite is given."""
+    target = os.path.join(root, member)
+    if os.path.isfile(target) and not overwrite:
+        return
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    with archive.open(member) as src, open(target, "wb") as dst:
+        shutil.copyfileobj(src, dst)
 
 
 def unpack_member(archive, member, digest, root, overwrite):

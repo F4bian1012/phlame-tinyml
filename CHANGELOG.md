@@ -148,6 +148,9 @@ Which of these have run on a board and which only against the simulated board of
 - `models/checksums.sha256` lists the SHA-256 of every model file behind a published result, and
   `verify_models.py` checks model files against it, checks the result files against it, fetches the model
   archives of a release and builds them.
+- The model archives also carry the training record and the class order of each model, with the path of the
+  training machine reduced to the name of its folder; `verify_models.py --download` writes them next to the
+  models.
 - `CITATION.cff` and `.zenodo.json` describe version 1.0.0 without a release date or a DOI, and the README says
   what is published today; tests keep the three in agreement.
 - The Apache-2.0 licence text that the two firmware sketches refer to is in `deployment/`.

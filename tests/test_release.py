@@ -184,15 +184,39 @@ class VerifyModelsScriptTest(unittest.TestCase):
         self.assertIn("NOT LISTED  models/tflite/Unknown+1+1+0.1+8+8_int8.tflite", wrong.stdout)
 
     def test_bundle_then_download_round_trip(self):
+        # the records the scripts write next to a model, as a training machine leaves them
+        record = {"script": "train_x.py", "splits_dir": "/home/someone/data_full", "epochs_run": 1,
+                  "settings": {"weights": "imagenet"}, "software": {"gpus": ["/physical_device:GPU:0"]},
+                  "history": {"loss": [0.5]}}
+        Path(self.root, "models/checkpoints/Tiny_COCO+1+1+0.1+8+8.training.json").write_text(
+            json.dumps(record), encoding="utf-8")
+        Path(self.root, "models/checkpoints/Tiny_COCO+1+1+0.1+8+8.classes.txt").write_bytes(b"cat\ndog\n")
+        Path(self.root, "models/tflite/Tiny_COCO+1+1+0.1+8+8_int8.classes.txt").write_bytes(b"cat\ndog\n")
+        Path(self.root, "models/checkpoints/Other_COCO+1+1+0.1+8+8.training.json").write_text("{}", encoding="utf-8")
+
         assets = os.path.join(self.tmp.name, "assets")
         built = run("--root", self.root, "--bundle", assets, "--tag", "v9.9.9")
         self.assertEqual(built.returncode, 0, built.stdout)
         self.assertEqual(sorted(os.listdir(assets)),
                          ["SHA256SUMS.txt", "phlame-models-coco-v9.9.9.zip", "phlame-models-vww-v9.9.9.zip"])
         with zipfile.ZipFile(os.path.join(assets, "phlame-models-coco-v9.9.9.zip")) as archive:
+            # the listed models, the list, and the records of those models only
             self.assertEqual(sorted(archive.namelist()),
-                             ["models/checkpoints/Tiny_COCO+1+1+0.1+8+8.keras", "models/checksums.sha256",
+                             ["models/checkpoints/Tiny_COCO+1+1+0.1+8+8.classes.txt",
+                              "models/checkpoints/Tiny_COCO+1+1+0.1+8+8.keras",
+                              "models/checkpoints/Tiny_COCO+1+1+0.1+8+8.training.json", "models/checksums.sha256",
+                              "models/tflite/Tiny_COCO+1+1+0.1+8+8_int8.classes.txt",
                               "models/tflite/Tiny_COCO+1+1+0.1+8+8_int8.tflite"])
+            published = json.loads(archive.read("models/checkpoints/Tiny_COCO+1+1+0.1+8+8.training.json"))
+            # the path of the training machine is reduced to its last folder; nothing else changes
+            self.assertEqual(published, dict(record, splits_dir="data_full"))
+            for name in archive.namelist():
+                self.assertNotIn(b"/home/someone", archive.read(name), name)
+        with zipfile.ZipFile(os.path.join(assets, "phlame-models-vww-v9.9.9.zip")) as archive:
+            self.assertEqual([n for n in archive.namelist() if n.endswith((".json", ".txt"))], [])
+        # the record on disk is left as it was
+        self.assertEqual(json.loads(Path(self.root, "models/checkpoints/Tiny_COCO+1+1+0.1+8+8.training.json")
+                                    .read_text(encoding="utf-8")), record)
         for line in Path(assets, "SHA256SUMS.txt").read_text(encoding="utf-8").splitlines():
             digest, name = line.split("  ")
             self.assertEqual(hashlib.sha256(Path(assets, name).read_bytes()).hexdigest(), digest)
@@ -205,6 +229,11 @@ class VerifyModelsScriptTest(unittest.TestCase):
         self.assertEqual(fetched.returncode, 0, fetched.stdout)
         self.assertEqual(Path(clone, "models/tflite/Tiny_COCO+1+1+0.1+8+8_int8.tflite").read_bytes(),
                          b"coco int8 model")
+        # the records come with the models
+        self.assertEqual(Path(clone, "models/tflite/Tiny_COCO+1+1+0.1+8+8_int8.classes.txt").read_bytes(),
+                         b"cat\ndog\n")
+        self.assertEqual(json.loads(Path(clone, "models/checkpoints/Tiny_COCO+1+1+0.1+8+8.training.json")
+                                    .read_text(encoding="utf-8"))["splits_dir"], "data_full")
         self.assertFalse(os.path.exists(os.path.join(clone, "models/tflite/Tiny_VWW+1+1+0.1+8+8_int8.tflite")))
         self.assertEqual(run("--root", clone, "--set", "coco", "--require_all").returncode, 0)
 
