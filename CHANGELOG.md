@@ -79,9 +79,12 @@ DOI yet (see [Citation](README.md#citation)).
 - A first attempt on the Nicla Vision was discarded: the board crept on its mount during three sessions measured
   behind a single calibration report. The documents now ask for a report before every session.
 - Why the Nicla Vision needs fewer cycles than the Portenta H7 for the same model was measured: with the tensor
-  arena in internal RAM (`--arena_memory internal`) the Portenta H7 runs `MobileNet` within 0.2% of the cycles
-  of the Nicla Vision; the external SDRAM costs about 18% of the inference time of that model
-  (`results/experiments/`).
+  arena in internal RAM (`--arena_memory internal`) the Portenta H7 runs `MobileNet` in 18% fewer cycles than with
+  it in external SDRAM, and 2.3% fewer than the Nicla Vision (`results/experiments/`).
+- The PIL runs of the COCO benchmark were measured again on both boards with the firmware that announces the
+  fingerprint of its model, and replace the first ones: every file now records `model.identity_verified = true`.
+  The predictions are the same for each of the 5,000 images of every run; the inference times moved by −4.9% to
+  +2.7% with the build of the firmware, and the tables were rebuilt.
 - The firmware comments and serial messages are in English. The benches still accept the end-of-inference
   banners of the earlier builds, so a board does not have to be reflashed.
 

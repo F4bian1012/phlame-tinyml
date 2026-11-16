@@ -1,6 +1,6 @@
 {
-  "generated_utc": "2026-11-16T00:14:38+00:00",
-  "git_commit": "645875d0f97440c800fa4c9178a0b3aa6f1ab14c",
+  "generated_utc": "2026-11-16T14:51:12+00:00",
+  "git_commit": "7f87f4141e1406d6bf3242eb6d0206b868623a4b",
   "parameters": {
     "bootstrap": 10000,
     "seed": 20261016,
@@ -160,9 +160,9 @@
     "results/nicla/hil/rep2/latency_metrics_MobileNetV2_COCO_rep2.csv": "4c128867632cca034b1cba4e83ade18a1a90f352814aabf250683e913e9f0304",
     "results/nicla/hil/rep3/conditions_MobileNetV2_COCO_rep3.json": "c8b61c27017821584df9c19297c9dca2a8f95536f9b5c933acf4438be1b09d81",
     "results/nicla/hil/rep3/latency_metrics_MobileNetV2_COCO_rep3.csv": "cd78f10a982cf1d368dec9a0d324b4e7098365be2217ec7ad1fda907ce3834f9",
-    "results/nicla/pil/metrics_MobileNetV2_COCO+32+50+0.0003+160+120_int8.json": "591541b2c92e6f039f2b77a4aa3400ef33a9d8b769bf79343c474748f609cca7",
-    "results/nicla/pil/metrics_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.json": "605e8f5d142c89687e910a936d3cf3abdc7fe3638f6ee224d0cd4fb1a7993760",
-    "results/nicla/pil/metrics_MobileNet_COCO+32+50+0.0003+160+120_int8.json": "2852a186dd5632791f34700c1191408e3ba86e8fa3d8456050abd170848bb9b5",
+    "results/nicla/pil/metrics_MobileNetV2_COCO+32+50+0.0003+160+120_int8.json": "d771df9ee435622847a98b29620c98ba391f90a7541c04235240072ebfff9046",
+    "results/nicla/pil/metrics_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.json": "a183c0e40e6d25d0b5cba25fd73d5ea20f2445c3c8fafe8a44163d210d5bbf36",
+    "results/nicla/pil/metrics_MobileNet_COCO+32+50+0.0003+160+120_int8.json": "f897159b2e48d38fbf57aca23c17d6a2c0b6431f44f06e01758049cfc3f43657",
     "results/nicla/pil/predictions_MobileNetV2_COCO+32+50+0.0003+160+120_int8.csv": "91297632fb0bd8b0a48ff8bf29f4ed38eb7625ec1a2d60f2dc3b67b4ca69c477",
     "results/nicla/pil/predictions_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.csv": "1a5f6f58d5ea5dfcbbefe5c7e52553970785cf7557aeb4487624adcdd2f9b021",
     "results/nicla/pil/predictions_MobileNet_COCO+32+50+0.0003+160+120_int8.csv": "70285b160feb140579982c51a9ff99dd1ad4696233d4eba3137447956473da0b",

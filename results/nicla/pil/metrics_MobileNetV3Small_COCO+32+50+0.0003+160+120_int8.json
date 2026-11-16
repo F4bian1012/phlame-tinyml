@@ -1,33 +1,44 @@
 {
   "level": "PIL",
-  "generated_utc": "2026-11-15T03:33:41.366262+00:00",
+  "generated_utc": "2026-11-16T04:54:30.416620+00:00",
   "model": {
     "path": "models/tflite/MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.tflite",
     "name": "MobileNetV3Small_COCO+32+50+0.0003+160+120_int8",
     "sha256": "0284063a90ddb6c7d16686c94eaa6f39ef50a6c38c65bf8a83647978c1235f83",
     "bytes": 835768,
-    "note": "checksum of the .tflite given with --model_path. The bench does NOT load it or compare it against the board: it certifies that this file is the one SIL evaluated, not that it is the one flashed."
+    "fnv1a_tflite": "26de1769",
+    "fnv1a_chip": "26de1769",
+    "identity_verified": true,
+    "arena_used_bytes": 225812,
+    "arena_memory": "INTERNAL",
+    "note": "sha256 and fnv1a_tflite are those of the .tflite given with --model_path. identity_verified=true means that, before the first image, the FNV-1a fingerprint and the size of g_model[] on the board matched that file: the chip ran exactly it. false means the run was allowed with --allow_model_mismatch and nothing ties the file to the board."
   },
   "run": {
     "port": "COM8",
     "board": "NICLA_VISION",
     "baud": 115200,
+    "completed": true,
+    "stopped_because": null,
     "input_shape": {
       "width": 160,
       "height": 120,
       "channels": 1
     },
+    "input_shape_verified": true,
     "pre_delay_s": 1.0,
     "gap_s": 0.5,
     "n_samples_requested": null,
-    "n_reconnects": 0
+    "n_reconnects": 0,
+    "max_unanswered": 5
   },
   "dataset": {
     "folder": "data/splits_coco\\test",
+    "manifest_subset": null,
     "class_names": [
       "non_person",
       "person"
     ],
+    "n_images_planned": 5000,
     "n_images": 5000,
     "n_answered": 5000,
     "n_unanswered": 0
@@ -90,84 +101,84 @@
     "per_field": {
       "TEMP_C": {
         "n": 5000,
-        "mean": 37.9982,
-        "median": 38.0,
-        "std": 1.1461498557773235,
-        "min": 35.0,
-        "max": 40.0,
-        "p95": 39.0
+        "mean": 41.318,
+        "median": 41.0,
+        "std": 0.5064852470320258,
+        "min": 38.0,
+        "max": 43.0,
+        "p95": 42.0
       },
       "CYC_PRE": {
         "n": 5000,
-        "mean": 1247449.0546,
-        "median": 1247648.0,
-        "std": 1166.1353440947537,
-        "min": 1233556.0,
-        "max": 1250452.0,
-        "p95": 1249076.0
+        "mean": 1250164.925,
+        "median": 1250300.0,
+        "std": 1229.065015179143,
+        "min": 1235944.0,
+        "max": 1253914.0,
+        "p95": 1252006.0
       },
       "CYC_INF": {
         "n": 5000,
-        "mean": 165925373.1728,
-        "median": 165930680.0,
-        "std": 119955.33582948669,
-        "min": 165556663.0,
-        "max": 166253328.0,
-        "p95": 166115729.0
+        "mean": 169730863.4354,
+        "median": 169732926.5,
+        "std": 46913.59406377029,
+        "min": 169568237.0,
+        "max": 169877198.0,
+        "p95": 169805831.0
       },
       "CYC_POST": {
         "n": 5000,
-        "mean": 119.328,
-        "median": 115.0,
-        "std": 67.1910957245745,
-        "min": 113.0,
-        "max": 2629.0,
-        "p95": 119.0
+        "mean": 135.1314,
+        "median": 130.0,
+        "std": 82.74117568944071,
+        "min": 103.0,
+        "max": 3673.0,
+        "p95": 148.0
       },
       "CYC_TOTAL": {
         "n": 5000,
-        "mean": 167172941.5554,
-        "median": 167178285.0,
-        "std": 119767.56986793439,
-        "min": 166803314.0,
-        "max": 167499022.0,
-        "p95": 167362790.0
+        "mean": 170981163.4918,
+        "median": 170983318.5,
+        "std": 46721.46078746207,
+        "min": 170818737.0,
+        "max": 171126843.0,
+        "p95": 171055736.0
       },
       "US_PRE": {
         "n": 5000,
-        "mean": 3118.6226364,
-        "median": 3119.12,
-        "std": 2.91534214495648,
-        "min": 3083.89,
-        "max": 3126.13,
-        "p95": 3122.69
+        "mean": 3125.4123246,
+        "median": 3125.75,
+        "std": 3.0726702560045815,
+        "min": 3089.86,
+        "max": 3134.785,
+        "p95": 3130.015
       },
       "US_INF": {
         "n": 5000,
-        "mean": 414813.4330722,
-        "median": 414826.7035,
-        "std": 299.8881176775821,
-        "min": 413891.656,
-        "max": 415633.344,
-        "p95": 415289.313
+        "mean": 424327.158846,
+        "median": 424332.313,
+        "std": 117.28420066415306,
+        "min": 423920.625,
+        "max": 424693.0,
+        "p95": 424514.563
       },
       "US_POST": {
         "n": 5000,
-        "mean": 0.29805919999999997,
-        "median": 0.287,
-        "std": 0.16799151623003183,
-        "min": 0.282,
-        "max": 6.572,
-        "p95": 0.298
+        "mean": 0.337827,
+        "median": 0.325,
+        "std": 0.206851734822408,
+        "min": 0.257,
+        "max": 9.182,
+        "p95": 0.37
       },
       "US_TOTAL": {
         "n": 5000,
-        "mean": 417932.3538334,
-        "median": 417945.71900000004,
-        "std": 299.4192726412178,
-        "min": 417008.281,
-        "max": 418747.563,
-        "p95": 418406.938
+        "mean": 427452.9086966,
+        "median": 427458.3285,
+        "std": 116.80306938639657,
+        "min": 427046.844,
+        "max": 427817.125,
+        "p95": 427639.375
       }
     }
   },
@@ -175,9 +186,17 @@
     "0": 2725,
     "1": 2275
   },
+  "software": {
+    "python": "3.13.14",
+    "numpy": "2.5.3",
+    "pillow": "12.3.0",
+    "pyserial": "3.5",
+    "scikit_learn": "1.9.1",
+    "platform": "Windows-11-10.0.26300-SP0"
+  },
   "artifacts": {
-    "confusion_matrix_png": "results\\nicla\\pil\\confusion_matrix_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.png",
-    "latency_csv": "results\\nicla\\pil\\latency_metrics_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.csv",
-    "predictions_csv": "results\\nicla\\pil\\predictions_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.csv"
+    "confusion_matrix_png": "results/nicla/pil/confusion_matrix_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.png",
+    "latency_csv": "results/nicla/pil/latency_metrics_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.csv",
+    "predictions_csv": "results/nicla/pil/predictions_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.csv"
   }
 }

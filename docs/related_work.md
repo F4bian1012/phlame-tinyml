@@ -50,7 +50,7 @@ Levels: **M**, float model on the host; **S**, quantized model on the host; **P*
 - **No release yet.** No tagged release and no DOI.
 - **Less than the vendor tools in two respects.** The firmware returns only the predicted class, so metrics over the output vector, which ST and MLPerf Tiny compute [12; 1, §5.3], cannot be obtained from a board run. And its SIL runs TFLite on the PC, not the kernels of the firmware. ST compiles its generated C model for the host as well [12, 13], and TFLM itself can be run on the host through its Python package [28]; the README of that package does not say which kernel implementations the build uses, and marks part of itself as under construction.
 - **Per-phase latency is not specific to it.** Bartoli et al., ST and Edge Impulse also time phases, layers or stages, and U-TOE and ML-EXray time operators or layers.
-- **Also:** post-training quantization only, published PIL files that predate the on-chip check of the model, and PIL runs of 65 minutes to almost 5 hours for 5,000 images at 115,200 baud.
+- **Also:** post-training quantization only, and PIL runs of 65 minutes to almost 5 hours for 5,000 images at 115,200 baud.
 
 The levels measured on the public benchmark are stated in the README ([Results](../README.md#results), section 1), and the limitations of the framework under [Known Limitations](../README.md#known-limitations).
 

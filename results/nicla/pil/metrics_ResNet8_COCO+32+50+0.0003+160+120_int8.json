@@ -1,33 +1,44 @@
 {
   "level": "PIL",
-  "generated_utc": "2026-11-15T11:28:02.129106+00:00",
+  "generated_utc": "2026-11-16T12:10:02.191385+00:00",
   "model": {
     "path": "models/tflite/ResNet8_COCO+32+50+0.0003+160+120_int8.tflite",
     "name": "ResNet8_COCO+32+50+0.0003+160+120_int8",
     "sha256": "e833b04eaab7afa702e167065cc1805d7a788a6ba3261e61680aa4a5a7acbec0",
     "bytes": 1279176,
-    "note": "checksum of the .tflite given with --model_path. The bench does NOT load it or compare it against the board: it certifies that this file is the one SIL evaluated, not that it is the one flashed."
+    "fnv1a_tflite": "c7723ecb",
+    "fnv1a_chip": "c7723ecb",
+    "identity_verified": true,
+    "arena_used_bytes": 398164,
+    "arena_memory": "INTERNAL",
+    "note": "sha256 and fnv1a_tflite are those of the .tflite given with --model_path. identity_verified=true means that, before the first image, the FNV-1a fingerprint and the size of g_model[] on the board matched that file: the chip ran exactly it. false means the run was allowed with --allow_model_mismatch and nothing ties the file to the board."
   },
   "run": {
     "port": "COM8",
     "board": "NICLA_VISION",
     "baud": 115200,
+    "completed": true,
+    "stopped_because": null,
     "input_shape": {
       "width": 160,
       "height": 120,
       "channels": 1
     },
+    "input_shape_verified": true,
     "pre_delay_s": 1.0,
     "gap_s": 0.5,
     "n_samples_requested": null,
-    "n_reconnects": 0
+    "n_reconnects": 0,
+    "max_unanswered": 5
   },
   "dataset": {
     "folder": "data/splits_coco\\test",
+    "manifest_subset": null,
     "class_names": [
       "non_person",
       "person"
     ],
+    "n_images_planned": 5000,
     "n_images": 5000,
     "n_answered": 5000,
     "n_unanswered": 0
@@ -90,84 +101,84 @@
     "per_field": {
       "TEMP_C": {
         "n": 5000,
-        "mean": 32.8204,
-        "median": 32.0,
-        "std": 1.117852297377319,
-        "min": 31.0,
-        "max": 37.0,
-        "p95": 35.0
+        "mean": 40.739,
+        "median": 42.0,
+        "std": 2.525342446262324,
+        "min": 33.0,
+        "max": 44.0,
+        "p95": 43.0
       },
       "CYC_PRE": {
         "n": 5000,
-        "mean": 1247531.164,
-        "median": 1247717.5,
-        "std": 1176.512768295692,
-        "min": 1232646.0,
-        "max": 1261143.0,
-        "p95": 1249146.0
+        "mean": 1250213.211,
+        "median": 1250333.5,
+        "std": 1230.6754152393453,
+        "min": 1234987.0,
+        "max": 1254668.0,
+        "p95": 1252066.0
       },
       "CYC_INF": {
         "n": 5000,
-        "mean": 1024523521.1534,
-        "median": 1024510365.0,
-        "std": 144040.09516463836,
-        "min": 1024057467.0,
-        "max": 1025128101.0,
-        "p95": 1024785293.0
+        "mean": 1052282640.568,
+        "median": 1052283354.0,
+        "std": 59149.995504931554,
+        "min": 1052052763.0,
+        "max": 1052511083.0,
+        "p95": 1052378111.0
       },
       "CYC_POST": {
         "n": 5000,
-        "mean": 118.137,
-        "median": 115.0,
-        "std": 76.67867601146341,
-        "min": 106.0,
-        "max": 2723.0,
-        "p95": 119.0
+        "mean": 133.3552,
+        "median": 128.0,
+        "std": 65.41208742423865,
+        "min": 103.0,
+        "max": 2551.0,
+        "p95": 148.0
       },
       "CYC_TOTAL": {
         "n": 5000,
-        "mean": 1025771170.4544,
-        "median": 1025758333.5,
-        "std": 144041.75600356876,
-        "min": 1025302543.0,
-        "max": 1026375964.0,
-        "p95": 1026033270.0
+        "mean": 1053532987.1342,
+        "median": 1053533569.0,
+        "std": 59246.877058471415,
+        "min": 1053303009.0,
+        "max": 1053761943.0,
+        "p95": 1053628666.0
       },
       "US_PRE": {
         "n": 5000,
-        "mean": 3118.827916,
-        "median": 3119.2934999999998,
-        "std": 2.941283399496082,
-        "min": 3081.615,
-        "max": 3152.858,
-        "p95": 3122.865
+        "mean": 3125.5330362,
+        "median": 3125.834,
+        "std": 3.076682826541046,
+        "min": 3087.468,
+        "max": 3136.67,
+        "p95": 3130.165
       },
       "US_INF": {
         "n": 5000,
-        "mean": 2561308.80285,
-        "median": 2561276.0,
-        "std": 360.1004480848638,
-        "min": 2560143.5,
-        "max": 2562820.25,
-        "p95": 2561963.25
+        "mean": 2630706.60235,
+        "median": 2630708.375,
+        "std": 147.87454306970864,
+        "min": 2630131.75,
+        "max": 2631277.75,
+        "p95": 2630945.25
       },
       "US_POST": {
         "n": 5000,
-        "mean": 0.2949216,
-        "median": 0.287,
-        "std": 0.1917266775313635,
-        "min": 0.265,
-        "max": 6.808,
-        "p95": 0.298
+        "mean": 0.3333856,
+        "median": 0.32,
+        "std": 0.1635376636317311,
+        "min": 0.257,
+        "max": 6.378,
+        "p95": 0.37
       },
       "US_TOTAL": {
         "n": 5000,
-        "mean": 2564427.92565,
-        "median": 2564395.75,
-        "std": 360.1057296293408,
-        "min": 2563256.25,
-        "max": 2565939.75,
-        "p95": 2565083.25
+        "mean": 2633832.4701,
+        "median": 2633833.875,
+        "std": 148.1170594112904,
+        "min": 2633257.5,
+        "max": 2634404.75,
+        "p95": 2634071.75
       }
     }
   },
@@ -175,9 +186,17 @@
     "0": 2947,
     "1": 2053
   },
+  "software": {
+    "python": "3.13.14",
+    "numpy": "2.5.3",
+    "pillow": "12.3.0",
+    "pyserial": "3.5",
+    "scikit_learn": "1.9.1",
+    "platform": "Windows-11-10.0.26300-SP0"
+  },
   "artifacts": {
-    "confusion_matrix_png": "results\\nicla\\pil\\confusion_matrix_ResNet8_COCO+32+50+0.0003+160+120_int8.png",
-    "latency_csv": "results\\nicla\\pil\\latency_metrics_ResNet8_COCO+32+50+0.0003+160+120_int8.csv",
-    "predictions_csv": "results\\nicla\\pil\\predictions_ResNet8_COCO+32+50+0.0003+160+120_int8.csv"
+    "confusion_matrix_png": "results/nicla/pil/confusion_matrix_ResNet8_COCO+32+50+0.0003+160+120_int8.png",
+    "latency_csv": "results/nicla/pil/latency_metrics_ResNet8_COCO+32+50+0.0003+160+120_int8.csv",
+    "predictions_csv": "results/nicla/pil/predictions_ResNet8_COCO+32+50+0.0003+160+120_int8.csv"
   }
 }

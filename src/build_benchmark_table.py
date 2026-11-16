@@ -24,8 +24,9 @@ it measured, but the bench only records that name: a board still carrying the
 model of an earlier run would be filed under the wrong one. Each PIL run is
 therefore compared with the SIL of record of every model of the benchmark: the
 model it names must be the one it agrees with, far ahead of the others. (Runs
-measured with a firmware that announces the model fingerprint are checked
-directly, before measuring; this table covers the runs measured before that.)
+measured with a firmware that announces the model fingerprint are also checked
+directly, before measuring; for runs measured before that, this table is the
+only check.)
 
 Outputs, in --output_dir (default results/tables):
   benchmark_<tag>.csv              one row per run, unrounded

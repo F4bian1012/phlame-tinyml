@@ -90,22 +90,23 @@ as on the Portenta H7) and reports the same 400 MHz clock. The five
 models that fit were measured on each board over the 5,000 test images: ten runs, every image answered, no
 dropped link, and the two boards give the same prediction for every image of every model. Both boards carry the same
 STM32H747, so that agreement is a consistency check between two boards, not evidence of portability to other
-microcontroller families. One difference stands out: an inference of `MobileNetV2` takes 128.8 million cycles on
-the Nicla Vision and 160.5 million on the Portenta H7, 19.7% fewer, with the same MCU, clock and model. The arena
+microcontroller families. One difference stands out: an inference of `MobileNetV2` takes 130.9 million cycles on
+the Nicla Vision and 158.8 million on the Portenta H7, 17.5% fewer, with the same MCU, clock, model and sources. The arena
 is in internal RAM on one board and in external SDRAM on the other, which is the cause (see *Arena in internal RAM
 on the Portenta H7* below). Arena, flash and RAM
-are those of each flashed build (`ARENA_USED` in the boot lines, sizes reported by the compiler):
+are those of the flashed builds (`ARENA_USED` in the boot lines, sizes reported by the compiler, for the builds of
+the first PIL runs; the inference times are those of the published runs):
 
 | Model | Arena used (bytes) | `--arena_kb` on the Nicla Vision | Nicla Vision: flash / RAM left (bytes) | `INF` Portenta H7 (ms) | `INF` Nicla Vision (ms) |
 |---|---:|---:|---:|---:|---:|
-| `MobileNet` | 181,492 | default (368) | 700,144 / 67,992 | 241.40 | 193.45 |
-| `MobileNetV2` | 356,404 | default (368) | 1,026,512 / 67,992 | 401.15 | 322.06 |
-| `MobileNetV3Small` | 225,812 | default (368) | 1,217,632 / 67,992 | 489.59 | 414.81 |
-| `SqueezeNet` | 414,404 | 408 | 1,210,632 / 27,032 | 1,153.63 | 987.00 |
-| `ResNet8` | 398,164 | 392 | 1,661,040 / 43,416 | 2,892.09 | 2,561.31 |
+| `MobileNet` | 181,492 | default (368) | 700,144 / 67,992 | 237.28 | 198.33 |
+| `MobileNetV2` | 356,404 | default (368) | 1,026,512 / 67,992 | 396.94 | 327.33 |
+| `MobileNetV3Small` | 225,812 | default (368) | 1,217,632 / 67,992 | 480.24 | 424.33 |
+| `SqueezeNet` | 414,404 | 408 | 1,210,632 / 27,032 | 1,105.25 | 1,012.47 |
+| `ResNet8` | 398,164 | 392 | 1,661,040 / 43,416 | 2,751.63 | 2,630.71 |
 
 `SqueezeNet` and `ResNet8` ran the 5,000 images on the Nicla Vision with 26 KiB and 42 KiB of RAM left. The Nicla
-Vision needs 11% to 20% fewer cycles per inference than the Portenta H7 for the same file.
+Vision needs 4% to 18% fewer cycles per inference than the Portenta H7 for the same file.
 
 **Sizes set at build time.** `--arena_kb` and `--image_buffer_bytes` of `compile_upload_arduino.py` (the macros
 `TENSOR_ARENA_KB` and `IMAGE_BUFFER_BYTES` of the sketch) change the two sizes without editing the sketch. On the
@@ -123,7 +124,7 @@ everything else unchanged. The PIL sketch announces where its arena is in the id
 side by side. Apart from that line the default build is unchanged, and the HIL sketch has no such option. Measured on
 2026-11-15 with the COCO `MobileNet` on the 200 images of the HIL subset (`results/experiments/`): 193.85 ms per
 inference with the arena in internal RAM, 237.29 ms with the same sources and the arena in SDRAM, against
-193.46 ms on the Nicla Vision; the 200 predictions are the same in the two builds. With `--arena_kb 368` the arena is a 376,832-byte array at `0x24001880`, in the
+198.35 ms on the Nicla Vision; the 200 predictions are the same in the two builds. With `--arena_kb 368` the arena is a 376,832-byte array at `0x24001880`, in the
 512 KiB region at `0x24000000` where the Nicla Vision build also has its arena, and 75,152 bytes of that region are
 left for the heap, against 451,984 in the default build (sizes read from the `.elf`: `arduino-cli` prints no size
 summary for this board).
@@ -256,8 +257,8 @@ sketch is recognised by its `READY_HIL`.
 > with `model.identity_verified = true` and gives the predictions of the firmware that preceded the identity
 > lines; and a board carrying another model, or a run with another image size, is refused before anything is
 > sent. Not exercised on a board: `#@` sent by hand in the middle of a run, a link lost for longer than the
-> reconnect window, and a board held in reset. The published PIL runs of the COCO benchmark were measured
-> before the identity lines existed and do not carry them.
+> reconnect window, and a board held in reset. Every published PIL run of the COCO benchmark was measured with
+> them, on both boards.
 
 **Dropped link.** A USB serial link can disappear for a moment (cable, hub, the host's
 power management) while the board keeps running. When that happens the bench reopens the
