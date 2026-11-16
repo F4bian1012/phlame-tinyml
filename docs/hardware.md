@@ -11,7 +11,7 @@ The Arduino Portenta H7 set-up; the Arduino Nicla Vision is described under [Boa
 | Board            | Arduino Portenta H7 (STM32H747XI, dual-core Cortex-M7 nominal up to 480 MHz; runs at `SystemCoreClock = 400.0 MHz`, 2.50 ns/cycle under `arduino:mbed_portenta`, DWT 32-bit overflow ~10.74 s) |
 | External RAM     | 8 MiB SDRAM (required — tensor arena + image buffer live here)        |
 | Camera (capture) | Portenta Vision Shield, HM01B0 monochrome sensor (160×120, 30 fps)   |
-| Thermal control  | Active forced-air cooling (constant-speed fan over Portenta H7 + Vision Shield) |
+| Thermal control  | Active forced-air cooling (constant-speed fan over the board: Portenta H7 + Vision Shield, or Nicla Vision) |
 | Flash            | 2 MiB internal, shared by firmware and `model.h`                      |
 | Host link        | USB-C, 115200 baud serial                                            |
 

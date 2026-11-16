@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
-title: "PHLAME: A Phase-Level Hardware-in-the-Loop Framework for Reproducible Fidelity-Ladder Evaluation of TinyML Image Classifiers on ARM Cortex-M Microcontrollers"
+title: "PHLAME: A Framework for Reproducible Fidelity-Ladder Evaluation of TinyML Image Classifiers on ARM Cortex-M Microcontrollers"
 abstract: >-
   An open-source, reproducible framework for evaluating TinyML vision
   classifiers across the four-level MIL–SIL–PIL–HIL fidelity ladder on ARM

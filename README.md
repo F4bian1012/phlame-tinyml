@@ -424,7 +424,7 @@ PHLAME has no tagged release and no DOI yet: both come with `v1.0.0`, and this s
 
 ```bibtex
 @software{phlame_software_2026,
-  title={PHLAME: A Phase-Level Hardware-in-the-Loop Framework for Reproducible Fidelity-Ladder Evaluation of TinyML Image Classifiers on ARM Cortex-M Microcontrollers},
+  title={PHLAME: A Framework for Reproducible Fidelity-Ladder Evaluation of TinyML Image Classifiers on ARM Cortex-M Microcontrollers},
   author={Villavisan, Jheyson Fabian},
   year={2026},
   url={https://github.com/F4bian1012/phlame-tinyml},

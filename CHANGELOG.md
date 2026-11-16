@@ -132,8 +132,6 @@ Which of these have run on a board and which only against the simulated board of
   model in PIL, whether a run was completed, and the software versions behind a result (`software`).
 - `count_macs.py` counts the multiply-accumulate operations of a `.tflite` from its graph;
   `results/tables/macs_COCO.csv` has the count of the seven COCO models.
-- The results, tables and partition manifests of a private application case the framework was first developed on
-  were removed from the repository on 2026-11-15; they remain in its history up to commit 645875d.
 
 ### Reproducible Training
 
