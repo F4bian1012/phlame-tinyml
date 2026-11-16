@@ -1,2 +1,5 @@
 run,seed,frame_dump,role,f1,errors,gap,agreement_with_original_pct
-original,42,True,run of the ladder,0.8543847756772364,29,0.015415371490440921,100.0
+original,42,True,run of the ladder (not in the mean of the repeatability runs),0.8543847756772364,29,0.015415371490440921,100.0
+rep1,42,True,strict replicate,0.8347976270931892,33,-0.004171777093606277,91.0
+rep2,42,True,strict replicate,0.8693598633303186,26,0.03039045914352312,92.5
+rep3,42,True,strict replicate,0.8441231929604023,31,0.005153788773606838,91.0

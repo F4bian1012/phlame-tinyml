@@ -1,0 +1,231 @@
+{
+  "level": "HIL",
+  "generated_utc": "2026-11-15T23:59:39.160573+00:00",
+  "model": {
+    "path": "models/tflite/MobileNetV2_COCO+32+50+0.0003+160+120_int8.tflite",
+    "name": "MobileNetV2_COCO_rep2",
+    "sha256": "dc09c7c071de5180525e0e6cd7929410b1a34cd200362759849df81a4063d9a9",
+    "bytes": 644648,
+    "fnv1a_tflite": "ad34723a",
+    "fnv1a_chip": "ad34723a",
+    "identity_verified": true,
+    "note": "identity_verified=true means that the FNV-1a fingerprint of g_model[] on the board matches that of the given .tflite: the chip ran exactly that file."
+  },
+  "run": {
+    "port": "COM8",
+    "board": "NICLA_VISION",
+    "baud": 115200,
+    "completed": true,
+    "settle_s": 1.5,
+    "gap_s": 0.5,
+    "seed": 42,
+    "frame_dump": true,
+    "conditions_complete": true,
+    "illuminance_lux": 4.0,
+    "camera_to_screen_distance_cm": 94.0,
+    "ambient_temp_c": 24.0
+  },
+  "dataset": {
+    "stimulus_source": "manifest:data/splits_coco/test_manifest.csv",
+    "manifest_subset": "hil_subset==1",
+    "class_names": [
+      "non_person",
+      "person"
+    ],
+    "n_stimuli_planned": 200,
+    "n_stimuli": 200,
+    "n_answered": 200,
+    "n_unanswered": 0
+  },
+  "global_metrics": {
+    "accuracy": 0.87,
+    "precision_weighted": 0.8703347111603992,
+    "recall_weighted": 0.87,
+    "f1_weighted": 0.8698171038086625,
+    "precision_macro": 0.8707531001108983,
+    "recall_macro": 0.8686716791979949,
+    "f1_macro": 0.8693598633303186
+  },
+  "per_class_metrics": {
+    "non_person": {
+      "precision": 0.8623853211009175,
+      "recall": 0.8952380952380953,
+      "f1-score": 0.8785046728971962,
+      "support": 105.0
+    },
+    "person": {
+      "precision": 0.8791208791208791,
+      "recall": 0.8421052631578947,
+      "f1-score": 0.8602150537634409,
+      "support": 95.0
+    },
+    "accuracy": 0.87,
+    "macro avg": {
+      "precision": 0.8707531001108983,
+      "recall": 0.8686716791979949,
+      "f1-score": 0.8693598633303186,
+      "support": 200.0
+    },
+    "weighted avg": {
+      "precision": 0.8703347111603992,
+      "recall": 0.87,
+      "f1-score": 0.8698171038086625,
+      "support": 200.0
+    }
+  },
+  "confusion_matrix": {
+    "labels": [
+      "non_person",
+      "person"
+    ],
+    "matrix": [
+      [
+        94,
+        11
+      ],
+      [
+        15,
+        80
+      ]
+    ],
+    "order": "rows = true label, columns = predicted label"
+  },
+  "latency": {
+    "source": "DWT->CYCCNT cycle counter of the Cortex-M7, reported by the firmware in the CYC_*/US_* lines; includes the CAPTURE phase",
+    "n_images_measured": 200,
+    "p95_method": "nearest rank on the sorted sample, no interpolation",
+    "per_field": {
+      "TS_MS": {
+        "n": 200,
+        "mean": 354394.03,
+        "median": 354398.0,
+        "std": 198432.56088461194,
+        "min": 12253.0,
+        "max": 695504.0,
+        "p95": 661258.0
+      },
+      "TEMP_C": {
+        "n": 200,
+        "mean": 35.095,
+        "median": 35.0,
+        "std": 0.5266515062593348,
+        "min": 34.0,
+        "max": 36.0,
+        "p95": 36.0
+      },
+      "CYC_CAPTURE": {
+        "n": 200,
+        "mean": 454760.125,
+        "median": 455847.0,
+        "std": 90822.62122063152,
+        "min": 303441.0,
+        "max": 705575.0,
+        "p95": 594671.0
+      },
+      "CYC_PRE": {
+        "n": 200,
+        "mean": 1644111.805,
+        "median": 1644060.0,
+        "std": 637.2598272385137,
+        "min": 1642455.0,
+        "max": 1646637.0,
+        "p95": 1645663.0
+      },
+      "CYC_INF": {
+        "n": 200,
+        "mean": 129034036.31,
+        "median": 129029695.0,
+        "std": 35017.08858555983,
+        "min": 128943273.0,
+        "max": 129138357.0,
+        "p95": 129091807.0
+      },
+      "CYC_POST": {
+        "n": 200,
+        "mean": 136.25,
+        "median": 128.0,
+        "std": 78.02433263035358,
+        "min": 126.0,
+        "max": 1232.0,
+        "p95": 138.0
+      },
+      "CYC_TOTAL": {
+        "n": 200,
+        "mean": 131133044.49,
+        "median": 131128331.5,
+        "std": 101111.46359295491,
+        "min": 130913776.0,
+        "max": 131416880.0,
+        "p95": 131275817.0
+      },
+      "US_CAPTURE": {
+        "n": 200,
+        "mean": 1136.90032,
+        "median": 1139.6174999999998,
+        "std": 227.0565324564863,
+        "min": 758.602,
+        "max": 1763.938,
+        "p95": 1486.677
+      },
+      "US_PRE": {
+        "n": 200,
+        "mean": 4110.27952,
+        "median": 4110.1494999999995,
+        "std": 1.5932092259929054,
+        "min": 4106.137,
+        "max": 4116.592,
+        "p95": 4114.157
+      },
+      "US_INF": {
+        "n": 200,
+        "mean": 322585.090745,
+        "median": 322574.2185,
+        "std": 87.54192365349564,
+        "min": 322358.188,
+        "max": 322845.906,
+        "p95": 322729.531
+      },
+      "US_POST": {
+        "n": 200,
+        "mean": 0.34062499999999996,
+        "median": 0.32,
+        "std": 0.19506083157588397,
+        "min": 0.315,
+        "max": 3.08,
+        "p95": 0.345
+      },
+      "US_TOTAL": {
+        "n": 200,
+        "mean": 327832.60934500006,
+        "median": 327820.828,
+        "std": 252.77809420609964,
+        "min": 327284.438,
+        "max": 328542.188,
+        "p95": 328189.531
+      }
+    }
+  },
+  "cross_validation": {
+    "sil_on_pc": "models/tflite/MobileNetV2_COCO+32+50+0.0003+160+120_int8.tflite",
+    "sil_kernels": "reference",
+    "mil_on_pc": "models/checkpoints/MobileNetV2_COCO+32+50+0.0003+160+120.keras",
+    "n_with_sil": 200,
+    "n_with_mil": 200
+  },
+  "software": {
+    "python": "3.13.14",
+    "numpy": "2.5.3",
+    "opencv": "5.0.0",
+    "pyserial": "3.5",
+    "scikit_learn": "1.9.1",
+    "tensorflow": "2.21.0",
+    "keras": "3.15.1",
+    "gpus": [],
+    "platform": "Windows-11-10.0.26300-SP0"
+  },
+  "artifacts": {
+    "confusion_matrix_png": "results/nicla/hil/rep2/confusion_matrix_MobileNetV2_COCO_rep2.png",
+    "latency_csv": "results/nicla/hil/rep2/latency_metrics_MobileNetV2_COCO_rep2.csv",
+    "conditions_json": "results/nicla/hil/rep2/conditions_MobileNetV2_COCO_rep2.json"
+  }
+}
