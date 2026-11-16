@@ -58,27 +58,28 @@ def run_script(root, *args):
 
 
 class Tree(unittest.TestCase):
-    """A small repository-like tree: two COCO models with results, one plates model, and a list that
-    still names an older COCO model."""
+    """A small repository-like tree: two COCO models with results, one model of the other set (Visual
+    Wake Words) with its result, and a list that still names an older COCO model."""
 
     KERAS = "models/checkpoints/Tiny_COCO+1+2+0.1+8+8.keras"
     TFLITE = "models/tflite/Tiny_COCO+1+2+0.1+8+8_int8.tflite"
     OLD = "models/checkpoints/Tiny_COCO+1+1+0.1+8+8.keras"
-    PLATES = "models/tflite/Tiny+1+1+0.1+8+8_int8.tflite"
+    OTHER_SET = "models/tflite/Tiny_VWW+1+1+0.1+8+8_int8.tflite"
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         write_model(self.root, self.KERAS, b"new float model")
         write_model(self.root, self.TFLITE, b"new int8 model")
-        write_model(self.root, self.PLATES, b"plates int8 model")
+        write_model(self.root, self.OTHER_SET, b"vww int8 model")
         write_result(self.root, "mil", "Tiny_COCO+1+2+0.1+8+8", self.KERAS, b"new float model")
         write_result(self.root, "sil", "Tiny_COCO+1+2+0.1+8+8_int8", self.TFLITE, b"new int8 model")
         write_result(self.root, "pil", "Tiny_COCO+1+2+0.1+8+8_int8", self.TFLITE, b"new int8 model")
-        write_result(self.root, "sil", "Tiny+1+1+0.1+8+8_int8", self.PLATES, b"plates int8 model")
+        self.other_result = write_result(self.root, "sil", "Tiny_VWW+1+1+0.1+8+8_int8", self.OTHER_SET,
+                                         b"vww int8 model")
         self.list = self.root / "models" / "checksums.sha256"
         self.list.write_text(HEADER + "%s  %s\n%s  %s\n" % (digest(b"old float model"), self.OLD,
-                                                            digest(b"plates int8 model"), self.PLATES),
+                                                            digest(b"vww int8 model"), self.OTHER_SET),
                              encoding="utf-8")
 
     def tearDown(self):
@@ -94,8 +95,9 @@ class UpdateListTest(Tree):
         self.assertEqual(result.returncode, 0, result.stdout)
         entries = self.entries()
         self.assertEqual(list(entries), sorted(entries))
+        # the entries of the other set are kept as they were
         self.assertEqual(entries, {self.KERAS: digest(b"new float model"), self.TFLITE: digest(b"new int8 model"),
-                                   self.PLATES: digest(b"plates int8 model")})
+                                   self.OTHER_SET: digest(b"vww int8 model")})
         self.assertIn("DROPPED  " + self.OLD, result.stdout)
         self.assertTrue(self.list.read_text(encoding="utf-8").startswith(HEADER))
         self.assertEqual(run_script(self.root, "--results").returncode, 0)
@@ -111,11 +113,33 @@ class UpdateListTest(Tree):
 
     def test_it_needs_one_set_and_results_of_it(self):
         self.assertEqual(run_script(self.root, "--update_list").returncode, 2)            # --set all
+        self.other_result.unlink()                    # the only result of the other set
         before = self.list.read_text(encoding="utf-8")
         result = run_script(self.root, "--update_list", "--set", "vww")
         self.assertEqual(result.returncode, 1)
         self.assertIn("no published result names a model of set 'vww'", result.stdout)
         self.assertEqual(self.list.read_text(encoding="utf-8"), before)
+
+    def test_a_model_without_the_tag_of_a_published_set_is_in_no_set(self):
+        # a name with another tag, or with none, is a user's own model: no set, no archive of a release
+        for name in ("Tiny+1+1+0.1+8+8_int8.tflite", "Tiny_demo+1+1+0.1+8+8_int8.tflite"):
+            self.assertIsNone(verify_models.set_of("models/tflite/" + name), name)
+        self.assertEqual(verify_models.set_of(self.TFLITE), "coco")
+        self.assertEqual(verify_models.set_of(self.OTHER_SET), "vww")
+        # the results of such a model are not what --update_list gathers for a set ...
+        own = "models/tflite/Tiny+1+1+0.1+8+8_int8.tflite"
+        own_result = write_result(self.root, "sil", "Tiny+1+1+0.1+8+8_int8", own, b"my own model")
+        self.assertEqual(run_script(self.root, "--update_list", "--set", "coco").returncode, 0)
+        self.assertNotIn(own, self.entries())
+        own_result.unlink()
+        # ... and a list that names it is refused, whatever is asked of the script
+        with open(self.list, "a", encoding="utf-8") as fh:
+            fh.write("%s  %s\n" % (digest(b"my own model"), own))
+        for options in ((), ("--results",), ("--set", "coco"), ("--bundle", str(self.root / "assets"), "--tag", "v9.9.9")):
+            refused = run_script(self.root, *options)
+            self.assertEqual(refused.returncode, 2, refused.stdout)
+            self.assertIn("names a model of no published set (coco, vww): " + own, refused.stdout)
+        self.assertFalse((self.root / "assets").exists())
 
 
 @unittest.skipIf(shutil.which("git") is None, "needs git")

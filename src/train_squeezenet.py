@@ -56,14 +56,15 @@ def parse_args():
     train_common.add_recipe_arguments(parser)
     parser.add_argument(
         "--kernel_initializer", choices=["glorot_uniform", "he_normal"], default="glorot_uniform",
-        help="Starting weights of the convolutions. glorot_uniform (default) is what the published models "
-             "used. he_normal is scaled for ReLU layers: try it when the network stays at a constant "
-             "output (accuracy 1/classes); the layers do not change"
+        help="Starting weights of the convolutions. glorot_uniform (default) is the initialiser Keras "
+             "uses when none is given. he_normal is scaled for ReLU layers: try it when the network "
+             "stays at a constant output (accuracy 1/classes); the layers do not change"
     )
     parser.add_argument(
         "--batch_norm", action="store_true",
         help="Batch normalisation between every convolution of the backbone and its ReLU. A different "
-             "network to train than the published one (the converter folds it into the convolutions)"
+             "network to train than the default one (the converter folds it into the convolutions); the "
+             "published COCO model was trained with it"
     )
     return parser.parse_args()
 
@@ -138,11 +139,10 @@ def build_squeezenet(input_shape, num_classes, dropout_rate=0.5, augmentation="s
         Conv2D -> MaxPool -> Fire(2) -> Fire(3) -> MaxPool -> Fire(4) -> Fire(5) ->
         MaxPool -> Fire(6) -> Fire(7) -> Fire(8) -> Fire(9) -> Dropout -> Conv2D -> GAP -> Softmax/Sigmoid
 
-    The defaults build the network of the published models, which has no
-    normalisation layer. On some datasets it does not start to learn: on COCO
-    person detection it stayed at a constant output (accuracy 0.500) at every
-    learning rate tried. Two options are offered for that case (the
-    measurements are in docs/scripts.md):
+    The defaults build the network without any normalisation layer. On some
+    datasets it does not start to learn: on COCO person detection it stayed at
+    a constant output (accuracy 0.500) at every learning rate tried. Two
+    options are offered for that case (the measurements are in docs/scripts.md):
 
       kernel_initializer="he_normal"   starting weights scaled for ReLU layers;
                                        the layers are the same

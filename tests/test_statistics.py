@@ -372,8 +372,9 @@ class TIntervalTest(unittest.TestCase):
 # --------------------------------------------------------------------------- #
 # The published tables against the definitions and the per-image files
 # --------------------------------------------------------------------------- #
-TABLES_DIR = REPO / "results" / "tables"
-RUN_SUFFIX = "+32+20+0.0001+160+120"       # the runs of the vehicle benchmark behind the tables
+TABLES_DIR = REPO / "results" / "tables" / "coco"
+RUN_SUFFIX = "_COCO+32+50+0.0003+160+120"   # the runs of the COCO benchmark behind the tables
+MANIFEST = REPO / "data" / "splits_coco" / "test_manifest.csv"
 
 
 def read_table(name):
@@ -391,8 +392,18 @@ def read_predictions(level, arch):
         return {row["Image"]: (int(row["TrueLabel"]), int(row["PredLabel"])) for row in csv.DictReader(fh, delimiter=";")}
 
 
+def images_per_class():
+    """{number of images: (images of class 0, images of class 1)} for the test partition and for its
+    rig subset, counted in the published test manifest."""
+    with open(MANIFEST, encoding="utf-8", newline="") as fh:
+        rows = list(csv.DictReader(fh))
+    rig = [row for row in rows if row["hil_subset"] == "1"]
+    count = lambda some: tuple(sum(1 for row in some if int(row["label"]) == label) for label in (0, 1))
+    return {len(rows): count(rows), len(rig): count(rig)}
+
+
 class PublishedStatisticsTest(unittest.TestCase):
-    """Standard library only: the numbers in results/tables/ against the definitions above."""
+    """Standard library only: the numbers in results/tables/coco/ against the definitions above."""
 
     def assert_holm(self, rows, raw, adjusted, table):
         with_value = [row for row in rows if row[raw] != ""]
@@ -433,11 +444,14 @@ class PublishedStatisticsTest(unittest.TestCase):
         self.assertGreaterEqual(families, 10)
 
     def test_fisher_p_values_follow_from_the_errors_of_each_class(self):
-        for row in read_table("table5_per_class.csv"):
+        # the images of each class, in the test partition (5,000) and in its rig subset (200)
+        per_class = images_per_class()
+        self.assertEqual(per_class, {5000: (2637, 2363), 200: (105, 95)})
+        rows = read_table("table5_per_class.csv")
+        self.assertEqual({int(row["n"]) for row in rows}, set(per_class))
+        for row in rows:
             n, e1, e2 = int(row["n"]), int(row["errors_0"]), int(row["errors_1"])
-            # the test partition and its rig subset have the same number of images of each class
-            n1 = n2 = n // 2
-            self.assertEqual(n % 2, 0)
+            n1, n2 = per_class[n]
             self.assertAlmostEqual(float(row["recall_0"]), 1 - e1 / n1, places=14)
             self.assertAlmostEqual(float(row["recall_1"]), 1 - e2 / n2, places=14)
             self.assertAlmostEqual(float(row["p_fisher"]), float(fisher_reference(e1, n1, e2, n2)), places=12,
@@ -449,9 +463,9 @@ class PublishedStatisticsTest(unittest.TestCase):
             arch = row["arch"]
             runs = {level: read_predictions(level, arch) for level in ("mil", "sil", "pil")}
             images = sorted(runs["mil"])
-            self.assertEqual(len(images), 940)
+            self.assertEqual(len(images), 5000)
             y = [runs["mil"][image][0] for image in images]
-            self.assertEqual((y.count(0), y.count(1)), (470, 470))
+            self.assertEqual((y.count(0), y.count(1)), (2637, 2363))
             scores = {}
             for level, column in (("mil", "MIL"), ("sil", "SIL"), ("pil", "PIL")):
                 if runs[level] is None:

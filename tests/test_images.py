@@ -127,7 +127,7 @@ class LoadFolderTest(unittest.TestCase):
             images.load_folder(self.root, W, H, class_names=["person", "car"])
 
     def test_png_and_jpeg_partitions_are_both_read(self):
-        # The COCO partition is stored as lossless PNG (single channel); the earlier ones are JPEG.
+        # The COCO partition is stored as lossless PNG (single channel); the Visual Wake Words one is JPEG.
         root = Path(self.root) / "mixed"
         gray = np.array(photo_like(5).convert("L"))
         for cls in ("non_person", "person"):

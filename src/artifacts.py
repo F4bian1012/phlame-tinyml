@@ -122,8 +122,8 @@ def resolve_class_names_path(model_path, explicit_path=None):
     """Where an evaluator reads the label order from.
 
     Order: the path given on the command line, the file next to the model, and
-    last the repository-wide models/class_names.txt (models trained before the
-    per-model file existed, such as the published ones).
+    last the repository-wide models/class_names.txt (for a model that has no
+    file of its own).
     """
     if explicit_path:
         return explicit_path

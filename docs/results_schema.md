@@ -12,8 +12,8 @@ paths from the root of the conditions JSON.
 Dynamic keys use placeholders:
 
 - `<FIELD>`: a telemetry field under `latency.per_field` (listed in section 7).
-- `<CLASS>` under `per_class_metrics`: the class names (`Class1`, `Class2`; `person`, `non_person` in
-  VWW) and also the aggregate entries added by scikit-learn: `macro avg` and `weighted avg` (objects with
+- `<CLASS>` under `per_class_metrics`: the class names (`non_person` and `person` in the published
+  files) and also the aggregate entries added by scikit-learn: `macro avg` and `weighted avg` (objects with
   `precision`, `recall`, `f1-score`, `support`) and `accuracy` (a number, not an object).
 - `<CLASS>` under `prediction_counts`: a predicted class index as a string (`"0"`, `"1"`, ...).
 
@@ -31,7 +31,7 @@ Every level writes into its own folder, `results/{mil,sil,pil,hil}/`, with the s
 
 In HIL the per-image predictions are columns of `latency_metrics_{model}.csv`, next to the latencies of the same capture.
 
-- **Same `sha256` across SIL, PIL and HIL:** Verifies that the same `.tflite` file was evaluated on the host. MIL records the hash of the `.keras` file, so it never matches the other levels. Whether the board ran that file is a separate check: the firmware announces the FNV-1a fingerprint of the model it carries and the bench stops unless it is that of the `.tflite` (`model.identity_verified`). Every published HIL file has that check. The published PIL files were measured before the PIL firmware announced the fingerprint, and a board running another model is ruled out for them indirectly (see [Known Limitations](../README.md#known-limitations)).
+- **Same `sha256` across SIL, PIL and HIL:** Verifies that the same `.tflite` file was evaluated on the host. MIL records the hash of the `.keras` file, so it never matches the other levels. Whether the board ran that file is a separate check: the firmware announces the FNV-1a fingerprint of the model it carries and the bench stops unless it is that of the `.tflite` (`model.identity_verified`). Every published HIL file has that check. The published PIL files were measured before the PIL firmware announced the fingerprint, and a board running another model is ruled out for those of the COCO benchmark indirectly (see [Known Limitations](../README.md#known-limitations)).
 - **`predictions_*.csv` (`;`-separated):** Columns: `Image;RelPath;TrueLabel;TrueClass;PredLabel;PredClass;Correct`. `RelPath` disambiguates files sharing identical names across class subdirectories. In PIL and HIL, empty cells differentiate between unlabelled stimuli and hardware dropouts. Joining on `RelPath` isolates the exact images that flip prediction across ladder rungs.
 
 ## Former Key Names
@@ -51,7 +51,6 @@ needs the new ones:
 | `corrida` | `run` |
 | `puerto` | `port` |
 | `condiciones_completas` | `conditions_complete` |
-| `nota_correccion` | `correction_note` |
 | `n_samples_pedidas` | `n_samples_requested` |
 | `n_estimulos` | `n_stimuli` |
 | `n_respondidas` | `n_answered` |
@@ -84,8 +83,8 @@ needs the new ones:
 | `conteo_predicciones` | `prediction_counts` |
 
 The fixed descriptive texts (`confusion_matrix.order`, `latency.source`, `latency.p95_method`,
-`model.note`, `rig`) and the hand-written session notes (`notes`, `run.correction_note`) were translated
-to English in the same change.
+`model.note`, `rig`) and the hand-written session notes (`notes`) were translated to English in the
+same change.
 
 ## Metrics Schema Glossary (`metrics_*.json`)
 
@@ -111,7 +110,7 @@ Every evaluation script writes a `metrics_{model}[_int8].json` file capturing cl
 ### 2. Model Traceability (`model`)
 | Key | Level | Type | Description |
 |---|---|---|---|
-| `model.name` | All | `string` | Model architecture tag / run identifier (e.g., `"MobileNetV2+32+20+0.0001+160+120_int8"`). |
+| `model.name` | All | `string` | Model architecture tag / run identifier (e.g., `"MobileNetV2_COCO+32+50+0.0003+160+120_int8"`). |
 | `model.path` | All | `string` | Relative path to the evaluated `.keras` or `.tflite` model artifact. |
 | `model.sha256` | All | `string` | 64-character SHA-256 hash of the host model file: the `.keras` file in MIL and the `.tflite` file in SIL, PIL and HIL. By itself it does not prove which model is flashed on the board: `model.identity_verified` says whether the bench checked that. |
 | `model.bytes` | All | `integer` | Model file size on disk in bytes. |
@@ -158,17 +157,16 @@ Every evaluation script writes a `metrics_{model}[_int8].json` file capturing cl
 | `run.n_samples_requested` | PIL | `integer\|null` | PIL only: value of `--count` (number of images requested); `null` means every image in the folder. |
 | `run.n_reconnects` | PIL | `integer` | Times the serial link dropped during the run and the bench reopened the port and sent the image again; `0` in a run without drops. Written from November 2026 on; absent in earlier files. |
 | `run.max_unanswered` | PIL | `integer` | Value of `--max_unanswered`: images in a row without an answer after which the run is given up (`0`: never). Written from November 2026 on; absent in earlier files. |
-| `run.stopped_because` | PIL | `string\|null` | Why a run that is not `completed` ended (for example `"the board stopped answering: 5 images in a row without an answer (last one: image 37 of 940)"`); `null` in a completed run. Written from November 2026 on; absent in earlier files. (HIL records it in `conditions_*.json`.) |
+| `run.stopped_because` | PIL | `string\|null` | Why a run that is not `completed` ended (for example `"the board stopped answering: 5 images in a row without an answer (last one: image 37 of 5000)"`); `null` in a completed run. Written from November 2026 on; absent in earlier files. (HIL records it in `conditions_*.json`.) |
 | `run.settle_s` | HIL | `float` | Display stabilization time after rendering each stimulus before triggering optical camera capture (default: `1.5` s). |
 | `run.gap_s` | PIL, HIL | `float` | Inter-stimulus delay between successive evaluations (default: `0.5` s). |
 | `run.seed` | HIL | `integer` | Random seed used for reproducible stimulus ordering (default: `42`). |
 | `run.frame_dump` | HIL | `boolean` | `true` if raw 160×120 sensor frames were read back over serial for cross-level validation and image logging. |
 | `run.conditions_complete` | HIL | `boolean` | `true` if all mandatory environmental conditions (`illuminance_lux`, `camera_to_screen_distance_cm`, `ambient_temp_c`) were recorded. |
 | `run.completed` | PIL, HIL | `boolean` | In PIL: `true` when every planned image was sent and recorded, `false` when the run was cut short (the serial link was lost for good, the board stopped answering, Ctrl+C, an error); the figures of the file then cover only the `dataset.n_images` images recorded. In HIL: `true` when every planned stimulus was presented and recorded. `false` when the session was cut short (a lost serial link, a board that stopped answering, Ctrl+C, an error, or a stimulus image that could not be displayed): the figures of the file then cover only the `dataset.n_stimuli` stimuli measured, and the reason is in `stopped_because` of the conditions file. Written from November 2026 on; absent in earlier files, which are all complete runs. |
-| `run.illuminance_lux` | HIL | `float` | Illuminance measured at the screen plane in lux (`10.0` lux in the primary protocol). |
-| `run.camera_to_screen_distance_cm` | HIL | `float` | Distance from the camera lens to the monitor screen in cm (`24.0` cm in the primary protocol). |
+| `run.illuminance_lux` | HIL | `float` | Illuminance measured at the screen plane in lux (`11.0` in the COCO sessions on the Portenta H7). |
+| `run.camera_to_screen_distance_cm` | HIL | `float` | Distance from the camera lens to the monitor screen in cm (`22.0` in the COCO sessions on the Portenta H7). |
 | `run.ambient_temp_c` | HIL | `float` | Ambient room temperature measured at session start in °C. |
-| `run.correction_note` | HIL | `string` | Optional post-hoc documentation note (e.g., documenting distance measurement reconciliation). Added by hand to a published file; the bench does not write it. |
 
 ### 5. Evaluation Metrics (`global_metrics` & `per_class_metrics`)
 | Key | Level | Type | Description |

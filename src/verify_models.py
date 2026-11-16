@@ -24,10 +24,11 @@ anywhere else, can be checked before it is evaluated or flashed.
     # Maintainer: build the archives to attach to a release
     python src/verify_models.py --bundle release_assets --tag v1.0.0
 
-The models are grouped in sets by the run tag in their name: "coco"
-({arch}_COCO+...), "vww" ({arch}_VWW+...) and "plates" (no tag). A release
-carries one archive per set, phlame-models-<set>-<tag>.zip, holding the files
-at their paths under models/.
+The published models are grouped in sets by the run tag in their name: "coco"
+({arch}_COCO+...) and "vww" ({arch}_VWW+...). A release carries one archive
+per set, phlame-models-<set>-<tag>.zip, holding the files at their paths under
+models/. A model named with another tag, or with none, belongs to no published
+set: it is a user's own model.
 
 Exit codes: 0 everything checked agrees with the list; 1 a file or a result
 disagrees with it, a required file is missing or a download failed; 2 the
@@ -54,7 +55,7 @@ import cli
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MANIFEST = os.path.join("models", "checksums.sha256")
 RELEASES_URL = "https://github.com/F4bian1012/phlame-tinyml/releases/download"
-SETS = ("coco", "vww", "plates")
+SETS = ("coco", "vww")
 ENTRY = re.compile(r"^([0-9a-f]{64}) [ *](models/(?:checkpoints/[^/]+\.keras|tflite/[^/]+\.tflite))$")
 # Fixed date of the archive members, so the same files give the same archive.
 ZIP_DATE = (2026, 1, 1, 0, 0, 0)
@@ -74,18 +75,20 @@ def sha256_file(path):
 
 
 def set_of(rel_path):
-    """Set a model belongs to, from the run tag after the architecture."""
+    """Published set a model belongs to, from the run tag after the architecture; None for a
+    name with another tag or with none, which is a user's own model."""
     stem = rel_path.rsplit("/", 1)[-1].split("+", 1)[0]
     if stem.endswith("_COCO"):
         return "coco"
     if stem.endswith("_VWW"):
         return "vww"
-    return "plates"
+    return None
 
 
 def read_manifest(path):
     """{relative path: sha256} in file order. Stops with exit code 2 when the
-    list is missing or has a line that is neither a comment nor an entry."""
+    list is missing, has a line that is neither a comment nor an entry, or names
+    a model of no published set (no archive of a release would carry it)."""
     if not os.path.isfile(path):
         fail(2, "checksum list not found: %s" % path)
     entries = {}
@@ -100,6 +103,9 @@ def read_manifest(path):
             digest, rel = match.groups()
             if rel in entries:
                 fail(2, "%s lists %s twice" % (path, rel))
+            if set_of(rel) is None:
+                fail(2, "%s, line %d names a model of no published set (%s): %s"
+                     % (path, number, ", ".join(SETS), rel))
             entries[rel] = digest
     if not entries:
         fail(2, "%s lists no model" % path)
@@ -347,7 +353,7 @@ def parse_args():
         description="Check the model files against models/checksums.sha256, "
                     "fetch them from a release, or build the archives of a release.")
     parser.add_argument("--set", dest="which", choices=("all",) + SETS, default="all",
-                        help="Models to act on: coco, vww, plates or all (default: all)")
+                        help="Models to act on: coco, vww or all (default: all)")
     parser.add_argument("--require_all", action="store_true",
                         help="Fail when a listed model file is missing (default: only the files present are checked)")
     parser.add_argument("--results", action="store_true",
@@ -364,7 +370,7 @@ def parse_args():
     parser.add_argument("--tag", default=None,
                         help="Release tag used in the archive names, for --bundle (e.g. v1.0.0)")
     parser.add_argument("--update_list", action="store_true",
-                        help="Maintainer: rewrite the entries of one --set (coco, vww or plates) in the "
+                        help="Maintainer: rewrite the entries of one --set (coco or vww) in the "
                              "checksum list from the model files that its published results name")
     parser.add_argument("--root", default=REPO_ROOT,
                         help="Folder that holds models/ and results/ (default: the repository)")
@@ -376,7 +382,7 @@ def parse_args():
     if sum(bool(x) for x in (args.results, args.download, args.bundle, args.update_list)) > 1:
         parser.error("--results, --download, --bundle and --update_list are separate actions; give one")
     if args.update_list and args.which == "all":
-        parser.error("--update_list rewrites one set: give --set coco, vww or plates")
+        parser.error("--update_list rewrites one set: give --set coco or vww")
     return args
 
 

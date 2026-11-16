@@ -22,7 +22,7 @@ data/hil_frames*/
 
 # Splits. data/splits/ is the working partition of the user's own dataset and
 # is ignored entirely. The published partitions live in named folders
-# (data/splits_coco, data/splits_plates, data/splits_vww): their copied images
+# (data/splits_coco, data/splits_vww): their copied images
 # are ignored, their manifests and reports are versioned so the partition stays
 # reproducible.
 data/splits/

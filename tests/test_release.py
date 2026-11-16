@@ -120,13 +120,12 @@ def run(*args):
 
 
 class VerifyModelsScriptTest(unittest.TestCase):
-    """Runs the script on a made-up repository: three small 'models', one per set."""
+    """Runs the script on a made-up repository: three small 'models' in the two published sets."""
 
     FILES = {
         "models/checkpoints/Tiny_COCO+1+1+0.1+8+8.keras": b"coco float model",
         "models/tflite/Tiny_COCO+1+1+0.1+8+8_int8.tflite": b"coco int8 model",
         "models/tflite/Tiny_VWW+1+1+0.1+8+8_int8.tflite": b"vww int8 model",
-        "models/tflite/Tiny+1+1+0.1+8+8_int8.tflite": b"plates int8 model",
     }
 
     def setUp(self):
@@ -154,11 +153,13 @@ class VerifyModelsScriptTest(unittest.TestCase):
         self.assertEqual(run("--root", self.root, "--set", "coco").returncode, 0)
 
     def test_a_missing_file_fails_only_when_all_are_required(self):
-        os.remove(os.path.join(self.root, "models/tflite/Tiny+1+1+0.1+8+8_int8.tflite"))
+        os.remove(os.path.join(self.root, "models/tflite/Tiny_VWW+1+1+0.1+8+8_int8.tflite"))
         self.assertEqual(run("--root", self.root).returncode, 0)
         required = run("--root", self.root, "--require_all")
         self.assertEqual(required.returncode, 1)
-        self.assertIn("MISSING   models/tflite/Tiny+1+1+0.1+8+8_int8.tflite", required.stdout)
+        self.assertIn("MISSING   models/tflite/Tiny_VWW+1+1+0.1+8+8_int8.tflite", required.stdout)
+        # the other set is complete
+        self.assertEqual(run("--root", self.root, "--set", "coco", "--require_all").returncode, 0)
 
     def test_a_list_that_cannot_be_read_is_exit_code_2(self):
         Path(self.root, "models", "checksums.sha256").write_text("not a checksum line\n", encoding="utf-8")
@@ -187,8 +188,7 @@ class VerifyModelsScriptTest(unittest.TestCase):
         built = run("--root", self.root, "--bundle", assets, "--tag", "v9.9.9")
         self.assertEqual(built.returncode, 0, built.stdout)
         self.assertEqual(sorted(os.listdir(assets)),
-                         ["SHA256SUMS.txt", "phlame-models-coco-v9.9.9.zip",
-                          "phlame-models-plates-v9.9.9.zip", "phlame-models-vww-v9.9.9.zip"])
+                         ["SHA256SUMS.txt", "phlame-models-coco-v9.9.9.zip", "phlame-models-vww-v9.9.9.zip"])
         with zipfile.ZipFile(os.path.join(assets, "phlame-models-coco-v9.9.9.zip")) as archive:
             self.assertEqual(sorted(archive.namelist()),
                              ["models/checkpoints/Tiny_COCO+1+1+0.1+8+8.keras", "models/checksums.sha256",

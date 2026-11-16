@@ -2,17 +2,17 @@
 # -*- coding: utf-8 -*-
 """
 Checks which benchmark src/build_ladder_tables.py builds: the COCO benchmark
-without options, the vehicle benchmark with --benchmark vehicle, and any other
-benchmark that has the four levels with one command line.
+without options, and any other benchmark that has the four levels with one
+command line.
 
 Two benchmarks are used. An invented one ("ZOO": three architectures, classes
 cat and dog, its own tag, run suffix, partition and rig subset), written to a
 temporary folder with predictions whose macro-F1 the test computes on its own,
-and written again under the run names and the partition of the COCO and of the
-vehicle benchmark to see what the script builds by default; and the Visual Wake
-Words run that is in the repository, whose figures are the ones the README
-reports. The published tables of the vehicle benchmark are covered by
-tests/test_published_tables.py.
+and written again under the run names and the partition of the COCO benchmark,
+and under the names a training without a tag gives, to see what the script
+builds by default; and the Visual Wake Words run that is in the repository,
+whose figures are the ones the README reports. The published tables of the
+COCO benchmark are covered by tests/test_published_tables.py.
 
 Needs numpy and scipy (the packages of the script); skipped without them.
 
@@ -47,13 +47,15 @@ OPTIONS = ["--tag", TAG, "--run_suffix", SUFFIX, "--splits_dir", "data/splits_zo
            "--archs", ",".join(ARCHS), "--deployable", ",".join(DEPLOYABLE), "--bootstrap", "200"]
 
 
-# What names the two published benchmarks for the script: tag, run suffix, partition and architectures.
+# What names the COCO benchmark for the script: tag, run suffix, partition and architectures.
 PUBLISHED_ARCHS = ["MobileNetV2", "MobileNetV3Large", "ResNet18", "MobileNet", "MobileNetV3Small", "SqueezeNet", "ResNet8"]
 PUBLISHED_DEPLOYABLE = ["MobileNetV2", "MobileNet", "MobileNetV3Small", "SqueezeNet", "ResNet8"]
 AS_COCO = dict(tag="COCO", suffix="+32+50+0.0003+160+120", splits="data/splits_coco",
                archs=PUBLISHED_ARCHS, deployable=PUBLISHED_DEPLOYABLE)
-AS_VEHICLE = dict(tag=None, suffix="+32+20+0.0001+160+120", splits="data/splits_plates",
-                  archs=PUBLISHED_ARCHS, deployable=PUBLISHED_DEPLOYABLE)
+# The same architectures as a user's own runs: trained without a tag and with the defaults of the
+# training scripts, on the working partition data/splits.
+AS_OWN_RUNS = dict(tag=None, suffix="+32+20+0.0001+160+120", splits="data/splits",
+                   archs=PUBLISHED_ARCHS, deployable=PUBLISHED_DEPLOYABLE)
 
 
 def run_of(arch, tag=TAG, suffix=SUFFIX):
@@ -117,7 +119,8 @@ def build_benchmark(root, board_folder="results", announces="PORTENTA_H7", tag=T
     """Writes the invented benchmark under root; returns its predictions.
 
     tag, suffix, splits, archs and deployable are what names it for the script: its own by default,
-    or those of a published benchmark (AS_COCO, AS_VEHICLE) around the same invented images."""
+    or those of the COCO benchmark or of runs without a tag (AS_COCO, AS_OWN_RUNS) around the same
+    invented images."""
     root = Path(root)
     pred = invented_predictions(archs)
     splits_dir = root.joinpath(*splits.split("/"))
@@ -188,7 +191,7 @@ class SecondBenchmarkTest(unittest.TestCase):
         self.assertEqual(len([n for n in names if n.startswith("table") and n.endswith(".csv")]), 8, names)
         for name in ("ladder_tables.md", "ladder_tables.tex", "ladder_summary.json"):
             self.assertIn(name, names)
-        # the tables of the published benchmarks are left alone: nothing at the top level, no other folder
+        # the tables of another benchmark are left alone: nothing at the top level, no other folder
         self.assertEqual([p.name for p in (self.root / "results" / "tables").iterdir()], ["zoo"])
 
     def test_every_level_is_the_one_of_its_own_folder(self):
@@ -240,8 +243,11 @@ class SecondBenchmarkTest(unittest.TestCase):
         self.assertIn("| PIL (12) | HIL (12) |", text)
         self.assertIn("Recall cat | Recall dog", text)
         self.assertIn("n = 40 test images and 12 rig images (6/6 per class)", text)
+        # nothing of the default benchmark, and no class name that is not this benchmark's
         self.assertNotIn("(200)", text)
-        self.assertNotIn("Class1", text)
+        self.assertNotIn("COCO", text)
+        self.assertNotIn("person", text)
+        self.assertNotIn("Class1", text)        # models/class_names.txt, which the script does not read
         tex = (self.out / "ladder_tables.tex").read_text(encoding="utf-8")
         self.assertIn("\\label{tab:ladder-zoo-1}", tex)
 
@@ -258,7 +264,7 @@ class SecondBenchmarkTest(unittest.TestCase):
         rows = read_csv(self.out / "table4_repeatability.csv")
         self.assertEqual([row["run"] for row in rows], ["original", "rep1"])
         self.assertIn("left out: rep7", self.result.stdout)
-        # the sentence about the first run of the vehicle benchmark is not said of another benchmark
+        # the run of the ladder is named as such, and is not one of the repeatability runs
         self.assertEqual([row["role"] for row in rows],
                          ["run of the ladder (not in the mean of the repeatability runs)", "strict replicate"])
 
@@ -389,7 +395,7 @@ class DefaultBenchmarkTest(unittest.TestCase):
         build_benchmark(self.root, **AS_COCO)
         result = run_script(self.root)
         self.assertEqual(result.returncode, 0, result.stdout[-3000:])
-        # in the folder of the COCO tables, and nothing at the top level, where the vehicle tables are
+        # in the folder of the COCO tables, and nothing at the top level, where runs without a tag go
         self.assertEqual([p.name for p in self.tables.iterdir()], ["coco"])
         out = self.tables / "coco"
         self.assertEqual(len(list(out.glob("table*.csv"))), 8)
@@ -407,40 +413,48 @@ class DefaultBenchmarkTest(unittest.TestCase):
         self.assertEqual(benchmark["repeatability_runs"], ["rep1"])
         self.assertIn("results/hil/latency_metrics_MobileNetV2_COCO+32+50+0.0003+160+120_int8.csv",
                       summary["inputs_sha256"])
-        # the sentence about the first run of the vehicle benchmark is not said of the default benchmark
+        # the run of the ladder is named as such, and is not one of the repeatability runs
         self.assertEqual([row["role"] for row in read_csv(out / "table4_repeatability.csv")],
                          ["run of the ladder (not in the mean of the repeatability runs)", "strict replicate"])
 
-    def test_without_options_the_runs_of_the_vehicle_benchmark_are_not_taken(self):
-        build_benchmark(self.root, **AS_VEHICLE)
+    def test_without_options_runs_without_a_tag_are_not_taken(self):
+        build_benchmark(self.root, **AS_OWN_RUNS)
         result = run_script(self.root)
         self.assertEqual(result.returncode, 1, result.stdout[-3000:])
         self.assertIn("need the four levels", result.stdout)
         self.assertIn("results/mil/predictions_MobileNetV2_COCO+32+50+0.0003+160+120.csv", result.stdout)
         self.assertFalse(self.tables.exists(), "nothing is written by a refused run")
 
-    def test_one_option_builds_the_vehicle_benchmark_where_it_is_published(self):
-        build_benchmark(self.root, **AS_VEHICLE)
-        result = run_script(self.root, "--benchmark", "vehicle")
+    def test_runs_without_a_tag_are_named_with_an_empty_tag(self):
+        # the same runs, named by their three options: --tag "" says there is no tag
+        build_benchmark(self.root, **AS_OWN_RUNS)
+        result = run_script(self.root, "--tag", "", "--run_suffix", AS_OWN_RUNS["suffix"],
+                            "--splits_dir", AS_OWN_RUNS["splits"], "--bootstrap", "200")
         self.assertEqual(result.returncode, 0, result.stdout[-3000:])
-        # at the top level of results/tables, with the title, the labels and the summary keys of the published files
+        # at the top level of results/tables, with a title and labels that carry no tag
         self.assertEqual([p.name for p in self.tables.iterdir() if p.is_dir()], [])
         self.assertEqual(len(list(self.tables.glob("table*.csv"))), 8)
         text = (self.tables / "ladder_tables.md").read_text(encoding="utf-8")
         self.assertEqual(text.splitlines()[0], "# PHLAME - fidelity-ladder tables")
-        self.assertNotIn("Runs named", text)
+        self.assertIn("Runs named `<architecture>+32+20+0.0001+160+120`; partition `data/splits/test_manifest.csv`; "
+                      "classes `cat` (0) and `dog` (1)", text)
         self.assertIn("\\label{tab:ladder1}", (self.tables / "ladder_tables.tex").read_text(encoding="utf-8"))
         summary = self.summary(self.tables)
-        self.assertNotIn("benchmark", summary["parameters"])
+        benchmark = summary["parameters"]["benchmark"]
+        self.assertEqual((benchmark["tag"], benchmark["run_suffix"], benchmark["manifest"]),
+                         (None, "+32+20+0.0001+160+120", "data/splits/test_manifest.csv"))
+        self.assertEqual(benchmark["class_names"], CLASSES)
         self.assertIn("results/mil/predictions_MobileNetV2+32+20+0.0001+160+120.csv", summary["inputs_sha256"])
-        self.assertIn("data/splits_plates/test_manifest.csv", summary["inputs_sha256"])
+        self.assertIn("data/splits/test_manifest.csv", summary["inputs_sha256"])
+        # its repeatability run is the one named without a tag; the one of a tagged benchmark is left out
         rows = read_csv(self.tables / "table4_repeatability.csv")
         self.assertEqual([row["run"] for row in rows], ["original", "rep1"])
-        self.assertEqual(rows[0]["role"], "original (different protocol, excluded from the mean)")
+        self.assertEqual(rows[0]["role"], "run of the ladder (not in the mean of the repeatability runs)")
+        self.assertEqual(benchmark["repeatability_runs"], ["rep1"])
         self.assertIn("left out: rep7", result.stdout)
 
-    def test_each_option_replaces_its_part_of_the_benchmark(self):
-        # runs trained without a tag, with their own suffix and partition: --tag "" says there is none
+    def test_each_option_replaces_its_part_of_the_default(self):
+        # runs trained without a tag, with their own suffix, partition and architectures
         build_benchmark(self.root, tag=None)
         options = [o for o in OPTIONS if o not in ("--tag", TAG)]
         result = run_script(self.root, "--tag", "", *options)
@@ -449,16 +463,11 @@ class DefaultBenchmarkTest(unittest.TestCase):
         benchmark = self.summary(self.tables)["parameters"]["benchmark"]
         self.assertEqual((benchmark["tag"], benchmark["run_suffix"], benchmark["manifest"]),
                          (None, SUFFIX, "data/splits_zoo/test_manifest.csv"))
-        # the same options after --benchmark vehicle, whose runs carry no tag, name the same benchmark
-        again = run_script(self.root, "--benchmark", "vehicle", *options, "--output_dir", "again")
-        self.assertEqual(again.returncode, 0, again.stdout[-3000:])
-        self.assertEqual(self.summary(self.root / "again")["parameters"]["benchmark"], benchmark)
-
-    def test_a_benchmark_the_script_does_not_know_is_refused(self):
-        # --benchmark names one of the published benchmarks; any other is named by its three options
-        result = run_script(self.root, "--benchmark", "zoo")
-        self.assertEqual(result.returncode, 2, result.stdout[-3000:])
-        self.assertIn("invalid choice: 'zoo'", result.stdout)
+        # an option left out keeps the value of the default benchmark: here its tag
+        without_tag = run_script(self.root, *options, "--output_dir", "again")
+        self.assertEqual(without_tag.returncode, 1, without_tag.stdout[-3000:])
+        self.assertIn("results/mil/predictions_Tiny_COCO+4+3+0.01+8+6.csv", without_tag.stdout)
+        self.assertFalse((self.root / "again").exists(), "nothing is written by a refused run")
 
 
 @unittest.skipUnless(READY, "build_ladder_tables.py needs numpy and scipy")
@@ -481,7 +490,7 @@ class VisualWakeWordsTest(unittest.TestCase):
         self.assertEqual(("%.4f" % float(frames["f1_MILc"]), "%.4f" % float(frames["f1_SILc"])), ("0.6748", "0.6892"))
         self.assertEqual((summary["n_test"], summary["n_rig"]), (300, 200))
         self.assertEqual(summary["parameters"]["benchmark"]["class_names"], ["non_person", "person"])
-        # the repeatability runs in results/hil/rep*/ belong to the vehicle benchmark
+        # the repeatability runs in results/hil/rep*/ belong to the COCO benchmark
         self.assertEqual(summary["parameters"]["benchmark"]["repeatability_runs"], [])
         self.assertIsNone(summary["frontend_gap_reference"])
 

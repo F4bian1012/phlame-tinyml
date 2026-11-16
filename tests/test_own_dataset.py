@@ -169,7 +169,7 @@ class SplitOwnDatasetTest(unittest.TestCase):
 
 
 class RunNameTest(unittest.TestCase):
-    def test_stem_without_tag_is_the_published_name(self):
+    def test_stem_without_tag_is_the_architecture_and_the_five_fields(self):
         self.assertEqual(artifacts.model_stem("MobileNetV2", 32, 20, 0.0001, 160, 120),
                          "MobileNetV2+32+20+0.0001+160+120")
 
@@ -230,7 +230,7 @@ class ClassNamesTest(unittest.TestCase):
     def test_resolution_order(self):
         explicit = os.path.join(self.tmp.name, "explicit.txt")
         self.assertEqual(artifacts.resolve_class_names_path(self.keras, explicit), explicit)
-        # a model without its own file (e.g. the published ones) uses the repository-wide list
+        # a model without its own file uses the repository-wide list
         self.assertEqual(artifacts.resolve_class_names_path(self.keras), artifacts.LEGACY_CLASS_NAMES)
         self.assertIsNone(artifacts.copy_class_names(self.keras, self.tflite))
 
@@ -264,7 +264,7 @@ class PublishedPartitionsTest(unittest.TestCase):
         self.assertEqual(tracked, [])
 
     def test_manifests_point_inside_their_own_folder(self):
-        for name in ("splits_coco", "splits_plates", "splits_vww"):
+        for name in ("splits_coco", "splits_vww"):
             folder = REPO / "data" / name
             for sp in ("train", "val", "test"):
                 rows = read_manifest(folder / ("%s_manifest.csv" % sp))

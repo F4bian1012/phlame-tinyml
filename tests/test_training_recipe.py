@@ -96,7 +96,7 @@ def option_defaults(script):
 
 
 class DefaultsTest(unittest.TestCase):
-    """Without options a training script must train as it did when the published models were made."""
+    """Without options a training script must train as it did before the recipe options existed."""
 
     def test_recipe_defaults_of_the_three_scripts(self):
         for script in TRAINERS:
@@ -105,7 +105,7 @@ class DefaultsTest(unittest.TestCase):
         d = keyword_defaults("train_mobilenet.py", "main")
         self.assertEqual((d["weights"], d["trainable_backbone"]), ("imagenet", False))
 
-    def test_squeezenet_keeps_the_published_network_by_default(self):
+    def test_squeezenet_keeps_the_network_without_batch_normalisation_by_default(self):
         for function in ("build_squeezenet", "create_squeezenet_model", "main", "conv_relu", "fire_module"):
             d = keyword_defaults("train_squeezenet.py", function)
             self.assertEqual((d["kernel_initializer"], d["batch_norm"]), ("glorot_uniform", False), function)
