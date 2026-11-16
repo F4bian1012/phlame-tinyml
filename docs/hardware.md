@@ -24,12 +24,12 @@ internal flash. Measured on a build of the PIL firmware with `AllOpsResolver`
 
 | | Size |
 |---|---|
-| Internal flash (STM32H747, `0x08000000`–`0x081FFFFF`) | 2048 KiB |
+| Internal flash (STM32H747, `0x08000000`–`0x081FFFFF`) | 2,048 KiB |
 | Bootloader region (the application starts at `0x08040000`) | 256 KiB |
 | Firmware code (TFLite-Micro + all kernels, no model) | ~418 KiB |
-| **Headroom left for `model.h`** | **~1374 KiB** |
+| **Headroom left for `model.h`** | **~1,374 KiB** |
 
-The HIL firmware carries 14 KiB more code, which leaves ~1360 KiB.
+The HIL firmware carries 14 KiB more code, which leaves ~1,360 KiB.
 
 Which of the INT8 models of the COCO benchmark fit, at 160×120. "Flash used" counts the bootloader region,
 the PIL firmware code and the model. The build of the record carries the `MobileNetV2` of the COCO benchmark
@@ -42,9 +42,9 @@ budget of that build, which does not count its model, plus the `.tflite` of the 
 | `MobileNetV2` | 630 KiB | 1.27 MiB | yes |
 | `SqueezeNet` | 809 KiB | 1.45 MiB | yes |
 | `MobileNetV3Small` | 816 KiB | 1.45 MiB | yes |
-| `ResNet8` | 1249 KiB | 1.88 MiB | yes, 125 KiB to spare |
-| `MobileNetV3Large` | 2180 KiB | 2.79 MiB | **no** — 0.79 MiB over |
-| `ResNet18` | 11057 KiB | 11.46 MiB | **no** — 9.46 MiB over |
+| `ResNet8` | 1,249 KiB | 1.88 MiB | yes, 125 KiB to spare |
+| `MobileNetV3Large` | 2,180 KiB | 2.79 MiB | **no** — 0.79 MiB over |
+| `ResNet18` | 11,057 KiB | 11.46 MiB | **no** — 9.46 MiB over |
 
 `MobileNetV3Large` and `ResNet18` train and quantize fine, and are valid MIL/SIL
 targets on the PC, but they cannot be deployed from internal flash: the `.tflite`
@@ -83,7 +83,8 @@ and the bench recorded `BOARD:PORTENTA_H7`. The two-board HIL sketch first ran o
 Portenta H7 on 2026-11-15 (see [HIL Rig and Session](#hil-rig-and-session)), and on a Nicla Vision the same day:
 three models of the COCO benchmark over the 200 images of the HIL subset (`results/nicla/hil/`, with the report of
 the calibrator taken before each session). Its camera sees the monitor through a narrower lens, from 94 cm against
-22 cm for the Portenta H7, and its frames passed the four checks of the calibrator. With the arena `SqueezeNet` or
+22 cm for the Portenta H7, and the reports before those three sessions pass the four checks of the calibrator (what
+the reports of both rigs show is in the [notes on the results](coco_benchmark.md#notes-on-the-results)). With the arena `SqueezeNet` or
 `ResNet8` needs on this board the HIL sketch does not start (it prints `BOARD:NICLA_VISION` and nothing else), and
 after being unplugged and plugged again the board did not answer the calibrator until it was reset or flashed.
 
@@ -104,10 +105,10 @@ are those of each flashed build (`ARENA_USED` in the boot lines, sizes reported 
 | `MobileNet` | 181,492 | default (368) | 700,144 / 67,992 | 241.40 | 193.45 |
 | `MobileNetV2` | 356,404 | default (368) | 1,026,512 / 67,992 | 401.15 | 322.06 |
 | `MobileNetV3Small` | 225,812 | default (368) | 1,217,632 / 67,992 | 489.59 | 414.81 |
-| `SqueezeNet` | 414,404 | 408 | 1,210,632 / 27,032 | 1153.63 | 987.00 |
-| `ResNet8` | 398,164 | 392 | 1,661,040 / 43,416 | 2892.09 | 2561.31 |
+| `SqueezeNet` | 414,404 | 408 | 1,210,632 / 27,032 | 1,153.63 | 987.00 |
+| `ResNet8` | 398,164 | 392 | 1,661,040 / 43,416 | 2,892.09 | 2,561.31 |
 
-`SqueezeNet` and `ResNet8` ran the 5,000 images on the Nicla Vision with 27 KB and 43 KB of RAM left. The Nicla
+`SqueezeNet` and `ResNet8` ran the 5,000 images on the Nicla Vision with 26 KiB and 42 KiB of RAM left. The Nicla
 Vision needs 11% to 20% fewer cycles per inference than the Portenta H7 for the same file.
 
 **Sizes set at build time.** `--arena_kb` and `--image_buffer_bytes` of `compile_upload_arduino.py` (the macros
@@ -151,10 +152,10 @@ build-time figures; with them both models ran the 5,000 images of the COCO bench
 
 **Operators.** Op resolution uses `AllOpsResolver` (all TFLite-Micro ops registered) to avoid
 `AllocateTensors()` failures from missing operators, and to keep the firmware
-model-agnostic across the framework's supported architectures (MobileNetV2/V3,
-ResNet18, SqueezeNet) without per-model resolver maintenance — each architecture
+model-agnostic across the framework's supported architectures (the MobileNets,
+the ResNets and SqueezeNet) without per-model resolver maintenance — each architecture
 uses a different operator set (e.g. hard-swish/squeeze-excite in MobileNetV3,
-residual `Add` in ResNet18, `Concatenation` in SqueezeNet's fire modules), and
+residual `Add` in the ResNets, `Concatenation` in SqueezeNet's fire modules), and
 `AllOpsResolver` avoids re-editing a fixed op list when switching models. This
 trades a larger firmware binary (all kernels linked, not just the ones the
 loaded model needs) for that flexibility — see the [flash budget](#flash-budget).
@@ -300,18 +301,18 @@ the tensor expects arrive, the remainder is padded with `zero_point` (the
 quantized representation of a real 0), not with a raw 0. The bench does not let that happen:
 it refuses to send images whose shape is not the one the firmware announces.
 
-> The value fed in is the **raw** pixel, because the shipped models are
-> converted without a `Rescaling` layer. This must match the preprocessing of
-> the representative dataset used at conversion time — if you retrain with
-> `Rescaling(1./255)` or MobileNet's `preprocess_input`, adjust `real_value` in
-> `loadImageToInputTensor()` accordingly.
+> The value fed in is the **raw** pixel (0–255), because the models carry their own
+> normalisation as a layer (`Rescaling`, or the `preprocess_input` of the backbone) and are
+> calibrated on raw pixels, like every other level. A model trained on pixels scaled outside
+> the model would need the same scaling in `loadImageToInputTensor()` (`real_value`) and at
+> the levels on the PC.
 
 **Response.** After `Invoke()`, the board prints the predicted class index as a
 single integer line (argmax of the output tensor). Diagnostic banners and the
 on-chip CPU temperature (`°C`, from STM32H7 factory calibration) are also printed
 around each inference; `pil_benchmark.py` parses the integer class from the stream.
 Reporting the class index rather than the full per-class logit vector keeps the
-post-processing short and compatible with arbitrary class counts: its median is 0.49 to 0.75 µs on the Portenta H7 and 0.29 to 0.34 µs on the Nicla Vision in each of the 24 published PIL and HIL runs (the COCO benchmark and the Visual Wake Words run), and 495 of their 52,900 measurements take 1 µs or more (10.0 µs at most).
+post-processing short and compatible with arbitrary class counts: its median is 0.49 to 0.75 µs on the Portenta H7 and 0.29 to 0.34 µs on the Nicla Vision in each of the 27 published PIL and HIL runs (the COCO benchmark with its repeatability sessions, and the Visual Wake Words run), and 499 of their 53,500 measurements take 1 µs or more (10.0 µs at most).
 
 **Board announcement.** Each sketch prints `BOARD:<name>` (`PORTENTA_H7` or
 `NICLA_VISION`): at boot in both, and in PIL also among the identity lines and with every

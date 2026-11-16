@@ -19,7 +19,7 @@ Dynamic keys use placeholders:
 
 ## Result Files
 
-Every level writes into its own folder, `results/{mil,sil,pil,hil}/`, with the same file names. `{model}` is the model name, which ends in `_int8` from SIL onwards:
+Every level writes into its own folder, `results/{mil,sil,pil,hil}/`, with the same file names; the board levels measured on the Nicla Vision go to `results/nicla/{pil,hil}/`, and each repeatability session of HIL to a `rep<k>/` subfolder. `{model}` is the model name, which ends in `_int8` from SIL onwards:
 
 | File | Content | MIL | SIL | PIL | HIL |
 |---|---|:-:|:-:|:-:|:-:|
@@ -164,8 +164,8 @@ Every evaluation script writes a `metrics_{model}[_int8].json` file capturing cl
 | `run.frame_dump` | HIL | `boolean` | `true` if raw 160×120 sensor frames were read back over serial for cross-level validation and image logging. |
 | `run.conditions_complete` | HIL | `boolean` | `true` if all mandatory environmental conditions (`illuminance_lux`, `camera_to_screen_distance_cm`, `ambient_temp_c`) were recorded. |
 | `run.completed` | PIL, HIL | `boolean` | In PIL: `true` when every planned image was sent and recorded, `false` when the run was cut short (the serial link was lost for good, the board stopped answering, Ctrl+C, an error); the figures of the file then cover only the `dataset.n_images` images recorded. In HIL: `true` when every planned stimulus was presented and recorded. `false` when the session was cut short (a lost serial link, a board that stopped answering, Ctrl+C, an error, or a stimulus image that could not be displayed): the figures of the file then cover only the `dataset.n_stimuli` stimuli measured, and the reason is in `stopped_because` of the conditions file. Written from November 2026 on; absent in earlier files, which are all complete runs. |
-| `run.illuminance_lux` | HIL | `float` | Illuminance measured at the screen plane in lux (`11.0` in the COCO sessions on the Portenta H7). |
-| `run.camera_to_screen_distance_cm` | HIL | `float` | Distance from the camera lens to the monitor screen in cm (`22.0` in the COCO sessions on the Portenta H7). |
+| `run.illuminance_lux` | HIL | `float` | Illuminance measured at the screen plane in lux (`11.0` in the COCO sessions on the Portenta H7, `4.0` in those on the Nicla Vision; read with a phone app, not with a calibrated lux meter). |
+| `run.camera_to_screen_distance_cm` | HIL | `float` | Distance from the camera lens to the monitor screen in cm (`22.0` in the COCO sessions on the Portenta H7, `94.0` in those on the Nicla Vision). |
 | `run.ambient_temp_c` | HIL | `float` | Ambient room temperature measured at session start in °C. |
 
 ### 5. Evaluation Metrics (`global_metrics` & `per_class_metrics`)
@@ -210,7 +210,7 @@ Every evaluation script writes a `metrics_{model}[_int8].json` file capturing cl
 
 Values of `<FIELD>` (`CYC_*` in core cycles, `US_*` in microseconds):
 
-- `CYC_CAPTURE`, `US_CAPTURE` (HIL): HM01B0 DCMI DMA frame acquisition duration.
+- `CYC_CAPTURE`, `US_CAPTURE` (HIL): Frame acquisition time of the camera of the board (HM01B0 on the Portenta H7, GC2145 on the Nicla Vision).
 - `CYC_PRE`, `US_PRE` (PIL, HIL): Sensor readout buffer transfer and input quantization time.
 - `CYC_INF`, `US_INF` (PIL, HIL): Core TFLite-Micro neural network inference time (`Invoke()`).
 - `CYC_POST`, `US_POST` (PIL, HIL): Post-processing, argmax identification, and telemetry formatting time.
@@ -230,9 +230,9 @@ Values of `<FIELD>` (`CYC_*` in core cycles, `US_*` in microseconds):
 ### 9. Output Artifacts (`artifacts`)
 | Key | Level | Type | Description |
 |---|---|---|---|
-| `artifacts.confusion_matrix_png` | All | `string` | Relative path to the generated confusion matrix heatmap image (`confusion_matrix_*.png` or `confusion_matrix_*.png`). |
+| `artifacts.confusion_matrix_png` | All | `string` | Relative path to the generated confusion matrix heatmap image (`confusion_matrix_*.png`). |
 | `artifacts.predictions_csv` | MIL, SIL, PIL | `string` | Relative path to the per-image classification table (`predictions_*.csv`). |
-| `artifacts.latency_csv` | PIL, HIL | `string` | Relative path to the per-stimulus telemetry and timing record (`latency_metrics_*.csv` or `latency_metrics_*.csv`). |
+| `artifacts.latency_csv` | PIL, HIL | `string` | Relative path to the per-stimulus telemetry and timing record (`latency_metrics_*.csv`). |
 | `artifacts.conditions_json` | HIL | `string` | Relative path to the companion test rig environment record (`conditions_*.json`). |
 
 ### 10. Software Behind the Result (`software`)
@@ -284,7 +284,7 @@ Alongside `metrics_*.json`, the HIL benchmark generates a standalone `conditions
 | `sil_kernels` | `string\|null` | TFLite kernels that ran `sil_model` on the host (`--sil_kernels`); `null` without `--sil_model`. Written from November 2026 on; absent in earlier files, which used the default. |
 | `mil_model` | `string\|null` | Path to the companion float model executed on the host for paired cross-validation. |
 | `model_tag` | `string` | Experiment stem used to index all output artifacts. |
-| `illuminance_lux` | `float\|null` | Calibrated illuminance measured at the screen plane in lux. |
+| `illuminance_lux` | `float\|null` | Illuminance measured at the screen plane in lux, as given with `--lux`. |
 | `camera_to_screen_distance_cm` | `float\|null` | Physical lens-to-screen distance in cm. |
 | `ambient_temp_c` | `float\|null` | Room temperature measured during the benchmarking session in °C. |
 | `conditions_complete` | `boolean` | `true` when lux, distance, and temperature are all recorded. |
@@ -334,3 +334,5 @@ for f in sorted(glob.glob("results/*/metrics_*.json")):
     print(f"{level:4} {m_name:40} acc={g['accuracy']:.4f} f1_macro={g['f1_macro']:.4f} "
           f"sha256={sha} drops={unresp}{lat_str}{verif_str}")
 ```
+
+The pattern `results/*/metrics_*.json` covers the levels measured on the PC and on the Portenta H7; the files of the Nicla Vision match `results/nicla/*/metrics_*.json`, and the repeatability sessions `results/hil/rep*/metrics_*.json` and `results/nicla/hil/rep*/metrics_*.json`.

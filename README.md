@@ -5,7 +5,6 @@
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-2.16%2B-orange)
 ![Hardware](https://img.shields.io/badge/Hardware-Arduino_Portenta_H7_and_Nicla_Vision-teal)
 
-
 An open-source framework to train, quantize, deploy and measure CNN image classifiers on resource-constrained microcontrollers (the **Arduino Portenta H7** and the **Arduino Nicla Vision**), evaluated across a four-level MIL→SIL→PIL→HIL fidelity ladder.
 
 ---
@@ -30,7 +29,7 @@ An open-source framework to train, quantize, deploy and measure CNN image classi
 
 ## Overview
 
-**PHLAME** is an open-source, reproducible software framework that covers the full cycle of training→INT8 quantization→deployment→phase-level measurement of CNN image classifiers on ARM Cortex-M microcontrollers. It organizes evaluation along a four-level fidelity ladder — **Model-in-the-Loop (MIL) → Software-in-the-Loop (SIL) → Processor-in-the-Loop (PIL) → Hardware-in-the-Loop (HIL)** — that makes the gap between desktop simulation and the physical device explicit and measurable at every step. Its benchmark is public and can be rebuilt from a fresh clone: `person` / `non_person` on the 123,287 images of MS-COCO 2017, labelled with the **Visual Wake Words** rule (one of the MLPerf Tiny tasks), with the test images taken from a different COCO split than the training ones. That benchmark is measured at the four levels: MIL and SIL for seven models and, for the five that fit the chip, PIL on two boards and HIL (camera in the loop) on one, with three of the five also at HIL on the other. How PHLAME compares with MLPerf Tiny and with other benchmarks and tools, and what it does not do, is in [`docs/related_work.md`](docs/related_work.md).
+**PHLAME** is an open-source, reproducible software framework that covers the full cycle of training→INT8 quantization→deployment→phase-level measurement of CNN image classifiers on ARM Cortex-M microcontrollers. It organizes evaluation along a four-level fidelity ladder — **Model-in-the-Loop (MIL) → Software-in-the-Loop (SIL) → Processor-in-the-Loop (PIL) → Hardware-in-the-Loop (HIL)** — that makes the gap between desktop simulation and the physical device explicit and measurable at every step. Its benchmark is public and can be rebuilt from a fresh clone: `person` / `non_person` on the 123,287 images of MS-COCO 2017, labelled with the **Visual Wake Words** rule (one of the MLPerf Tiny tasks), with the test images taken from a different COCO split than the training ones. That benchmark is measured at the four levels: MIL and SIL for seven models and, for the five that fit the chip, PIL on two boards and HIL (the camera in the loop) on the Portenta H7; three of the five are also measured at HIL on the Nicla Vision. How PHLAME compares with MLPerf Tiny and with other benchmarks and tools, and what it does not do, is in [`docs/related_work.md`](docs/related_work.md).
 
 - **Fidelity-ladder evaluation:** Each level of realism — floating-point PC model, INT8-simulated PC model, real chip fed via serial, and real chip with a live camera in the loop — is a separately runnable, comparable artifact.
 - **Per-phase latency:** On-device timing decomposed into pre-processing / inference / post-processing using the ARM Cortex-M7 DWT cycle counter.
@@ -42,14 +41,9 @@ An open-source framework to train, quantize, deploy and measure CNN image classi
 
 ## Requirements
 
-**Software.** Tested on Windows 11 with Python 3.13.14 and TensorFlow 2.21; other versions are not verified. Python dependencies are listed in `requirements.txt` (minimum versions) and `requirements-lock.txt` (exact versions).
+**Software.** Tested on Windows 11 with Python 3.13.14 and TensorFlow 2.21; the test suite also runs on Linux in continuous integration. Other versions are not verified. Python dependencies are listed in `requirements.txt` (minimum versions) and `requirements-lock.txt` (exact versions).
 
-**Toolchain.** Arduino CLI 1.5.0 + `arduino:mbed_portenta` core 4.5.0 +
-`Chirale_TensorFlowLite` library 2.0.0 (the versions behind the published
-results; the Camera/HM01B0 and SDRAM libraries ship inside the core). Install
-them with `arduino-cli core install arduino:mbed_portenta@4.5.0` and
-`arduino-cli lib install "Chirale_TensorFlowLite@2.0.0"`; see the non-Python
-section of `requirements.txt`.
+**Toolchain.** Needed only for PIL and HIL: Arduino CLI 1.5.0, the core of the board (`arduino:mbed_portenta` 4.5.0 for the Portenta H7, `arduino:mbed_nicla` 4.6.0 for the Nicla Vision) and the `Chirale_TensorFlowLite` library 2.0.0. These are the versions behind the published results; the camera and SDRAM libraries ship inside the cores. Install them with `arduino-cli core install arduino:mbed_portenta@4.5.0` (or `arduino:mbed_nicla@4.6.0`) and `arduino-cli lib install "Chirale_TensorFlowLite@2.0.0"`; see the non-Python section of `requirements.txt`.
 
 **Hardware.** It depends on the level:
 
@@ -57,9 +51,9 @@ section of `requirements.txt`.
 |---|---|
 | Published tables, MIL, SIL | A PC only |
 | PIL | Arduino Portenta H7 or Arduino Nicla Vision |
-| HIL | Arduino Portenta H7, Vision Shield (HM01B0 camera) and a monitor for the stimuli |
+| HIL | Arduino Portenta H7 with the Vision Shield (HM01B0 camera), or Arduino Nicla Vision (its own GC2145 camera), and a monitor for the stimuli |
 
-The firmware toolchain above is needed only for PIL and HIL. The rig of the published results, the flash budget and the memory of each board are in [`docs/hardware.md`](docs/hardware.md); sizes in this README use binary units (1 KiB = 1,024 bytes; 1 MiB = 1,024 KiB), like `results/tables/`. The two sketches also build for the Arduino Nicla Vision (`arduino:mbed_nicla` core, 4.6.0 used): PIL has been measured on that board for five models and HIL for three; see [`docs/usage.md`](docs/usage.md#running-pil-and-hil-on-the-arduino-nicla-vision).
+The rig of the published results, the flash budget and the memory of each board are in [`docs/hardware.md`](docs/hardware.md), and what changes on the Nicla Vision in [`docs/usage.md`](docs/usage.md#running-pil-and-hil-on-the-arduino-nicla-vision). Sizes in this README use binary units (1 KiB = 1,024 bytes; 1 MiB = 1,024 KiB), like `results/tables/`.
 
 ---
 
@@ -93,14 +87,15 @@ The suite runs the scripts against simulated boards and invented data, recompute
 
 ## Reproduce the Published Results Without Hardware
 
-The per-image results of every published run are in git, so the published tables can be rebuilt in seconds without a board, a dataset or trained models. The summary table of the COCO benchmark is rebuilt by `python src/build_benchmark_table.py --tag COCO --output_dir results/smoke_test/tables` (see [Reproduce the Public Benchmark (COCO)](#reproduce-the-public-benchmark-coco)), and its eight statistical tables, those of `results/tables/coco/`, by `build_ladder_tables.py`. This writes to a git-ignored folder, so `results/tables/` stays untouched:
+The per-image results of every published run are in git, so the published tables can be rebuilt in seconds without a board, a dataset or trained models. The commands write to a git-ignored folder, so `results/tables/` stays untouched:
 
 ```bash
+python src/build_benchmark_table.py --tag COCO --output_dir results/smoke_test/tables
 python src/build_ladder_tables.py --output_dir results/smoke_test/tables/coco
 python tests/tables_check.py results/tables/coco results/smoke_test/tables/coco
 ```
 
-The second command says whether the rebuilt tables are the published ones, date and commit aside.
+The first rebuilds the summary table of the COCO benchmark (`results/tables/benchmark_COCO.md`), the second its eight statistical tables (`results/tables/coco/`), and the third says whether the rebuilt statistical tables are the published ones, date and commit aside.
 
 The tables of the Nicla Vision (`results/nicla/tables/coco/`) take `--board nicla --deployable MobileNetV2,MobileNet,MobileNetV3Small`. For the Visual Wake Words run (section 2): `--tag VWW --run_suffix +32+20+0.0001+160+120 --splits_dir data/splits_vww --archs MobileNetV2 --deployable MobileNetV2` and another `--output_dir`.
 
@@ -180,7 +175,7 @@ flowchart TD
         HEADER["tflite_to_c.py<br/><small>--target pil, hil, both</small>"]:::python
         MODEL_H("deployment/*/<br/>model.h"):::artifact
         FLASH["compile_upload_arduino.py<br/><small>--target pil or hil</small>"]:::python
-        BOARD{{"Portenta H7<br/><small>pil_firmware or<br/>hil_firmware</small>"}}:::hardware
+        BOARD{{"Portenta H7 or<br/>Nicla Vision<br/><small>pil_firmware or<br/>hil_firmware</small>"}}:::hardware
         HEADER --> MODEL_H --> FLASH --> BOARD
     end
 
@@ -200,16 +195,16 @@ flowchart TD
         end
         subgraph R_PIL["PIL · real chip, image over serial"]
             direction LR
-            PIL["pil_benchmark.py<br/><small>talks to the Portenta</small>"]:::python
+            PIL["pil_benchmark.py<br/><small>talks to the board</small>"]:::python
             PIL_OUT("results/pil/<br/><small>PNG · JSON · predictions CSV<br/>+ latency CSV</small>"):::artifact
             PIL --> PIL_OUT
         end
         subgraph R_HIL["HIL · real chip and camera, hil_subset"]
             direction LR
-            HIL["hil_benchmark.py<br/><small>talks to the Portenta</small>"]:::python
+            HIL["hil_benchmark.py<br/><small>talks to the board</small>"]:::python
             HIL_OUT("results/hil/<br/><small>PNG · JSON · latency CSV<br/>+ rig conditions JSON</small>"):::artifact
             SCREEN{{"Monitor<br/><small>shows the stimulus</small>"}}:::hardware
-            CAM{{"HM01B0 camera<br/><small>on the Portenta</small>"}}:::hardware
+            CAM{{"Camera of the board<br/><small>HM01B0 or GC2145</small>"}}:::hardware
             HIL --> HIL_OUT
             HIL --> SCREEN --> CAM
         end
@@ -269,13 +264,15 @@ python src/tflite_to_c.py models/tflite/MobileNetV2_demo+32+20+0.0001+160+120_in
 **6. PIL.** Flash the PIL firmware and run its bench: the test images go to the chip over USB serial, and the results to `results/pil/`. `--port` is the port `arduino-cli board list` shows once the firmware is running ([details](docs/usage.md#6-processor-in-the-loop-pil-evaluation)).
 ```bash
 python src/compile_upload_arduino.py --target pil
-python src/pil_benchmark.py --port COM9 --model_path models/tflite/MobileNetV2_demo+32+20+0.0001+160+120_int8.tflite --width 160 --height 120
+python src/pil_benchmark.py --port COM9 --model_path models/tflite/MobileNetV2_demo+32+20+0.0001+160+120_int8.tflite
 ```
 
-**7. HIL.** Flash the HIL firmware and run its bench: the chip classifies frames from its own camera, which looks at the `hil_subset` of the test partition shown on a monitor; the results go to `results/hil/`. The three rig conditions are required ([details](docs/usage.md#7-hardware-in-the-loop-hil-evaluation)).
+**7. HIL.** Flash the HIL firmware, check the rig and run the bench: the chip classifies frames from its own camera, which looks at the `hil_subset` of the test partition shown on a monitor; the results go to `results/hil/`. `calibrate_hil_rig.py --live` says how to move the camera until it frames the monitor; `--report`, taken before every session, records the state of the rig next to the results. The three rig conditions are required ([details](docs/usage.md#7-hardware-in-the-loop-hil-evaluation)).
 ```bash
 python src/compile_upload_arduino.py --target hil
-python src/hil_benchmark.py --port COM9 --model_path models/tflite/MobileNetV2_demo+32+20+0.0001+160+120_int8.tflite --lux 10 --distance_cm 24 --ambient_temp 24
+python src/calibrate_hil_rig.py --port COM9 --live
+python src/calibrate_hil_rig.py --port COM9 --report
+python src/hil_benchmark.py --port COM9 --model_path models/tflite/MobileNetV2_demo+32+20+0.0001+160+120_int8.tflite --lux 11 --distance_cm 22 --ambient_temp 24
 ```
 
 Both benches stop, with nothing written, unless the model on the board is the `.tflite` given with `--model_path`, and no script replaces an existing checkpoint, `.tflite` or result file unless `--overwrite` is given.
@@ -296,9 +293,9 @@ Evaluated on `data/splits_coco/test`: all 5,000 images of COCO `val2017` (2,363 
 | `MobileNetV2` (α=0.35) | 629.5 KiB | 0.8592 / 0.8575 | 0.8590 / 0.8573 | 0.8592 / 0.8575 | 0.8592 / 0.8575 | 4,999 / 5,000 | 5,000 / 5,000 |
 | `MobileNetV3Small` (α=0.75) | 816.2 KiB | 0.8388 / 0.8366 | 0.7856 / 0.7842 | 0.7800 / 0.7788 | 0.7800 / 0.7788 | 4,754 / 5,000 | 5,000 / 5,000 |
 | `SqueezeNet` (batch norm) | 809.3 KiB | 0.8374 / 0.8359 | 0.8356 / 0.8340 | 0.8360 / 0.8344 | 0.8360 / 0.8344 | 4,996 / 5,000 | 5,000 / 5,000 |
-| `ResNet8` | 1249.2 KiB | 0.8362 / 0.8340 | 0.8366 / 0.8344 | 0.8360 / 0.8337 | 0.8360 / 0.8337 | 4,993 / 5,000 | 5,000 / 5,000 |
-| `MobileNetV3Large` (α=0.75) | 2179.5 KiB | 0.8816 / 0.8806 | 0.8658 / 0.8644 | *does not fit* | *does not fit* | — | — |
-| `ResNet18` | 11057.3 KiB | 0.8524 / 0.8511 | 0.8548 / 0.8534 | *does not fit* | *does not fit* | — | — |
+| `ResNet8` | 1,249.2 KiB | 0.8362 / 0.8340 | 0.8366 / 0.8344 | 0.8360 / 0.8337 | 0.8360 / 0.8337 | 4,993 / 5,000 | 5,000 / 5,000 |
+| `MobileNetV3Large` (α=0.75) | 2,179.5 KiB | 0.8816 / 0.8806 | 0.8658 / 0.8644 | *does not fit* | *does not fit* | — | — |
+| `ResNet18` | 11,057.3 KiB | 0.8524 / 0.8511 | 0.8548 / 0.8534 | *does not fit* | *does not fit* | — | — |
 
 Inference latency on the chip (mean over the 5,000 images, Cortex-M7 `DWT->CYCCNT` cycle counter, both boards at 400 MHz) and multiply-accumulate operations of each model (`results/tables/macs_COCO.csv`):
 
@@ -307,8 +304,8 @@ Inference latency on the chip (mean over the 5,000 images, Cortex-M7 `DWT->CYCCN
 | `MobileNet` | 14,739,072 | 241.40 | 193.45 | −19.9% | 6.55 / 5.25 |
 | `MobileNetV2` | 22,926,080 | 401.15 | 322.06 | −19.7% | 7.00 / 5.62 |
 | `MobileNetV3Small` | 16,824,736 | 489.59 | 414.81 | −15.3% | 11.64 / 9.86 |
-| `SqueezeNet` | 112,906,240 | 1153.63 | 987.00 | −14.4% | 4.09 / 3.50 |
-| `ResNet8` | 275,845,632 | 2892.09 | 2561.31 | −11.4% | 4.19 / 3.71 |
+| `SqueezeNet` | 112,906,240 | 1,153.63 | 987.00 | −14.4% | 4.09 / 3.50 |
+| `ResNet8` | 275,845,632 | 2,892.09 | 2,561.31 | −11.4% | 4.19 / 3.71 |
 
 Both tables are condensed from `results/tables/benchmark_COCO.md`, which `python src/build_benchmark_table.py --tag COCO` rebuilds from the result files.
 
@@ -330,19 +327,17 @@ From Table 1 of `results/tables/coco/` and of `results/nicla/tables/coco/` (`pyt
 What the tables show, in short; [`docs/coco_benchmark.md`](docs/coco_benchmark.md#notes-on-the-results) develops each point with its figures:
 
 - **What the camera costs depends on the camera, and the chip is not what loses it.** On the Portenta H7 the fall from PIL to HIL is 3 to 11 points, distinguishable from zero for `MobileNetV2` and `MobileNet`; on the Nicla Vision no model loses a distinguishable amount, and `MobileNetV2` scores 0.854 against 0.732 with the same file and microcontroller. On the captured frame the chip agrees with the PC on 199 or 200 of the 200 images (179 and 183 for `MobileNetV3Small`, the exception below): the loss is in the optical front end, not in the execution. Four more sessions of `MobileNetV2` on the Portenta H7 gave 0.716 to 0.733, and three on the Nicla Vision 0.835 to 0.869.
-- **Two rigs.** Portenta H7: 22 cm, a wide lens, the geometry and focus checks of `calibrate_hil_rig.py` passed and the gray-scale and flat-field ones not (corners of the frame at about 13% of the brightness of the centre). Nicla Vision: 94 cm, the four checks passed before each session (corners at 61%). See [Known Limitations](#known-limitations).
+- **Two rigs.** Portenta H7: 22 cm, a wide lens, the geometry and focus checks of `calibrate_hil_rig.py` passed and the gray-scale and flat-field ones not (corners of the frame at about 13% of the brightness of the centre). Nicla Vision: 94 cm, a narrower lens; the four checks passed before each of the three sessions of the table (corners at 61%), and before the three repeatability sessions the flat-field one fell just short of its 60% (corners at 59%). See [Known Limitations](#known-limitations).
 - **The two boards give the same answers.** For each of the five models that fit, the Portenta H7 and the Nicla Vision give the same prediction for all 5,000 images.
 - **SIL = PIL when the PC uses the same arithmetic.** With the reference kernels of TFLite at SIL (`sil_benchmark.py --kernels reference`), the PC and the chip agree on 4,975 to 4,999 of 5,000 images for `MobileNet`, `MobileNetV2`, `SqueezeNet` and `ResNet8`. The default interpreter of TFLite (XNNPACK delegate) differs from the chip in 27 to 80 images of the same files: most of what a SIL-to-PIL comparison shows with the default interpreter is the PC, not the chip.
 - **`MobileNetV3Small` is the exception.** It loses five points at quantization (0.8388 → 0.7856), and the chip and the reference-kernel SIL agree on 4,754 of 5,000 images only. One of its squeeze-excite activations gets a degenerate scale at conversion; its agreement figures say more about that file than about the chip.
 - **The Nicla Vision is faster.** With the same MCU, clock and model file it needs 11.4% to 19.9% fewer cycles per inference than the Portenta H7. Its tensor arena is in internal RAM and the Portenta's in external SDRAM, and that is the cause: with its arena moved to internal RAM the Portenta H7 runs `MobileNet` within 0.2% of the cycles of the Nicla Vision (`results/experiments/arena_internal/`).
 - **Two models stop at SIL.** The INT8 files of `MobileNetV3Large` and `ResNet18` are larger than the flash left for a model (see [Known Limitations](#known-limitations)).
-- **`SqueezeNet` is trained with batch normalisation** (`train_squeezenet.py --batch_norm`). Without it the network does not learn on COCO: with three learning rates it answers one class for every image (accuracy 0.500).
+- **`SqueezeNet` is trained with batch normalisation** (`train_squeezenet.py --batch_norm`). Without it the network does not learn on COCO: with three learning rates it answers one class for every image (accuracy 0.500). `--kernel_initializer he_normal` is the other way out; what both gave in a pilot is in [`docs/scripts.md`](docs/scripts.md#2-model-training-ml-pipelines).
 - **Test split and training data.** The training and validation images come from COCO `train2017` and the test images from `val2017`, so no file is on both sides. Different files can still show the same scene: 129 of the 5,000 test images (2.6%) show the same photo or scene as a train/val image, and removing them changes macro-F1 by at most 0.0021 in any run ([`docs/data_independence.md`](docs/data_independence.md#coco-main-benchmark)).
 - **Where these numbers stand.** Published results on this task, trained on the same amount of data, report about 86% for a MobileNetV1 (α=0.25) at 96×96 in colour (the MLPerf Tiny reference model) and 88.75% for a MobileNetV2 at 160×160 in grayscale (MicroNets). The models here take 160×120 grayscale images and one recipe was used for the seven; no model was tuned on the test partition.
 
----
-
-### 2. A Four-Level Run on Public Images: Visual Wake Words (`MobileNetV2_VWW`)
+### 2. An Earlier, Smaller Run: Visual Wake Words (`MobileNetV2_VWW`)
 
 This smaller run predates the COCO benchmark of section 1: one model, a linear head trained on a frozen ImageNet `MobileNetV2`, on 2,000 balanced images of `val2017`, measured at the four levels on a Portenta H7. Its accuracy is 0.6867 at PIL on its 300 test images and goes from 0.7200 at PIL to 0.6800 at HIL on the 200 of its HIL subset. It shows the pipeline reused on another partition, not a tuned model, and its images belong to the COCO test split of section 1, so a `_VWW` model must not be evaluated there. Its table, its conditions and what limits its figures are in [`docs/coco_benchmark.md`](docs/coco_benchmark.md#the-earlier-visual-wake-words-run).
 
@@ -368,17 +363,17 @@ This smaller run predates the COCO benchmark of section 1: one model, a linear h
 
 ## Known Limitations
 
-- **The HIL figures describe two rigs, on 200 images:** The rig of the Portenta H7 passes the geometry and focus checks of its calibrator and not the gray-scale and flat-field ones; that of the Nicla Vision passes the four. Their illuminance was read with a phone app, and the two boards were not measured at the same distance or light. The loss from PIL to HIL belongs to each camera, monitor and alignment as much as to the models.
+- **The HIL figures describe two rigs, on 200 images:** The rig of the Portenta H7 passes the geometry and focus checks of its calibrator and not the gray-scale and flat-field ones; that of the Nicla Vision passed the four before the sessions of the table and missed the flat-field one by about a point before its repeatability sessions. Their illuminance was read with a phone app, and the two boards were not measured at the same distance or light. The loss from PIL to HIL belongs to each camera, monitor and alignment as much as to the models.
+- **Session-to-session variation of the HIL gap is known from few runs:** Five sessions of one model on the Portenta H7, one of them with another presentation order, and four on the Nicla Vision (Table 4 of `results/tables/coco/` and of `results/nicla/tables/coco/`): they do not separate an effect of the order from the variation between sessions, which is about twice as large on the Nicla Vision, whose camera crept on its mount.
 - **One microcontroller, two boards:** PIL and HIL of the COCO benchmark were measured on an Arduino Portenta H7 with the Vision Shield and on an Arduino Nicla Vision (HIL of three models on the latter: with the arena that `SqueezeNet` or `ResNet8` needs, its HIL sketch does not start). Both boards carry the same STM32H747, so their agreement on every image at PIL is a consistency check, not evidence of portability to other microcontroller families, and no results on other MCU families are reported ([Boards and Memory](docs/hardware.md#boards-and-memory), [Portability](docs/hardware.md#portability)).
-- **Published models are files, not recipes:** The COCO models were trained with a seed on a GPU, where the seed does not repeat a run exactly; the model of the Visual Wake Words run was trained before the training scripts had a seed. In both cases training again does not give the same weights, and the published numbers of the PC levels are reproduced from the published model files (see [Training](docs/coco_benchmark.md#training)).
+- **PIL and HIL inference cycle counts are not interchangeable:** In every model measured at both levels on the Portenta H7, `CYC_INF` is lower in HIL than in PIL, by 1.30% to 2.69% in the COCO benchmark and by 0.81% in the Visual Wake Words run, with the same `400.0 MHz` clock and SDRAM arena layout; on the Nicla Vision, whose arena is in internal RAM, the two differ by at most 0.34%. The cause was not identified. Report the two latencies separately.
+- **One task, and no energy:** Every published result is a binary image classifier on 160×120 grayscale images, and PHLAME measures accuracy and time, not energy or power ([`docs/related_work.md`](docs/related_work.md#what-phlame-does-not-do)).
 - **Post-training quantization only:** The INT8 files come from post-training quantization calibrated on 100 training images. Much of the published work on person detection for microcontrollers uses quantization-aware training, which PHLAME does not implement, so its INT8 accuracy is not to be compared with those figures as if the method were the same.
-- **`SqueezeNet` needs batch normalisation on COCO:** Without it the network does not learn there (constant output, accuracy 0.500, with three learning rates). `--kernel_initializer he_normal` is the other option for this case; what both gave in a pilot is in [`docs/scripts.md`](docs/scripts.md#2-model-training-ml-pipelines).
+- **Published models are files, not recipes:** The COCO models were trained with a seed on a GPU, where the seed does not repeat a run exactly; the model of the Visual Wake Words run was trained before the training scripts had a seed. In both cases training again does not give the same weights, and the published numbers of the PC levels are reproduced from the published model files (see [Training](docs/coco_benchmark.md#training)).
 - **2 MiB of internal flash, shared with the firmware:** About 1,374 KiB are left for the model on the Portenta H7, so `MobileNetV3Large` (`2,179.5 KiB`) and `ResNet18` (`11,057.3 KiB`) stop at SIL. The budget, and what would and would not get around it, are under [Flash Budget](docs/hardware.md#flash-budget).
-- **Internal RAM limits what runs without external SDRAM:** The Portenta H7 holds its 4 MiB arena in external SDRAM. The Arduino Nicla Vision has none (511 KiB of internal RAM for everything), so `ResNet8` and `SqueezeNet` need `--arena_kb 392` and `408` there, which leaves 43 KB and 27 KB of RAM for everything else (figures in [Boards and Memory](docs/hardware.md#boards-and-memory)).
+- **Internal RAM limits what runs without external SDRAM:** The Portenta H7 holds its 4 MiB arena in external SDRAM. The Arduino Nicla Vision has none (511 KiB of internal RAM for everything), so `ResNet8` and `SqueezeNet` need `--arena_kb 392` and `408` there, which leaves 42 KiB and 26 KiB of RAM for everything else (figures in [Boards and Memory](docs/hardware.md#boards-and-memory)).
 - **The published PIL files predate the on-chip model verification in PIL:** Their `sha256` is that of the `.tflite` given to the bench on the host, not of the model on the board. A board running another model is ruled out for those of the COCO benchmark indirectly, by comparing each PIL run with the SIL run of every model of the benchmark ([details](docs/coco_benchmark.md#the-published-pil-files-and-the-model-on-the-board)); the Visual Wake Words run, with one model, has no such comparison. Runs measured from now on are checked directly, by the fingerprint the PIL firmware announces ([Serial Protocol](docs/hardware.md#serial-protocol-pil-bench)).
 - **The Visual Wake Words run was measured before the single image loader:** It predates the loader and the reference kernels at SIL, so its SIL-to-PIL difference mixes the JPEG decoder and the PC kernels with the chip ([details](docs/coco_benchmark.md#the-earlier-visual-wake-words-run)).
-- **PIL and HIL inference cycle counts are not interchangeable:** In every model measured at both levels on the Portenta H7, `CYC_INF` is lower in HIL than in PIL, by 1.30% to 2.69% in the COCO benchmark and by 0.81% in the Visual Wake Words run, with the same `400.0 MHz` clock and SDRAM arena layout; on the Nicla Vision, whose arena is in internal RAM, the two differ by at most 0.34%. The cause was not identified. Report the two latencies separately.
-- **Session-to-session variation of the HIL gap is known from few runs:** Five sessions of one model on the Portenta H7, one of them with another presentation order, and four on the Nicla Vision (Table 4 of `results/tables/coco/` and of `results/nicla/tables/coco/`): they do not separate an effect of the order from the variation between sessions, which is about twice as large on the Nicla Vision, whose camera crept on its mount.
 - **FP32 firmware branch not validated:** Both firmwares divide the pixel by 255 when the model is floating point, while the INT8 branch and every published model use the raw pixel (0–255). All published results use INT8 models, so that branch never ran; do not deploy a floating-point `.tflite` without checking it.
 - **Text end-of-inference markers:** The benches find the end of each inference by a line of text printed by the firmware, so a port must keep that line (see [Serial Protocol](docs/hardware.md#serial-protocol-pil-bench)).
 - **Argmax class output over serial:** The firmware reports the predicted class index (`argmax`) rather than full per-class logit vectors to keep post-processing short and compatible with arbitrary class counts (its measured times are under [Serial Protocol](docs/hardware.md#serial-protocol-pil-bench)).
@@ -387,13 +382,13 @@ This smaller run predates the COCO benchmark of section 1: one model, a linear h
 
 ## Data Availability
 
-- **In this repository:** the partition manifests and reports (`data/splits_*/`), every per-image prediction and latency table (`results/{mil,sil,pil,hil}/`) and the generated tables (`results/tables/`). They are enough to rebuild the published tables without hardware (see [Reproduce the Published Results Without Hardware](#reproduce-the-published-results-without-hardware)).
+- **In this repository:** the partition manifests and reports (`data/splits_*/`), every per-image prediction and latency table (`results/{mil,sil,pil,hil}/`, with `results/nicla/` for the second board and `results/experiments/` for the tensor-arena experiment) and the generated tables. They are enough to rebuild the published tables without hardware (see [Reproduce the Published Results Without Hardware](#reproduce-the-published-results-without-hardware)).
 - **Smoke-test sample (`data/sample/`):** eight `160×120` grayscale images (4 `person`, 4 `non_person`) from the held-out *Visual Wake Words* test split, with no personal data. Each photograph is under **CC BY 2.0** and the MS-COCO annotations under **CC BY 4.0**; provenance and SHA-256 checksums are in `data/sample/ATTRIBUTION.md`. The sample exercises the preprocessing right after cloning and, once a model file is in `models/` (see *Model files* below), evaluates it without touching `results/sil/`:
   ```bash
   python src/sil_benchmark.py --model_path models/tflite/MobileNetV2_VWW+32+20+0.0001+160+120_int8.tflite --data_dir data/sample --class_names_path models/class_names_vww.txt --output_dir results/smoke_test
   ```
-- **COCO benchmark images (MS-COCO):** not redistributed, for the same reason as the Visual Wake Words images below. The 123,287 images of the public benchmark (all of `train2017` and all of `val2017`) are fetched from the MS-COCO servers; the partition they give is published in `data/splits_coco/`, with the selection hash of each download in `subset_report_train2017.json` and `subset_report_val2017.json`. The commands are in [`docs/coco_benchmark.md`](docs/coco_benchmark.md#1-rebuild-the-dataset).
-- **Visual Wake Words images (MS-COCO):** not redistributed. Each photograph keeps the licence its author chose, so the images are fetched from the MS-COCO servers instead of being copied into this repository or its releases. The 2,000-image balanced subset (`1,000 person` + `1,000 non_person` from `val2017`, `seed=42`, `selection_sha256: b3ab289abd4a`) is rebuilt in about a minute:
+- **COCO benchmark images (MS-COCO):** not redistributed. Each photograph keeps the licence its author chose, so the images are fetched from the MS-COCO servers instead of being copied into this repository or its releases. The public benchmark uses 123,287 of them (all of `train2017` and all of `val2017`); the partition they give is published in `data/splits_coco/`, with the selection hash of each download in `subset_report_train2017.json` and `subset_report_val2017.json`. The commands are in [`docs/coco_benchmark.md`](docs/coco_benchmark.md#1-rebuild-the-dataset).
+- **Visual Wake Words images (MS-COCO):** not redistributed, for the same reason. The 2,000-image balanced subset (`1,000 person` + `1,000 non_person` from `val2017`, `seed=42`, `selection_sha256: b3ab289abd4a`) is rebuilt in about a minute:
   ```bash
   python src/download_vww_subset.py --per_class 1000 --seed 42
   ```

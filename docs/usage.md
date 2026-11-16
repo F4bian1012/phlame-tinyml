@@ -24,7 +24,7 @@ case-insensitively, so `.JPG` or `.Png` also count). Each subfolder of `data/raw
 labels follow the alphabetical order of the folder names. Files with other
 extensions (e.g. `.gif`, `.tif`, `.webp`, `.heic`) are skipped.
 
-Then process (convert to grayscale) and resize them with recommended sizes: CAMERA_R160x120 (QQVGA), CAMERA_R320x240 (QVGA), CAMERA_R320x320.
+Then convert the images to grayscale and resize them to the size the model will take. Every published result uses 160×120 (QQVGA), the size both HIL sketches ask the camera for (`CAMERA_R160x120`).
 ```bash
 python src/process_images.py --raw_path data/raw --path_processed data/processed/grayscale
 python src/reshape_images.py --width 160 --height 120 --balance undersample
@@ -87,43 +87,51 @@ python src/compile_upload_arduino.py --target pil
 ```
 Run the bench. It streams the held-out test partition and writes to `results/pil/`:
 ```bash
-python src/pil_benchmark.py --port COM9 --model_path models/tflite/{model_name}_int8.tflite --width 160 --height 120
+python src/pil_benchmark.py --port COM9 --model_path models/tflite/{model_name}_int8.tflite
 ```
 Before the first image the bench asks the board what it is running, and it stops, with nothing written, unless the board is the one given with `--board`, the model in flash is the `.tflite` given with `--model_path` (same FNV-1a fingerprint and size) and the images have the input shape the firmware announces. `--width` and `--height` may be left out: they are then taken from the firmware. A board that stops answering ends the run after 5 images in a row without an answer (`--max_unanswered`) instead of waiting 30 s for each remaining image. A run that does not reach its last image keeps what it measured, marked `completed: false` in `metrics_*.json`, and ends with exit code 3. `--allow_model_mismatch` measures on a board whose model cannot be verified, which is the case of a firmware flashed before November 2026 (it reports no fingerprint), and records `model.identity_verified = false`.
 
 ## 7. Hardware-in-the-Loop (HIL) Evaluation
-The real chip runs inference on frames from its own HM01B0 camera, which looks at each test image displayed full-screen on a monitor.
+The real chip runs inference on frames from its own camera (the HM01B0 of the Vision Shield on the Portenta H7, the GC2145 of the Nicla Vision), which looks at each test image displayed full-screen on a monitor.
 
 Flash the HIL firmware:
 ```bash
 python src/compile_upload_arduino.py --target hil
 ```
+Check the rig. `--live` shows a test pattern and says how to move the camera until it frames the monitor (`--lang es` gives its messages in Spanish); `--report` writes a calibration report (geometry, tone response, vignetting, exposure stability and focus) to `results/hil/calibration/`. Take the report before every session, not once for a series of them: a camera that creeps on its mount is not seen otherwise (see [HIL Rig and Session](hardware.md#hil-rig-and-session)).
+```bash
+python src/calibrate_hil_rig.py --port COM9 --live
+python src/calibrate_hil_rig.py --port COM9 --report
+```
 Run the bench. It displays the `hil_subset` of the test partition and writes to `results/hil/`:
 ```bash
-python src/hil_benchmark.py --port COM9 --model_path models/tflite/{model_name}_int8.tflite --lux 10 --distance_cm 24 --ambient_temp 24
+python src/hil_benchmark.py --port COM9 --model_path models/tflite/{model_name}_int8.tflite --lux 11 --distance_cm 22 --ambient_temp 24
 ```
 The bench aborts if the fingerprint of the model on the board does not match `--model_path`, or if a rig condition (`--lux`, `--distance_cm`, `--ambient_temp`) is missing. Each stimulus stays on screen for `--settle` seconds before its capture: the default is 1.5 s, the value of the sessions of the COCO benchmark (the Visual Wake Words session used 1.0 s). It waits for ENTER before the first stimulus, so the camera can be placed in front of the monitor; `--no_confirm` skips the wait, and is needed where there is no interactive terminal. Adding `--sil_model models/tflite/{model_name}_int8.tflite --mil_model models/checkpoints/{model_name}.keras` also classifies every captured frame on the PC, which separates the effect of the camera from the effect of the chip. The frames are then saved in a folder of the session, `data/hil_frames/{model_name}_int8/` (git-ignored; `--frames_dir` gives another), so the next session does not replace them.
 
-Before a session, `python src/calibrate_hil_rig.py --port COM9 --live` shows a test pattern and says how to move the camera until it frames the monitor, and `--report` writes a calibration report (geometry, tone response, vignetting, exposure stability and focus) to `results/hil/calibration/`. Take the report before every session, not once for a series of them: a camera that creeps on its mount is not seen otherwise (see [HIL Rig and Session](hardware.md#hil-rig-and-session)). A session that is cut short keeps what it measured: every stimulus is written to the CSV as it is measured, and the other files are written marked `completed: false`, with exit code 3 (see [`docs/scripts.md`](scripts.md#5-camera-in-the-loop-hil-evaluation)).
+A session that is cut short keeps what it measured: every stimulus is written to the CSV as it is measured, and the other files are written marked `completed: false`, with exit code 3 (see [`docs/scripts.md`](scripts.md#5-camera-in-the-loop-hil-evaluation)).
 
 ## Running PIL and HIL on the Arduino Nicla Vision
-The same two sketches build for the Nicla Vision; `--board nicla` selects it in the three scripts that deal with the board. Steps 1 to 5 do not change.
+The same two sketches build for the Nicla Vision; `--board nicla` selects it in the scripts that deal with the board (`compile_upload_arduino.py`, the two benches and the rig calibrator). Steps 1 to 5 do not change.
 
 Flash the PIL firmware and run its bench:
 ```bash
 python src/compile_upload_arduino.py --target pil --board nicla
 ```
 ```bash
-python src/pil_benchmark.py --board nicla --port COM9 --model_path models/tflite/{model_name}_int8.tflite --width 160 --height 120
+python src/pil_benchmark.py --board nicla --port COM9 --model_path models/tflite/{model_name}_int8.tflite
 ```
-Flash the HIL firmware and run its bench:
+Flash the HIL firmware, take the report of the rig and run the bench:
 ```bash
 python src/compile_upload_arduino.py --target hil --board nicla
 ```
 ```bash
-python src/hil_benchmark.py --board nicla --port COM9 --model_path models/tflite/{model_name}_int8.tflite --lux 10 --distance_cm 24 --ambient_temp 24
+python src/calibrate_hil_rig.py --board nicla --port COM9 --report
 ```
-The results go to `results/nicla/pil/` and `results/nicla/hil/`, and every file records the board it was measured on (`run.board`). The benches stop if the firmware announces a board other than the one given with `--board`.
+```bash
+python src/hil_benchmark.py --board nicla --port COM9 --model_path models/tflite/{model_name}_int8.tflite --lux 4 --distance_cm 94 --ambient_temp 24
+```
+The results go to `results/nicla/pil/` and `results/nicla/hil/` (the calibration reports to `results/nicla/hil/calibration/`), and every file records the board it was measured on (`run.board`). The benches stop if the firmware announces a board other than the one given with `--board`.
 
 Two things differ from the Portenta H7 (details in [Hardware and Porting](hardware.md#boards-and-memory)):
 - **Memory.** The Nicla Vision has no external SDRAM, so the tensor arena is a static array in its 511 KiB of internal RAM: 368 KiB by default, sized for `MobileNetV2`. `--arena_kb` changes it at compile time, and `--compile_only` reports the RAM use without a board.

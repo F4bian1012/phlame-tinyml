@@ -9,8 +9,8 @@
 #   in as its dependencies) | numpy 2.5.3 | opencv-python 5.0.0.93
 #   pillow 12.3.0 | scikit-learn 1.9.1 | seaborn 0.13.2 | matplotlib 3.11.2
 #   pyserial 3.5
-# Every script in src/ and nicla_vision_port/ was scanned for imports on
-# 2026-11-01; each entry below names the scripts that need it.
+# Every script in src/ was scanned for imports; each entry below names the
+# scripts that need it.
 # ==============================================================================
 
 # --- Core Machine Learning & Deep Learning ---
@@ -24,7 +24,8 @@ tensorflow>=2.16.0
 # process_images.py, reshape_images.py, hil_benchmark.py (stimulus
 # window, frame handling)
 opencv-python>=4.8.0
-# pil_benchmark.py (image loading / resize before the serial transfer)
+# images.py, the one image loader of training, calibration, MIL, SIL and the
+# PIL bench; calibrate_hil_rig.py (text of the live preview)
 pillow>=10.0.0
 # Floor 2.0: the opencv-python and tensorflow wheels of the verified stack are
 # built against the numpy 2.x ABI; importing them with numpy 1.x fails.
@@ -49,7 +50,7 @@ scipy>=1.13.0
 pyserial>=3.5
 
 # --- Visualization ---
-# Training curves and confusion matrices (train_*.py, test_*.py, benches)
+# Training curves and confusion matrices (train_*.py, evaluation.py, the board benches)
 matplotlib>=3.7.0
 # keras.callbacks.TensorBoard in train_mobilenet.py, train_resnet.py and
 # train_squeezenet.py (also installed as a TensorFlow dependency)
@@ -86,19 +87,21 @@ tensorboard>=2.15.0
 # ==============================================================================
 # Hardware & Deployment Dependencies (Non-Python)
 # ==============================================================================
-# Required to compile and upload the model to the Portenta H7. Versions in
-# brackets are the ones used for the published results (checked 2026-11-01).
+# Required to compile and upload the firmware (PIL and HIL only). Versions in
+# brackets are the ones used for the published results.
 #
 # 1. Arduino CLI, in the system PATH            [arduino-cli 1.5.0]
 #    https://arduino.github.io/arduino-cli/
 #
-# 2. Board core (Arduino Portenta H7)            [arduino:mbed_portenta 4.5.0]
+# 2. Board core
+#    Arduino Portenta H7                         [arduino:mbed_portenta 4.5.0]
 #    Run: arduino-cli core install arduino:mbed_portenta@4.5.0
 #    (4.6.0 is available; the results were produced with 4.5.0)
+#    Arduino Nicla Vision                        [arduino:mbed_nicla 4.6.0]
+#    Run: arduino-cli core install arduino:mbed_nicla@4.6.0
 #
 # 3. TensorFlow Lite Micro library               [Chirale_TensorFlowLite 2.0.0]
 #    Run: arduino-cli lib install "Chirale_TensorFlowLite@2.0.0"
 #
-# The Camera/Himax (HM01B0), SDRAM and Portenta_SDCARD libraries used by the
-# firmware ship inside the mbed_portenta core; nothing else to install.
-# Nicla Vision port: arduino:mbed_nicla (4.6.0 used), same TFLM library.
+# The camera (HM01B0, GC2145) and SDRAM libraries used by the firmware ship
+# inside the two cores; nothing else to install.

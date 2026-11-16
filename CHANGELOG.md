@@ -100,8 +100,8 @@ DOI yet (see [Citation](README.md#citation)).
   records it (`model.arena_memory`). `compile_upload_arduino.py --arena_memory internal` builds the Portenta H7
   firmware with the arena in internal RAM, where the Nicla Vision has it; `pil_benchmark.py --hil_subset` sends
   only the images of the HIL subset; and `compare_pil_cycles.py` puts the cycles per phase of several PIL runs of
-  one model side by side. Together they allow the place of the arena to be measured on one board. No such run is
-  published yet.
+  one model side by side. Together they allow the place of the arena to be measured on one board; the runs are in
+  `results/experiments/`.
 - The HIL bench keeps the captured frames of each session in a folder of its own,
   `data/hil_frames/<name of the session's files>/`, recorded in the conditions file, and stops before opening the
   port when that folder already holds frames, unless `--overwrite` is given. Before, every session wrote to
@@ -157,7 +157,7 @@ Which of these have run on a board and which only against the simulated board of
 
 ### Tests and Continuous Integration
 
-- The test suite now has more than three hundred tests. It needs no board, dataset or model: the benches run
+- The test suite now has more than four hundred tests. It needs no board, dataset or model: the benches run
   against a simulated board, the statistics of the tables are checked against hand-worked values and the
   published tables are rebuilt and compared.
 - A workflow, `.github/workflows/tests.yml`, runs the suite and the table comparison on Linux and Windows for
@@ -166,60 +166,31 @@ Which of these have run on a board and which only against the simulated board of
 ### Documentation
 
 - PHLAME is a name: the README no longer expands it as an acronym.
-- [`docs/data_independence.md`](docs/data_independence.md) says what the one image of the HIL subset that shares
-  its scene with a training image does to the PIL and HIL figures (0.0014 of macro-F1 at most).
-- [`docs/extending.md`](docs/extending.md): how to add an architecture and a board.
-  [`CONTRIBUTING.md`](CONTRIBUTING.md): tests and conventions.
-- [`docs/hardware.md`](docs/hardware.md), [`docs/scripts.md`](docs/scripts.md),
-  [`docs/results_schema.md`](docs/results_schema.md), [`docs/data_independence.md`](docs/data_independence.md)
-  and the build record of the flash budget, [`docs/flash_budget_build.txt`](docs/flash_budget_build.txt).
-- Several statements of the README were reworded to say what the data show.
+- The README is shorter. It keeps the sequence of commands, the tables of the COCO benchmark with a short list of
+  what they show, and each limitation in one or two sentences; its header names the two boards. The detail moved
+  to the documents, and no number changed:
+  - [`docs/usage.md`](docs/usage.md): the seven steps with their options, the two board levels on the Arduino
+    Nicla Vision and the note on the two requirements files;
+  - [`docs/coco_benchmark.md`](docs/coco_benchmark.md): the full recipe of the COCO benchmark, the notes on its
+    results at the four levels, the rigs of its HIL sessions and the earlier Visual Wake Words run;
+  - [`docs/hardware.md`](docs/hardware.md): the hardware, the flash budget (with its build record,
+    [`docs/flash_budget_build.txt`](docs/flash_budget_build.txt)), the two boards and their memory, the HIL rig and
+    the serial protocol;
+  - [`docs/scripts.md`](docs/scripts.md): every script, the usage notes and the layout of the repository;
+  - [`docs/results_schema.md`](docs/results_schema.md): the result files, every key of the two JSON files and a
+    snippet that reads them.
 - The COCO benchmark is the benchmark of the repository: it is what `build_ladder_tables.py` builds without
   options and the model in the `model.h` of the sketches (see above).
-- The header of the README names the two boards: PIL is measured on the Arduino Portenta H7 and on the Arduino
-  Nicla Vision, HIL on the Portenta H7.
-- The README is shorter. The detail of the seven usage steps and of the Arduino Nicla Vision moved to
-  [`docs/usage.md`](docs/usage.md); the README keeps the sequence of commands.
-- The README was cut a second time. It keeps the two tables of the COCO benchmark, a short list of what they
-  show, the commands that reproduce the PC levels and each limitation in one or two sentences. What left it is in
-  the documents: the full recipe and the full notes of the COCO benchmark in the new
-  [`docs/coco_benchmark.md`](docs/coco_benchmark.md); the hardware details and the flash budget in
-  [`docs/hardware.md`](docs/hardware.md); the index of the scripts and the layout of the repository in
-  [`docs/scripts.md`](docs/scripts.md); the table of the result files, how to read them and the Python snippet in
-  [`docs/results_schema.md`](docs/results_schema.md); and the note on the two requirements files in
-  [`docs/usage.md`](docs/usage.md). No number changed.
+- [`docs/data_independence.md`](docs/data_independence.md): how the independence of a test split is checked, what
+  the check found on the COCO partition, and what the one image of the HIL subset that shares its scene with a
+  training image does to the PIL and HIL figures (0.0014 of macro-F1 at most).
+- [`docs/extending.md`](docs/extending.md): how to add an architecture and a board.
+  [`CONTRIBUTING.md`](CONTRIBUTING.md): tests and conventions.
 - [`docs/related_work.md`](docs/related_work.md) compares PHLAME with MLPerf Tiny and with other benchmarks and
   tools: what each measures, what PHLAME does that was not found in them, and what it does not do (no energy
-  measurement, one microcontroller, no standardised submission process, no release yet). Each reference was then
-  looked up at its primary source and the statements that cite it were checked against it (full text in the HTML
-  rendering of arXiv, documentation and repositories; the PDF files were not opened, and three sources could not
-  be checked in full, as its status note says). That narrowed what the document says was not found elsewhere:
-  ST's `validate` command, ML-EXray and EdgeMark each measure some difference between a reference on the PC and
-  the device, so the claim is now the count, for a microcontroller and over the test set of a public benchmark,
-  of the images predicted differently.
-
-### Renamed
-
-For anyone who used an earlier commit:
-
-| Before | Now |
-|---|---|
-| `src/test_model.py` | `src/mil_benchmark.py` |
-| `src/test_tflite_model.py` | `src/sil_benchmark.py` |
-| `src/hil_camera_benchmark.py` | `src/hil_benchmark.py` |
-| `deployment/hil_camera_firmware/` | `deployment/hil_firmware/` |
-| `Matriz_*.png`, `HIL_Confusion_Matrix_*.png` | `confusion_matrix_*.png` |
-| `hil_latencies_*.csv` | `latency_metrics_*.csv` |
-| `hil_conditions_*.json` | `conditions_*.json` |
-| Spanish keys in the result files (`nivel`, `modelo`, ...) | English keys (`level`, `model`, ...): table in `docs/results_schema.md` |
-| `--path_proyecto` | `--sketch_path` (the former name is still accepted) |
-| `--tag_suffix` of `build_ladder_tables.py` | `--run_suffix` (the former name is still accepted) |
-| `build_ladder_tables.py --tag <tag>` with the run suffix `+32+20+0.0001+160+120` implied | add `--run_suffix +32+20+0.0001+160+120` (the suffix implied is now that of the COCO benchmark) |
-| Frames of every HIL session in `data/hil_frames/` | `data/hil_frames/<name of the session's files>/` (`--frames_dir data/hil_frames` gives the former place) |
-
-### Starting Point
-
-What the repository already had at the beginning of November 2026, before the changes above: the three families
-of training scripts with INT8 quantization, the PIL bench with per-phase latency, the camera-in-the-loop HIL bench
-with the model fingerprint, a four-level run on Visual Wake Words, and the script that builds the statistical
-tables.
+  measurement, one microcontroller, no standardised submission process, no release yet). Each reference was
+  looked up at its primary source and the statements that cite it were checked against it; three sources could
+  not be checked in full, as its status note says. ST's `validate` command, ML-EXray and EdgeMark each measure
+  some difference between a reference on the PC and the device, so what the document says was not found
+  elsewhere is the count, for a microcontroller and over the test set of a public benchmark, of the images
+  predicted differently.

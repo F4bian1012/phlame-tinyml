@@ -37,7 +37,7 @@ environment, for reproducing the published figures. The Arduino toolchain is nee
 python -m unittest discover -s tests
 ```
 
-The suite needs no board, no dataset and no trained model, and takes a minute or two. It runs the benches
+The suite needs no board, no dataset and no trained model, and takes a few minutes. It runs the benches
 against a simulated board, rebuilds the published tables from the result files, recomputes their statistics from
 hand-worked values and checks every published result file against the documented schema.
 
