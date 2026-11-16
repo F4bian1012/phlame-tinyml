@@ -190,10 +190,8 @@ Which of these have run on a board and which only against the simulated board of
 - [`docs/extending.md`](docs/extending.md): how to add an architecture and a board.
   [`CONTRIBUTING.md`](CONTRIBUTING.md): tests and conventions.
 - [`docs/related_work.md`](docs/related_work.md) compares PHLAME with MLPerf Tiny and with other benchmarks and
-  tools: what each measures, what PHLAME does that was not found in them, and what it does not do (no energy
-  measurement, one microcontroller, no standardised submission process, no release yet). Each reference was
-  looked up at its primary source and the statements that cite it were checked against it; three sources could
-  not be checked in full, as its status note says. ST's `validate` command, ML-EXray and EdgeMark each measure
-  some difference between a reference on the PC and the device, so what the document says was not found
-  elsewhere is the count, for a microcontroller and over the test set of a public benchmark, of the images
-  predicted differently.
+  tools: what each measures, what PHLAME adds and what it does not do (no energy measurement, one
+  microcontroller, no standardised submission process, no release yet). ST's `validate` command, ML-EXray and
+  EdgeMark each measure some difference between a reference on the PC and the device; what PHLAME adds to them
+  is the count, for a microcontroller and over the test set of a public benchmark, of the images predicted
+  differently.

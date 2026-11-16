@@ -119,7 +119,7 @@ python src/mil_benchmark.py --width 160 --height 120 --model_path models/checkpo
 python src/sil_benchmark.py --model_path models/tflite/MobileNetV2_COCO+32+50+0.0003+160+120_int8.tflite --splits_dir data/splits_coco --kernels reference --output_dir results/smoke_test/sil
 python src/compare_results.py results/smoke_test results
 ```
-Checked from a fresh clone: the fourteen MIL and SIL runs came out identical to the published ones, image by image, in about half an hour.
+From a fresh clone, the fourteen MIL and SIL runs reproduce the published ones image by image, in about half an hour.
 
 ---
 

@@ -23,8 +23,9 @@ This directory ships an 8-image smoke-test sample (**4 `non_person`** and **4 `p
 ## Authors
 
 CC BY 2.0 asks for the author of each photograph to be named. MS-COCO records the address of the image file and its
-licence, not its author; the authors below were read on 15 November 2026 from the Flickr page of each photograph
-(`https://www.flickr.com/photo.gne?id=<photo id>`, the number in the Flickr address of the table above).
+licence, not its author; the authors below are those named on the Flickr page of each photograph
+(`https://www.flickr.com/photo.gne?id=<photo id>`, the number in the Flickr address of the table above; retrieved
+15 November 2026).
 
 | File | Title on Flickr | Author (Flickr name) | Photo page |
 |---|---|---|---|
@@ -32,7 +33,7 @@ licence, not its author; the authors below were read on 15 November 2026 from th
 | `000000330790.jpg` | "T'as de beaux yeux, tu sais" | L'amande | <https://www.flickr.com/photos/l_amande/6949409387/> |
 | `000000343076.jpg` | "Warm laptop hangin" | Zepfanman.com | <https://www.flickr.com/photos/zepfanman/3940136096/> |
 | `000000520871.jpg` | "DSC_1263.JPG" | Banzai Hiroaki | <https://www.flickr.com/photos/imgdive/3711888643/> |
-| `000000000872.jpg` | not available | not available | The photograph is no longer on Flickr (neither its page nor the image address above answers); it is distributed by MS-COCO at the address of the table. |
+| `000000000872.jpg` | not available | not available | No longer on Flickr; distributed by MS-COCO at the address of the table above. |
 | `000000021903.jpg` | not available | not available | The same. |
 | `000000064898.jpg` | "Jesse and Flo surfing" | fotologic | <https://www.flickr.com/photos/fotologic/4891067097/> |
 | `000000295316.jpg` | "Heavy traffic" | Yun Huang Yong | <https://www.flickr.com/photos/goosmurf/8688630144/> |

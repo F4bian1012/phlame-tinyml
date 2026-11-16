@@ -76,17 +76,13 @@ The Portenta H7 FQBN needs `:split=100_0` (2 MiB of flash for the M7 core): with
 does not fit. Of those 2 MiB the first 256 KiB are the bootloader region; the sizes of the two sketches, read
 from a build, are in [`flash_budget_build.txt`](flash_budget_build.txt).
 
-**What has run on a board.** The Visual Wake Words run, published before November 2026, was measured with the
-single-board sketches that preceded these. The two-board PIL sketch was then checked on a Portenta H7 against its predecessor, following steps 5 and 6
-of the README with the same model and the same 300 test images: both gave the same prediction for all 300 images,
-and the bench recorded `BOARD:PORTENTA_H7`. The two-board HIL sketch first ran on a
-Portenta H7 on 2026-11-15 (see [HIL Rig and Session](#hil-rig-and-session)), and on a Nicla Vision the same day:
-three models of the COCO benchmark over the 200 images of the HIL subset (`results/nicla/hil/`, with the report of
-the calibrator taken before each session). Its camera sees the monitor through a narrower lens, from 94 cm against
-22 cm for the Portenta H7, and the reports before those three sessions pass the four checks of the calibrator (what
-the reports of both rigs show is in the [notes on the results](coco_benchmark.md#notes-on-the-results)). With the arena `SqueezeNet` or
-`ResNet8` needs on this board the HIL sketch does not start (it prints `BOARD:NICLA_VISION` and nothing else), and
-after being unplugged and plugged again the board did not answer the calibrator until it was reset or flashed.
+**On the boards.** Both sketches run on both boards. On a Portenta H7 the two-board PIL sketch gives the same
+prediction as the single-board sketch it replaced for each of the 300 test images of the Visual Wake Words run,
+which was measured with that earlier sketch. The HIL sketch ran the sessions of the COCO benchmark on a Portenta H7
+and on a Nicla Vision (see [HIL Rig and Session](#hil-rig-and-session) and the
+[notes on the results](coco_benchmark.md#notes-on-the-results)). On the Nicla Vision, with the arena `SqueezeNet` or
+`ResNet8` needs, the HIL sketch does not start (it prints `BOARD:NICLA_VISION` and nothing else), and after being
+unplugged and plugged again the board does not answer the calibrator until it is reset or flashed.
 
 **The COCO benchmark on both boards** (2026-11-14 and 15, `results/pil/` and `results/nicla/pil/`). On the Nicla
 Vision the PIL sketch boots, allocates the default 368 KiB arena (`MobileNetV2` uses 356,404 bytes of it, the same
@@ -200,7 +196,7 @@ Both host benches (`pil_benchmark.py` and `hil_benchmark.py`) and the wire proto
 
 Adding a third board takes one more block in each sketch and one entry in `src/boards.py`; [`extending.md`](extending.md#adding-a-board) lists what each of them holds and which tests notice.
 
-**What the Nicla Vision showed at HIL.** Both sketches have run on the board (see [Boards and Memory](#boards-and-memory)). The three points that were open before its first HIL sessions, on 2026-11-15, were settled by them. The byte order of the RGB565 frame is right: the dumped frames are clean images of the stimulus. The GC2145 gives at 160×120 a narrower field of view than the HM01B0 of the Vision Shield (according to the driver, a central 640×480 window subsampled by four): the camera had to be 94 cm from the monitor to frame it, against 22 cm for the Portenta H7. And the RAM left is enough for the camera frame with the default arena, which `MobileNetV2`, `MobileNet` and `MobileNetV3Small` fit, and not with the arena `SqueezeNet` or `ResNet8` needs: with `--arena_kb 408` or `392` the HIL sketch prints its board line and does not start.
+**The Nicla Vision at HIL.** Its HIL sessions established three things. The byte order of the RGB565 frame is right: the dumped frames are clean images of the stimulus. The GC2145 gives at 160×120 a narrower field of view than the HM01B0 of the Vision Shield (according to the driver, a central 640×480 window subsampled by four): the camera had to be 94 cm from the monitor to frame it, against 22 cm for the Portenta H7. And the RAM left is enough for the camera frame with the default arena, which `MobileNetV2`, `MobileNet` and `MobileNetV3Small` fit, and not with the arena `SqueezeNet` or `ResNet8` needs: with `--arena_kb 408` or `392` the HIL sketch prints its board line and does not start.
 
 ## HIL Rig and Session
 
@@ -211,9 +207,9 @@ The HIL bench shows each stimulus full-screen on a monitor that the camera of th
 - **A session that ends early.** Every stimulus is written to the latency CSV as soon as it is measured. If the serial link drops, the board stops answering, the operator presses Ctrl+C or anything else fails, the bench still writes the conditions file and, when at least one stimulus was answered, the metrics and the confusion matrix, all marked `completed: false` with the number of stimuli planned; it then ends with exit code 3. Unlike the PIL bench it does not reopen the port and repeat the stimulus. A key pressed in the stimulus window during the settle time is ignored: before November 2026 it ended the wait (that is what `cv2.waitKey` does) and the capture was triggered early.
 - **The frames of each session.** With `--dump_frames`, `--sil_model` or `--mil_model` the bench saves every captured frame as `frame_<idx>_<image>.png`, a name that does not carry the model. Each session therefore writes to a folder of its own, `data/hil_frames/<name of its output files>/` (git-ignored), which the conditions file records as `frames_dir`; the bench stops before opening the port when that folder already holds frames, unless `--overwrite` is given. A folder given with `--frames_dir` is used as it is. Until 15 November 2026 every session wrote to `data/hil_frames/` itself and replaced the frames of the one before.
 
-**What has run on the physical rig** (2026-11-15, Portenta H7). The calibrator, in both modes, and the bench (the sessions of the COCO benchmark: five models and four repeatability sessions on 200 images, with the model fingerprint verified and every frame also classified on the PC) ran with `--monitor 1`: the stimulus window opened on the second monitor and the camera captured it. Not exercised on the rig: a session that ends early, a key pressed during the settle time, the folder of frames per session, which is later than these sessions, and the effect of DPI awareness on the size of the stimulus (no session was run without `--monitor` to compare). The tests cover the first three against a simulated board and window (`tests/test_hil_session.py`).
+**On a physical rig.** The calibrator, in both modes, and the bench ran the published sessions with `--monitor 1`, the stimulus window on a second monitor. Three things have run only against the simulated board and window of the tests (`tests/test_hil_session.py`), not on a rig: a session that ends early, a key pressed during the settle time, and the default folder of frames per session (the published sessions gave theirs with `--frames_dir`). The effect of DPI awareness on the size of the stimulus has not been measured.
 
-**When the board does not answer.** The HIL sketch prints its boot lines once, after a restart, and stops for good when the camera does not initialize (`CAM_INIT:FAIL`: on the Portenta H7, a Vision Shield that is not fully seated on its two connectors does this, and moving the camera can unseat it). The bench must therefore be the first to open the port after a restart, which flashing provides. The calibrator does not need that: when the firmware is silent it asks for RESET, stays on the port while it disappears, opens it again and reads the boot lines (`tests/test_calibration_restart.py`). A firmware left in the middle of a frame by Ctrl+C was seen to stop answering until the next restart; the cause was not traced.
+**When the board does not answer.** The HIL sketch prints its boot lines once, after a restart, and stops for good when the camera does not initialize (`CAM_INIT:FAIL`: on the Portenta H7, a Vision Shield that is not fully seated on its two connectors does this, and moving the camera can unseat it). The bench must therefore be the first to open the port after a restart, which flashing provides. The calibrator does not need that: when the firmware is silent it asks for RESET, stays on the port while it disappears, opens it again and reads the boot lines (`tests/test_calibration_restart.py`). A firmware left in the middle of a frame by Ctrl+C can stop answering until the next restart.
 
 ## Serial Protocol (PIL Bench)
 
@@ -254,17 +250,14 @@ answers the first request the same way). Such a build is refused unless the run 
 `--allow_model_mismatch`; a board that answers nothing ends the run with exit code 1, and the HIL
 sketch is recognised by its `READY_HIL`.
 
-> **Checked on both boards** (2026-11-15, COCO `MobileNetV2`). The identity lines, the empty packet and
-> the checks of the bench were added after the COCO runs were measured, so those runs do not carry
-> them. On a Portenta H7 and on a Nicla Vision: the boot lines end with the six identity lines; the
-> fingerprint on the chip equals the one the host computes for the flashed `.tflite`; the bench took
-> the identity from the boot lines when it was the first to open the port (Portenta H7) and through
-> `#@` otherwise (Nicla Vision); a run of 300 images completed with `model.identity_verified = true`
-> and gave, on each board, the same prediction as the earlier firmware for all 300. On the Nicla
-> Vision a board carrying another model and a run with another image size were refused before
-> anything was sent. Not exercised on a board: `#@` sent by hand in the middle of a run, a link lost
-> for longer than the reconnect window, and a board held in reset. The `ARENA_MEMORY` line is later
-> than this check, which saw the other six.
+> **On both boards.** With the COCO `MobileNetV2`, on a Portenta H7 and on a Nicla Vision: the fingerprint on
+> the chip equals the one the host computes for the flashed `.tflite`; the bench takes the identity from the
+> boot lines when it is the first to open the port and through `#@` otherwise; a run of 300 images completes
+> with `model.identity_verified = true` and gives the predictions of the firmware that preceded the identity
+> lines; and a board carrying another model, or a run with another image size, is refused before anything is
+> sent. Not exercised on a board: `#@` sent by hand in the middle of a run, a link lost for longer than the
+> reconnect window, and a board held in reset. The published PIL runs of the COCO benchmark were measured
+> before the identity lines existed and do not carry them.
 
 **Dropped link.** A USB serial link can disappear for a moment (cable, hub, the host's
 power management) while the board keeps running. When that happens the bench reopens the

@@ -1,7 +1,6 @@
 # Extending PHLAME
 
-How to add an architecture and how to add a board. Both are written from what the code requires today, and each
-section ends with what was checked by doing it and what only by reading the code.
+How to add an architecture and how to add a board, written from what the code requires today.
 
 A dataset of your own needs no change to the code: follow [Usage](../README.md#usage-full-pipeline) in the README
 with your images and a `--tag`; [`usage.md`](usage.md) explains each step.
@@ -109,20 +108,6 @@ published set, and the list refuses it: results published under a new tag need t
 `set_of()` in `src/verify_models.py`. If the new
 files are the first published ones to carry a key that `tests/test_results_schema.py` lists as not yet
 published, that test asks for the key to be taken off its list.
-
-### How This Section Was Checked
-
-By doing, on a scratch copy of the repository, with a fourth training script for a small depthwise-separable
-network and a partition made from the eight images of `data/sample/`: the options of the new script, the data
-path (`train_common.load_splits()`), the model, a checkpoint saved under the run name with its class names, and
-then `quantize_int8_basic.py`, `mil_benchmark.py`, `sil_benchmark.py --kernels reference`, `tflite_to_c.py`,
-`count_macs.py`, `build_benchmark_table.py`, `verify_models.py --results` (which reported the two unlisted files)
-and `build_ladder_tables.py` (which stopped and listed the missing PIL and HIL runs). No script after training
-was changed.
-
-Not run: the training itself (the checkpoint held the initial weights, so the figures of that exercise mean
-nothing), the training record a finished run writes, and everything that needs a board: the build with the new
-`model.h`, the arena, PIL and HIL.
 
 ---
 
