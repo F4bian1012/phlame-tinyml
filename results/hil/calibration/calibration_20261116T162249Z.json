@@ -1,0 +1,153 @@
+{
+  "utc": "2026-11-16T16:22:49.836014+00:00",
+  "port": "COM3",
+  "board": "PORTENTA_H7",
+  "settle_s": 1.5,
+  "windowed": false,
+  "stimulus_monitor": {
+    "index": 1,
+    "geometry": [
+      -1920,
+      86,
+      1920,
+      1080
+    ],
+    "monitors": [
+      [
+        0,
+        0,
+        2560,
+        1440
+      ],
+      [
+        -1920,
+        86,
+        1920,
+        1080
+      ]
+    ]
+  },
+  "frame_size": {
+    "width": 160,
+    "height": 120
+  },
+  "criteria": {
+    "shift_px": 2.0,
+    "scale_err": 0.03,
+    "rot_deg": 1.0,
+    "resid_px": 1.5,
+    "range_min": 150,
+    "vignette_min": 0.6,
+    "exposure_sd_max": 2.0,
+    "focus_ratio_min": 0.5,
+    "clip_pct_max": 2.0
+  },
+  "notes": "COCO HIL on the Portenta H7, 2026-11-16: report taken right before the session of SqueezeNet. 23 cm, 1 lux and 24 C read during the sessions (phone app Physics Toolbox for the illuminance); monitor Samsung Odyssey G4, 27 in, brightness 0, contrast 24, sharpness 60.",
+  "geometry": {
+    "ok": true,
+    "shift_x_px": -0.19,
+    "shift_y_px": -0.22,
+    "scale": 0.9896,
+    "rotation_deg": 0.8,
+    "residual_px": 1.39,
+    "corners_px": [
+      [
+        13.2,
+        12.8
+      ],
+      [
+        146.4,
+        15.0
+      ],
+      [
+        14.8,
+        104.4
+      ],
+      [
+        142.4,
+        106.0
+      ],
+      [
+        79.7,
+        58.3
+      ]
+    ],
+    "extra_bright_blobs": 0,
+    "missing": [],
+    "pass": true,
+    "advice": "geometry within tolerance"
+  },
+  "gray": {
+    "levels_in": [
+      0,
+      36,
+      73,
+      109,
+      146,
+      182,
+      219,
+      255
+    ],
+    "levels_captured": [
+      13.0,
+      27.0,
+      62.0,
+      136.0,
+      203.0,
+      237.0,
+      219.0,
+      176.0
+    ],
+    "monotonic": false,
+    "dynamic_range": 163.0,
+    "clipped_pct": 1.32,
+    "pass": false
+  },
+  "flat": {
+    "centre_mean": 191.3,
+    "corner_means": [
+      46.0,
+      42.3,
+      64.4,
+      61.3
+    ],
+    "vignetting_ratio": 0.221,
+    "exposure_means": [
+      98.5,
+      98.5,
+      97.7,
+      98.5,
+      97.1
+    ],
+    "exposure_sd": 0.63,
+    "saturated_pct": 0.0,
+    "n_captures": 5,
+    "pass": false
+  },
+  "focus": {
+    "contrast_coarse": 0.783,
+    "contrast_fine": 0.672,
+    "fine_to_coarse": 0.858,
+    "pass": true
+  },
+  "images": [
+    {
+      "image": "000000229221.png",
+      "ncc": 0.5648
+    },
+    {
+      "image": "000000140076.png",
+      "ncc": 0.4766
+    },
+    {
+      "image": "000000185950.png",
+      "ncc": 0.6128
+    },
+    {
+      "image": "000000265816.png",
+      "ncc": 0.5576
+    }
+  ],
+  "images_ncc_mean": 0.5529,
+  "all_pass": false
+}

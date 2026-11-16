@@ -1,6 +1,6 @@
 run,seed,frame_dump,role,f1,errors,gap,agreement_with_original_pct
-original,42,True,run of the ladder (not in the mean of the repeatability runs),0.7322623828647925,52,-0.10670702132200294,100.0
-rep1,42,True,strict replicate,0.7163120567375887,55,-0.12265734744920676,96.5
-rep2,42,True,strict replicate,0.7331691297208538,52,-0.10580027446594165,97.0
-rep3,42,True,strict replicate,0.7209590739975197,54,-0.11801033018927576,96.0
-rep4,7,True,presentation-order control,0.7266279819471309,53,-0.11234142223966459,94.5
+original,42,True,run of the ladder (not in the mean of the repeatability runs),0.6892692560895326,59,-0.14970014809726284,100.0
+rep1,42,True,strict replicate,0.6756982948007113,62,-0.16327110938608413,93.5
+rep2,42,True,strict replicate,0.690702733873293,59,-0.1482666703135025,97.0
+rep3,42,True,strict replicate,0.6592487746061702,65,-0.1797206295806253,93.0
+rep4,7,True,presentation-order control,0.690702733873293,59,-0.1482666703135025,95.0

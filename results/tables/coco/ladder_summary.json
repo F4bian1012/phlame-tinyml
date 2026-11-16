@@ -1,6 +1,6 @@
 {
-  "generated_utc": "2026-11-16T14:50:53+00:00",
-  "git_commit": "7f87f4141e1406d6bf3242eb6d0206b868623a4b",
+  "generated_utc": "2026-11-16T18:00:50+00:00",
+  "git_commit": "ea491c2e2a617dfefbd310eb6a71a5b15ed9090b",
   "parameters": {
     "bootstrap": 10000,
     "seed": 20261016,
@@ -52,52 +52,52 @@
   "rig_matches_manifest": true,
   "frontend_gap_reference": {
     "n_runs": 4,
-    "mean_gap": -0.11470234358602219,
+    "mean_gap": -0.1598812698984286,
     "ci95_combined": [
-      -0.17629737777472304,
-      -0.053107309397321334
+      -0.22629236773346467,
+      -0.09347017206339255
     ],
     "ci95_image_sampling_only": [
-      -0.17640528047967965,
-      -0.053397175824022994
+      -0.2258647074895955,
+      -0.09723960952951995
     ],
-    "image_sampling_share_of_variance": 0.9865797291775179,
-    "repeatability_sd_all_runs": 0.007281154808887691,
-    "repeatability_t_halfwidth_all_runs": 0.011585942109871667,
-    "repeatability_sd_strict": 0.008706713307788681,
+    "image_sampling_share_of_variance": 0.951012874065719,
+    "repeatability_sd_all_runs": 0.0149987671869832,
+    "repeatability_t_halfwidth_all_runs": 0.023866385609012598,
+    "repeatability_sd_strict": 0.0157325112431299,
     "n_strict": 3,
-    "identical_prediction_in_all_runs": 182
+    "identical_prediction_in_all_runs": 176
   },
   "frontend_gap_per_arch": {
     "MobileNetV2": {
-      "d_f1": -0.10670702132200294,
-      "ci_lo": -0.171778905847572,
-      "ci_hi": -0.042293660768811615,
-      "p_holm": 0.01828883413963922
+      "d_f1": -0.14970014809726284,
+      "ci_lo": -0.220334106704247,
+      "ci_hi": -0.08446855261329034,
+      "p_holm": 0.0007098534259952771
     },
     "MobileNet": {
-      "d_f1": -0.08488669296580043,
-      "ci_lo": -0.14912856958597903,
-      "ci_hi": -0.02458748540494636,
-      "p_holm": 0.04603115894133225
+      "d_f1": -0.10474591732614846,
+      "ci_lo": -0.17002430283543202,
+      "ci_hi": -0.039570010516301,
+      "p_holm": 0.009263029384555917
     },
     "MobileNetV3Small": {
-      "d_f1": -0.08745219075336619,
-      "ci_lo": -0.17476884133607432,
-      "ci_hi": 0.001689848245255751,
-      "p_holm": 0.27873564666163864
+      "d_f1": -0.09816135084427757,
+      "ci_lo": -0.17965460616762322,
+      "ci_hi": -0.015451656469290332,
+      "p_holm": 0.20128735504047143
     },
     "SqueezeNet": {
-      "d_f1": -0.03027321577234532,
-      "ci_lo": -0.08471638755796253,
-      "ci_hi": 0.02481574300650158,
-      "p_holm": 0.6977777588981553
+      "d_f1": -0.14340624132798507,
+      "ci_lo": -0.21528422335097425,
+      "ci_hi": -0.07502385311627997,
+      "p_holm": 0.0024841738249108403
     },
     "ResNet8": {
-      "d_f1": -0.0359041041219782,
-      "ci_lo": -0.09987851654815684,
-      "ci_hi": 0.0256126987957844,
-      "p_holm": 0.6977777588981553
+      "d_f1": -0.06195209957882042,
+      "ci_lo": -0.12638180494995024,
+      "ci_hi": -0.0006220236835000908,
+      "p_holm": 0.20128735504047143
     }
   },
   "quantization_per_arch": {
@@ -153,29 +153,29 @@
   },
   "inputs_sha256": {
     "data/splits_coco/test_manifest.csv": "bbc527fda65a5015521cf06a830a6663b8ea0d521a509cfe260bf326d7e5aa0e",
-    "results/hil/conditions_MobileNetV2_COCO+32+50+0.0003+160+120_int8.json": "7b87a3c6bf39c3f1b769e8f6e458ab5d36cd44bd926cac4b3a45530123ffcaf5",
-    "results/hil/conditions_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.json": "893fe2ea8cf16a23e74350a68c95774bade6a3ba00852d12b6d3ad7d915c04a6",
-    "results/hil/conditions_MobileNet_COCO+32+50+0.0003+160+120_int8.json": "dfef6ae4ca74bbb778b9135fdd3943f0c0154987bb7bec4cba49c1e46d262277",
-    "results/hil/conditions_ResNet8_COCO+32+50+0.0003+160+120_int8.json": "fdee6e567bb36362a97ff1edde2cac8bb2b1d8774ab5e99a2eb5234b9c464805",
-    "results/hil/conditions_SqueezeNet_COCO+32+50+0.0003+160+120_int8.json": "5eb68ac3747db720b26e9d7ac9d09a5854bf39e9a36c550071368e6c71edb552",
-    "results/hil/latency_metrics_MobileNetV2_COCO+32+50+0.0003+160+120_int8.csv": "126185777c5c657e25d27db2def692005f78a9ddf825542575e014bf6a8b4107",
-    "results/hil/latency_metrics_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.csv": "4b8e47d49df97933b761873086977d05dcd7d79f43a4a0f19a5acd0d04fbb027",
-    "results/hil/latency_metrics_MobileNet_COCO+32+50+0.0003+160+120_int8.csv": "fbea7813563f1f31075991e26330e078f8334a314876d37c649788bb919ce5aa",
-    "results/hil/latency_metrics_ResNet8_COCO+32+50+0.0003+160+120_int8.csv": "36466e5acb809b606216702c90ec66d766f9ed4262fb691c3e4d6b706ffe86a4",
-    "results/hil/latency_metrics_SqueezeNet_COCO+32+50+0.0003+160+120_int8.csv": "e8766c7ef0b90d372d16e7258b41a0adf32956f7c9d1f2c3397f80810ab554a4",
-    "results/hil/metrics_MobileNetV2_COCO+32+50+0.0003+160+120_int8.json": "3d99221467a18e20293afcbce2029a7fbb2a322b31b8bf3be38eb93cf3cdb1a7",
-    "results/hil/metrics_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.json": "f5b166b163a7a345d9042b5a4f76049815a6fd12bc884c906cb278a5e743ab94",
-    "results/hil/metrics_MobileNet_COCO+32+50+0.0003+160+120_int8.json": "199423f4c6d0a25049fd705f5348177a1e6822a9d1faadd5e3ed3662235ea156",
-    "results/hil/metrics_ResNet8_COCO+32+50+0.0003+160+120_int8.json": "0f6d13c3d31755320ed2985cf94aab12e07933ceb940039585b311beca7f2de6",
-    "results/hil/metrics_SqueezeNet_COCO+32+50+0.0003+160+120_int8.json": "90b5f9dcf85a733719ea9093d3ff0b8713d5f7800b836e1f70157f44c64d1852",
-    "results/hil/rep1/conditions_MobileNetV2_COCO_rep1.json": "7c4fcc749497941151bc5285f17e9043c1be4d0856aacc52959a240cf6dc181c",
-    "results/hil/rep1/latency_metrics_MobileNetV2_COCO_rep1.csv": "f736b5966328f2394415e215a9789aad60a4c1237ff07e68a2450c710c7cea1b",
-    "results/hil/rep2/conditions_MobileNetV2_COCO_rep2.json": "f5e8bbbdcf06aefaa5337b537412a592f514f659e51d61d88ee35db78d3c8686",
-    "results/hil/rep2/latency_metrics_MobileNetV2_COCO_rep2.csv": "adc7a4f725ea117823c4cca9de04d0e73ce23182078d61da622978378f40065c",
-    "results/hil/rep3/conditions_MobileNetV2_COCO_rep3.json": "d8578ca7044670e19f7bce9f0d74e5ca5268e241b80b03966a11ea46197ac86f",
-    "results/hil/rep3/latency_metrics_MobileNetV2_COCO_rep3.csv": "a867828a103569dc6287583f27ca1e369e35f9eb9f409ee74eead259e2a4456d",
-    "results/hil/rep4/conditions_MobileNetV2_COCO_rep4.json": "c76d937528dbf385f90d454e58924dfeaad893f54e80d654ec0057dce7e7328a",
-    "results/hil/rep4/latency_metrics_MobileNetV2_COCO_rep4.csv": "334e48f18a125956c6b83f50086c9498929594fb6e11a17cea92e37d4bb8bacd",
+    "results/hil/conditions_MobileNetV2_COCO+32+50+0.0003+160+120_int8.json": "47e9707582a6bbd0b50348e74859ec5d21f07e62b6707583e3049ca98f5021c6",
+    "results/hil/conditions_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.json": "cc64d47bbc94f12c5eac0018e8065a34ab79a745090c66d71a17fdecf527fa41",
+    "results/hil/conditions_MobileNet_COCO+32+50+0.0003+160+120_int8.json": "0e8a570b5bc68c9f748eeb1270c2f26a1a816dd11dbe88fc5dcc38961dce36fd",
+    "results/hil/conditions_ResNet8_COCO+32+50+0.0003+160+120_int8.json": "53fec322af80685b23b3dd68de5e5f9bf0f19589949b31e078a8a89d4dfa9267",
+    "results/hil/conditions_SqueezeNet_COCO+32+50+0.0003+160+120_int8.json": "ea5e5762386899c34ca5aa42df283f5ef4f58f86077b527b1b43be0a9be373c2",
+    "results/hil/latency_metrics_MobileNetV2_COCO+32+50+0.0003+160+120_int8.csv": "404bd1e49c039bb60c368d7b69a8921c0992f09acce780aae9263129484ed76d",
+    "results/hil/latency_metrics_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.csv": "c411b9881b4fae4570b7be4c782d0f4aeab1a2f56c0e9b0affa2cffa6193bf22",
+    "results/hil/latency_metrics_MobileNet_COCO+32+50+0.0003+160+120_int8.csv": "6592593d00a53bf238194caa773ba2cdd7d7bb7fb320846212bbc62e5c879138",
+    "results/hil/latency_metrics_ResNet8_COCO+32+50+0.0003+160+120_int8.csv": "40281f188c0b4291bda90a14576ce45168e8b4ee31002822d7ca12d8b84ee6b0",
+    "results/hil/latency_metrics_SqueezeNet_COCO+32+50+0.0003+160+120_int8.csv": "11feb4679855a94ce4404d78314d3c495c211cef3ec9a1a152d93ff9f66692a3",
+    "results/hil/metrics_MobileNetV2_COCO+32+50+0.0003+160+120_int8.json": "fe04341254537219a8d91489821923a51fc6321132305efd5ca1bf7cbc7f5a3a",
+    "results/hil/metrics_MobileNetV3Small_COCO+32+50+0.0003+160+120_int8.json": "5b0cd71e3ebdb4e7fcb0ccff92435d7b510f54c9e75035453f9528db6a8bc345",
+    "results/hil/metrics_MobileNet_COCO+32+50+0.0003+160+120_int8.json": "ee243f6393fbe26fee45f66a9a298b988c4ebfca2fff6b0759cfc15e3409229a",
+    "results/hil/metrics_ResNet8_COCO+32+50+0.0003+160+120_int8.json": "8f9feeee34b4f46130b98997f7b0fc23f93bf0d73eea97a165032239b7d75fec",
+    "results/hil/metrics_SqueezeNet_COCO+32+50+0.0003+160+120_int8.json": "afaa5a87bca2c91a1e83f10c676ed495b1cb61a40ff321f7f01925d71086afc8",
+    "results/hil/rep1/conditions_MobileNetV2_COCO_rep1.json": "11d9c7d50d28ed755a59a207f1f161667146e8be7851d363a1f462bde1768571",
+    "results/hil/rep1/latency_metrics_MobileNetV2_COCO_rep1.csv": "695941979e0f4b56df6786311021b1e224e4702375bd79ebc474177dc85ae06b",
+    "results/hil/rep2/conditions_MobileNetV2_COCO_rep2.json": "452db5763edeaae4cb940ecac3b761ee23f18cf2a1f172e0b8266011ffe55a4f",
+    "results/hil/rep2/latency_metrics_MobileNetV2_COCO_rep2.csv": "b12d6ea21278ac260df6c97c10e06d96c4f3260905759084ee551933cffc68bd",
+    "results/hil/rep3/conditions_MobileNetV2_COCO_rep3.json": "4adf03d811d3f953b5d401b9715d21f4ef156e2ed8546a5bbd49613a799ecaf0",
+    "results/hil/rep3/latency_metrics_MobileNetV2_COCO_rep3.csv": "1c7c2de1e5419c268a90bf62ebe421c91ca5f2bf3db179e8ef4ee2eec0fdcd54",
+    "results/hil/rep4/conditions_MobileNetV2_COCO_rep4.json": "20438b3dc2657f53e529e77887ae2b35e7322b59a3b2c0613c63856e74681d7f",
+    "results/hil/rep4/latency_metrics_MobileNetV2_COCO_rep4.csv": "5629c9313991a72f7577610da522ba771fadfc433fd8a56f268f0dbd425e80ef",
     "results/mil/predictions_MobileNetV2_COCO+32+50+0.0003+160+120.csv": "97514343a7eebf7ba63c75277bc137b88cff41fb83f1ec7e6502cc133682d3cc",
     "results/mil/predictions_MobileNetV3Large_COCO+32+50+0.0003+160+120.csv": "df72fc943a4faba2717cb1b3985402404658a637b5702e4d5b256ae93ff0fbfe",
     "results/mil/predictions_MobileNetV3Small_COCO+32+50+0.0003+160+120.csv": "735c3d2d1d9c9783628cf68b567f6de375c24e4e863acef413b8a5268f4f4e9a",

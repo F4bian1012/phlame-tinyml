@@ -1,6 +1,6 @@
 {
   "rig": "monitor-controlled-stimulus (checklist Phase 1C, option a)",
-  "utc_start": "2026-11-15T19:31:45.950478+00:00",
+  "utc_start": "2026-11-16T17:30:43.187162+00:00",
   "model_tag": "MobileNetV2_COCO_rep3",
   "firmware_model": {
     "model_bytes": 644648,
@@ -34,7 +34,7 @@
     "index": 1,
     "geometry": [
       -1920,
-      -193,
+      86,
       1920,
       1080
     ],
@@ -47,7 +47,7 @@
       ],
       [
         -1920,
-        -193,
+        86,
         1920,
         1080
       ]
@@ -56,14 +56,14 @@
   "settle_s": 1.5,
   "gap_s": 0.5,
   "seed": 42,
-  "illuminance_lux": 11.0,
-  "camera_to_screen_distance_cm": 22.0,
+  "illuminance_lux": 1.0,
+  "camera_to_screen_distance_cm": 23.0,
   "ambient_temp_c": 24.0,
   "frame_dump": true,
   "sil_model": "models/tflite/MobileNetV2_COCO+32+50+0.0003+160+120_int8.tflite",
   "sil_kernels": "reference",
   "mil_model": "models/checkpoints/MobileNetV2_COCO+32+50+0.0003+160+120.keras",
-  "frames_dir": "data/hil_frames_coco/MobileNetV2_rep3",
-  "notes": "COCO HIL session of 2026-11-15 on the Portenta H7 with the rig adjusted (camera moved closer until the image fills the frame; geometry and focus at PASS, gray scale and flat field at WARN: report results/hil/calibration/calibration_20261115T173500Z.json). Stimulus on the secondary monitor (--monitor 1). Illuminance (phone app Physics Toolbox, not a calibrated lux meter) and temperature as measured in the morning; distance measured after the adjustment. Repeatability session rep3 of MobileNetV2 (seed 42).",
-  "utc_end": "2026-11-15T19:43:32.756573+00:00"
+  "frames_dir": "data/hil_frames_coco_v2/MobileNetV2_rep3",
+  "notes": "COCO HIL session of 2026-11-16 on the Portenta H7 (HM01B0 camera of the Vision Shield), MobileNetV2 rep3, seed 42. Rig report taken right before this session: results/hil/calibration/calibration_20261116T172931Z.json. Stimulus on the secondary monitor (--monitor 1), monitor Samsung Odyssey G4, 27 in, brightness 0, contrast 24, sharpness 60. Illuminance read with a phone app (Physics Toolbox), not a calibrated lux meter, during the sessions.",
+  "utc_end": "2026-11-16T17:42:28.419721+00:00"
 }
